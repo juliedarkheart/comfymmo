@@ -1,0 +1,19 @@
+# Godot
+.godot/
+*.import
+
+# Godot export outputs
+exports/
+builds/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# Logs and local config
+*.log
+.env
+.env.*
+

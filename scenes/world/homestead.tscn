@@ -1,0 +1,19 @@
+[gd_scene load_steps=5 format=3 uid="uid://hearthvale_homestead"]
+
+[ext_resource type="Script" path="res://world/homestead_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://world/homestead_map.gd" id="1_map"]
+[ext_resource type="Script" path="res://systems/player_spawn_system.gd" id="2_spawn"]
+[ext_resource type="PackedScene" path="res://ui/prototype_hud.tscn" id="3_hud"]
+
+[node name="Homestead" type="Node2D"]
+y_sort_enabled = true
+script = ExtResource("1_controller")
+
+[node name="Map" type="Node2D" parent="."]
+y_sort_enabled = true
+script = ExtResource("1_map")
+
+[node name="PlayerSpawnSystem" type="Node" parent="."]
+script = ExtResource("2_spawn")
+
+[node name="HUD" parent="." instance=ExtResource("3_hud")]

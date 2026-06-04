@@ -1,0 +1,28 @@
+{
+  "asset_id": "sprite_avatar_farmer_idle_v001",
+  "display_name": "Avatar Farmer Idle",
+  "kind": "sprite",
+  "domain": "avatar",
+  "status": "generated",
+  "version": 1,
+  "canonical_file": "output.png",
+  "preview_file": "preview.png",
+  "workflow_file": "workflow.json",
+  "generator": "comfyui",
+  "model_family": "sdxl",
+  "created_at": "2026-06-04T00:00:00Z",
+  "prompt_summary": "",
+  "negative_prompt_summary": "",
+  "seed": 0,
+  "resolution": {
+    "width": 1024,
+    "height": 1024
+  },
+  "tags": [
+    "prototype"
+  ],
+  "upstream_concept": "",
+  "training_candidate": false,
+  "import_target": "",
+  "review_notes": ""
+}
