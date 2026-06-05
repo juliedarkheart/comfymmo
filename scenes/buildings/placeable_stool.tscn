@@ -1,0 +1,32 @@
+[gd_scene load_steps=3 format=3 uid="uid://hearthvale_placeable_stool"]
+
+[ext_resource type="Script" path="res://buildings/placeable_crate.gd" id="1_placeable"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_stool"]
+size = Vector2(24, 18)
+
+[node name="PlaceableStool" type="StaticBody2D"]
+script = ExtResource("1_placeable")
+
+[node name="Shadow" type="Polygon2D" parent="."]
+color = Color(0.164706, 0.121569, 0.0862745, 0.2)
+polygon = PackedVector2Array(-16, 0, -10, -4, 0, -6, 10, -4, 16, 0, 10, 4, 0, 6, -10, 4)
+
+[node name="Seat" type="Polygon2D" parent="."]
+position = Vector2(0, -12)
+color = Color(0.768627, 0.611765, 0.384314, 1)
+polygon = PackedVector2Array(-16, 0, -6, -7, 6, -7, 16, 0, 6, 7, -6, 7)
+
+[node name="LegLeftFront" type="Polygon2D" parent="."]
+position = Vector2(-8, -2)
+color = Color(0.556863, 0.372549, 0.223529, 1)
+polygon = PackedVector2Array(-2, -8, 2, -8, 2, 12, -2, 12)
+
+[node name="LegRightFront" type="Polygon2D" parent="."]
+position = Vector2(8, -2)
+color = Color(0.556863, 0.372549, 0.223529, 1)
+polygon = PackedVector2Array(-2, -8, 2, -8, 2, 12, -2, 12)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -6)
+shape = SubResource("RectangleShape2D_stool")

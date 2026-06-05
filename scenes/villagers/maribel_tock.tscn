@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://hearthvale_maribel_tock"]
+
+[ext_resource type="Script" path="res://villagers/simple_villager.gd" id="1_script"]
+
+[node name="MaribelTock" type="Node2D"]
+script = ExtResource("1_script")
+villager_name = "Maribel Tock"
+first_visit_text = "Welcome to the village square. We keep plans, errands, and little celebrations pinned here."
+repeat_visit_text = "A good village remembers the small things."
+repeat_visit_lines = PackedStringArray("A good village remembers the small things.", "The plaza always needs a fresh eye. Glad you stopped by.", "We keep the little things running so the bigger ones feel easy.")

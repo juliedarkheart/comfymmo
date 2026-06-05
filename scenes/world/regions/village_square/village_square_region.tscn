@@ -1,0 +1,89 @@
+[gd_scene load_steps=13 format=3 uid="uid://hearthvale_village_square_region"]
+
+[ext_resource type="Script" path="res://world/regions/village_square/village_square_region_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://world/regions/village_square/village_square_map.gd" id="2_map"]
+[ext_resource type="Script" path="res://systems/player_spawn_system.gd" id="3_spawn"]
+[ext_resource type="Script" path="res://systems/local_save_system.gd" id="4_save"]
+[ext_resource type="Script" path="res://systems/object_registry.gd" id="5_registry"]
+[ext_resource type="Script" path="res://systems/game_state_manager.gd" id="6_game_state"]
+[ext_resource type="Script" path="res://systems/interactable_system.gd" id="7_interactable"]
+[ext_resource type="Script" path="res://systems/inventory_system.gd" id="8_inventory"]
+[ext_resource type="Script" path="res://systems/survival_system.gd" id="9_survival"]
+[ext_resource type="Script" path="res://systems/region_transition_system.gd" id="10_transition"]
+[ext_resource type="PackedScene" path="res://ui/prototype_hud.tscn" id="11_hud"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_transition"]
+size = Vector2(220, 220)
+
+[node name="VillageSquareRegion" type="Node2D"]
+script = ExtResource("1_controller")
+region_id = "village_square"
+
+[node name="Map" type="Node2D" parent="."]
+script = ExtResource("2_map")
+
+[node name="GroundLayer" type="Node2D" parent="Map"]
+
+[node name="GameplayLayer" type="Node2D" parent="Map"]
+y_sort_enabled = true
+
+[node name="PlayerSpawnSystem" type="Node" parent="."]
+script = ExtResource("3_spawn")
+
+[node name="LocalSaveSystem" type="Node" parent="."]
+script = ExtResource("4_save")
+
+[node name="ObjectRegistry" type="Node" parent="."]
+script = ExtResource("5_registry")
+
+[node name="GameStateManager" type="Node" parent="."]
+script = ExtResource("6_game_state")
+
+[node name="InteractableSystem" type="Node" parent="."]
+script = ExtResource("7_interactable")
+
+[node name="InventorySystem" type="Node" parent="."]
+script = ExtResource("8_inventory")
+
+[node name="SurvivalSystem" type="Node" parent="."]
+script = ExtResource("9_survival")
+
+[node name="RegionTransitionSystem" type="Node" parent="."]
+script = ExtResource("10_transition")
+
+[node name="HomesteadTransitionArea" type="Area2D" parent="."]
+position = Vector2(-430, 224)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HomesteadTransitionArea"]
+shape = SubResource("RectangleShape2D_transition")
+
+[node name="ForestTransitionArea" type="Area2D" parent="."]
+position = Vector2(430, 432)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ForestTransitionArea"]
+shape = SubResource("RectangleShape2D_transition")
+
+[node name="NoticeBoardMarker" type="Node2D" parent="."]
+position = Vector2(176, 160)
+
+[node name="PostLeft" type="Polygon2D" parent="NoticeBoardMarker"]
+position = Vector2(-16, 0)
+color = Color(0.658824, 0.458824, 0.278431, 1)
+polygon = PackedVector2Array(-4, -36, 4, -36, 4, 10, -4, 10)
+
+[node name="PostRight" type="Polygon2D" parent="NoticeBoardMarker"]
+position = Vector2(16, 0)
+color = Color(0.658824, 0.458824, 0.278431, 1)
+polygon = PackedVector2Array(-4, -36, 4, -36, 4, 10, -4, 10)
+
+[node name="BoardBack" type="Polygon2D" parent="NoticeBoardMarker"]
+position = Vector2(0, -26)
+color = Color(0.847059, 0.705882, 0.447059, 1)
+polygon = PackedVector2Array(-28, -18, 28, -18, 28, 18, -28, 18)
+
+[node name="NoticePaper" type="Polygon2D" parent="NoticeBoardMarker"]
+position = Vector2(0, -26)
+color = Color(0.980392, 0.933333, 0.803922, 1)
+polygon = PackedVector2Array(-14, -10, 14, -10, 14, 10, -14, 10)
+
+[node name="HUD" parent="." instance=ExtResource("11_hud")]

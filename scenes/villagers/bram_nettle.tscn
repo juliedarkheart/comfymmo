@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://hearthvale_bram_nettle"]
+
+[ext_resource type="Script" path="res://villagers/bram_villager.gd" id="1_script"]
+
+[node name="BramNettle" type="Node2D"]
+script = ExtResource("1_script")
+villager_name = "Bram Nettle"
+first_visit_text = "Morning. I keep the paths trimmed and the flowerbeds from getting ideas."
+repeat_visit_lines = PackedStringArray("A village grows better when people linger a while.", "The forest has been quiet today. That usually means it is listening.", "If you find stray seeds, I can always use them somewhere.")

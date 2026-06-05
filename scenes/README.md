@@ -7,3 +7,4 @@ Current scenes:
 - `main.tscn` boots the project services and starting world.
 - `world/homestead.tscn` contains the first playable map composition.
 - `avatar/player_avatar.tscn` contains the controllable prototype character and camera.
+- `buildings/placeable_crate.tscn` contains the first local placeable object.

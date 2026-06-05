@@ -1,0 +1,23 @@
+[gd_scene load_steps=5 format=3 uid="uid://hearthvale_homestead_region"]
+
+[ext_resource type="Script" path="res://world/regions/homestead/homestead_region_controller.gd" id="1_controller"]
+[ext_resource type="PackedScene" path="res://scenes/world/homestead.tscn" id="2_content"]
+[ext_resource type="Script" path="res://systems/region_transition_system.gd" id="3_transition"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_transition"]
+size = Vector2(200, 260)
+
+[node name="HomesteadRegion" type="Node2D"]
+script = ExtResource("1_controller")
+region_id = "homestead"
+
+[node name="RegionContent" parent="." instance=ExtResource("2_content")]
+
+[node name="RegionTransitionSystem" type="Node" parent="."]
+script = ExtResource("3_transition")
+
+[node name="VillageTransitionArea" type="Area2D" parent="."]
+position = Vector2(430, 432)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="VillageTransitionArea"]
+shape = SubResource("RectangleShape2D_transition")

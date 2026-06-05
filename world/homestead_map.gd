@@ -3,16 +3,25 @@ class_name HomesteadMap
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
-const MAP_WIDTH := 12
-const MAP_HEIGHT := 10
-
-const BLOCKED_TILES := [
-	Vector2i(4, 3),
-	Vector2i(5, 3),
-	Vector2i(4, 4),
-	Vector2i(8, 6),
-	Vector2i(2, 7),
+const MAP_WIDTH := 22
+const MAP_HEIGHT := 18
+const COTTAGE_ORIGIN := Vector2i(6, 6)
+const COTTAGE_FOOTPRINT := Vector2i(2, 2)
+const TREE_TILES := [
+	Vector2i(10, 8),
+	Vector2i(3, 11),
+	Vector2i(15, 6),
+	Vector2i(18, 10),
+	Vector2i(5, 15),
 ]
+const DEFAULT_SPAWN_TILE := Vector2i(7, 11)
+const VILLAGE_RETURN_SPAWN_TILE := Vector2i(15, 10)
+const FENCE_START_TILE := Vector2i(3, 5)
+const FENCE_LENGTH := 8
+const PATH_ROW_RANGE := [8, 9, 10]
+
+@onready var ground_layer: Node2D = $GroundLayer
+@onready var gameplay_layer: Node2D = $GameplayLayer
 
 func _ready() -> void:
 	_build_ground()
@@ -25,56 +34,253 @@ func grid_to_world(tile: Vector2i) -> Vector2:
 		(tile.x + tile.y) * TILE_HEIGHT * 0.5
 	)
 
-func get_spawn_position() -> Vector2:
-	return grid_to_world(Vector2i(5, 6))
+func world_to_grid(position: Vector2) -> Vector2i:
+	var x := int(round((position.x / (TILE_WIDTH * 0.5) + position.y / (TILE_HEIGHT * 0.5)) * 0.5))
+	var y := int(round((position.y / (TILE_HEIGHT * 0.5) - position.x / (TILE_WIDTH * 0.5)) * 0.5))
+	return Vector2i(x, y)
+
+func get_spawn_position(spawn_id: String = "default") -> Vector2:
+	return grid_to_world(get_spawn_tile(spawn_id))
+
+func get_spawn_tile(spawn_id: String = "default") -> Vector2i:
+	match spawn_id:
+		"from_village_square":
+			return VILLAGE_RETURN_SPAWN_TILE
+		_:
+			return DEFAULT_SPAWN_TILE
+
+func get_camera_limits() -> Rect2i:
+	return Rect2i(-560, -100, 1120, 860)
+
+func get_camera_zoom() -> Vector2:
+	return Vector2(1.14, 1.14)
+
+func is_tile_in_bounds(tile: Vector2i) -> bool:
+	return tile.x >= 0 and tile.x < MAP_WIDTH and tile.y >= 0 and tile.y < MAP_HEIGHT
+
+func get_footprint_tiles(origin: Vector2i, footprint: Vector2i) -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	for y in range(footprint.y):
+		for x in range(footprint.x):
+			tiles.append(origin + Vector2i(x, y))
+	return tiles
+
+func get_static_blocked_tiles() -> Array[Vector2i]:
+	var blocked_tiles: Array[Vector2i] = get_footprint_tiles(COTTAGE_ORIGIN, COTTAGE_FOOTPRINT)
+	for tree_tile in TREE_TILES:
+		blocked_tiles.append(tree_tile)
+	for offset in range(FENCE_LENGTH):
+		blocked_tiles.append(FENCE_START_TILE + Vector2i(offset, 0))
+	return blocked_tiles
+
+func is_tile_blocked(tile: Vector2i) -> bool:
+	if not is_tile_in_bounds(tile):
+		return true
+	return tile in get_static_blocked_tiles() or tile == get_spawn_tile()
+
+func can_place_footprint(origin: Vector2i, footprint: Vector2i, occupied_tiles: Array[Vector2i] = []) -> bool:
+	var placement_result: Dictionary = get_place_footprint_result(origin, footprint, occupied_tiles)
+	return bool(placement_result.get("valid", false))
+
+func get_place_footprint_result(origin: Vector2i, footprint: Vector2i, occupied_tiles: Array[Vector2i] = []) -> Dictionary:
+	for tile in get_footprint_tiles(origin, footprint):
+		var tile_result: Dictionary = get_tile_block_result(tile, occupied_tiles)
+		if not bool(tile_result.get("valid", false)):
+			return tile_result
+	return {
+		"valid": true,
+		"reason": "",
+	}
+
+func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = []) -> Dictionary:
+	if not is_tile_in_bounds(tile):
+		return {
+			"valid": false,
+			"reason": "Out of bounds",
+		}
+
+	if tile == get_spawn_tile():
+		return {
+			"valid": false,
+			"reason": "Reserved spawn",
+		}
+
+	if tile in occupied_tiles:
+		return {
+			"valid": false,
+			"reason": "Occupied",
+		}
+
+	if tile in get_footprint_tiles(COTTAGE_ORIGIN, COTTAGE_FOOTPRINT):
+		return {
+			"valid": false,
+			"reason": "Blocked by cottage",
+		}
+
+	if tile in TREE_TILES:
+		return {
+			"valid": false,
+			"reason": "Blocked by tree",
+		}
+
+	for offset in range(FENCE_LENGTH):
+		if tile == FENCE_START_TILE + Vector2i(offset, 0):
+			return {
+				"valid": false,
+				"reason": "Blocked by fence",
+			}
+
+	return {
+		"valid": true,
+		"reason": "",
+	}
 
 func _build_ground() -> void:
 	for y in range(MAP_HEIGHT):
 		for x in range(MAP_WIDTH):
 			var tile := Vector2i(x, y)
-			var ground_tile := Polygon2D.new()
+			var ground_tile := Node2D.new()
 			ground_tile.name = "Tile_%s_%s" % [x, y]
-			ground_tile.polygon = _tile_diamond()
 			ground_tile.position = grid_to_world(tile)
-			ground_tile.color = _tile_color(tile)
-			ground_tile.z_index = x + y
-			add_child(ground_tile)
+			ground_layer.add_child(ground_tile)
+
+			var base := Polygon2D.new()
+			base.name = "Base"
+			base.polygon = _tile_diamond()
+			base.color = _tile_color(tile)
+			ground_tile.add_child(base)
+
+			var highlight := Polygon2D.new()
+			highlight.name = "Highlight"
+			highlight.position = Vector2(0, -3)
+			highlight.polygon = PackedVector2Array([
+				Vector2(0, -11),
+				Vector2(24, 0),
+				Vector2(0, 6),
+				Vector2(-24, 0),
+			])
+			highlight.color = _tile_highlight_color(tile)
+			ground_tile.add_child(highlight)
+
+			var patch := Polygon2D.new()
+			patch.name = "Patch"
+			patch.position = Vector2(0, 2)
+			patch.polygon = PackedVector2Array([
+				Vector2(0, -6),
+				Vector2(10, -1),
+				Vector2(8, 6),
+				Vector2(-8, 6),
+				Vector2(-10, -1),
+			])
+			patch.color = _tile_patch_color(tile)
+			ground_tile.add_child(patch)
 
 func _build_homestead_colliders() -> void:
-	_add_building(Vector2i(4, 3), Vector2i(2, 2), Color("#8f6f4f"), "Cottage")
-	_add_tree(Vector2i(8, 6))
-	_add_tree(Vector2i(2, 7))
-	_add_fence_line(Vector2i(1, 2), 7)
+	_add_building(COTTAGE_ORIGIN, COTTAGE_FOOTPRINT, Color("#8f6f4f"), "Cottage")
+	for tree_tile in TREE_TILES:
+		_add_tree(tree_tile)
+	_add_fence_line(FENCE_START_TILE, FENCE_LENGTH)
 
 func _add_building(origin: Vector2i, footprint: Vector2i, color: Color, label: String) -> void:
 	var building := StaticBody2D.new()
 	building.name = label
 	building.position = grid_to_world(origin)
-	building.z_index = origin.x + origin.y + 20
-	add_child(building)
+	gameplay_layer.add_child(building)
+
+	var porch := Polygon2D.new()
+	porch.name = "Porch"
+	porch.position = Vector2(0, 30)
+	porch.polygon = PackedVector2Array([
+		Vector2(-44, 0),
+		Vector2(0, -18),
+		Vector2(44, 0),
+		Vector2(0, 18),
+	])
+	porch.color = Color("#c9a073")
+	building.add_child(porch)
 
 	var base := Polygon2D.new()
 	base.name = "Base"
 	base.polygon = PackedVector2Array([
-		Vector2(0, -32),
-		Vector2(64, 0),
-		Vector2(0, 32),
-		Vector2(-64, 0),
+		Vector2(0, -30),
+		Vector2(62, 0),
+		Vector2(0, 34),
+		Vector2(-62, 0),
 	])
-	base.color = color
+	base.color = Color("#d7b184")
 	building.add_child(base)
+
+	var wall_shadow := Polygon2D.new()
+	wall_shadow.name = "WallShadow"
+	wall_shadow.position = Vector2(16, 6)
+	wall_shadow.polygon = PackedVector2Array([
+		Vector2(0, -18),
+		Vector2(34, 0),
+		Vector2(0, 18),
+		Vector2(-34, 0),
+	])
+	wall_shadow.color = Color("#bb8b62")
+	building.add_child(wall_shadow)
 
 	var roof := Polygon2D.new()
 	roof.name = "Roof"
-	roof.position = Vector2(0, -36)
+	roof.position = Vector2(0, -42)
 	roof.polygon = PackedVector2Array([
-		Vector2(0, -34),
-		Vector2(74, 0),
-		Vector2(0, 34),
-		Vector2(-74, 0),
+		Vector2(0, -38),
+		Vector2(84, 0),
+		Vector2(0, 38),
+		Vector2(-84, 0),
 	])
-	roof.color = Color("#6f3d35")
+	roof.color = Color("#8c5142")
 	building.add_child(roof)
+
+	var roof_cap := Polygon2D.new()
+	roof_cap.name = "RoofCap"
+	roof_cap.position = Vector2(0, -54)
+	roof_cap.polygon = PackedVector2Array([
+		Vector2(0, -14),
+		Vector2(36, 0),
+		Vector2(0, 14),
+		Vector2(-36, 0),
+	])
+	roof_cap.color = Color("#a76554")
+	building.add_child(roof_cap)
+
+	var door := Polygon2D.new()
+	door.name = "Door"
+	door.position = Vector2(0, 8)
+	door.polygon = PackedVector2Array([
+		Vector2(-8, -14),
+		Vector2(8, -14),
+		Vector2(8, 12),
+		Vector2(-8, 12),
+	])
+	door.color = Color("#6e4b30")
+	building.add_child(door)
+
+	var window_left := Polygon2D.new()
+	window_left.name = "WindowLeft"
+	window_left.position = Vector2(-22, -2)
+	window_left.polygon = PackedVector2Array([
+		Vector2(-7, -7),
+		Vector2(7, -7),
+		Vector2(7, 7),
+		Vector2(-7, 7),
+	])
+	window_left.color = Color("#f3dfa7")
+	building.add_child(window_left)
+
+	var window_right := Polygon2D.new()
+	window_right.name = "WindowRight"
+	window_right.position = Vector2(22, -2)
+	window_right.polygon = PackedVector2Array([
+		Vector2(-7, -7),
+		Vector2(7, -7),
+		Vector2(7, 7),
+		Vector2(-7, 7),
+	])
+	window_right.color = Color("#f3dfa7")
+	building.add_child(window_right)
 
 	var collision := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
@@ -86,32 +292,80 @@ func _add_tree(tile: Vector2i) -> void:
 	var tree := StaticBody2D.new()
 	tree.name = "Tree_%s_%s" % [tile.x, tile.y]
 	tree.position = grid_to_world(tile)
-	tree.z_index = tile.x + tile.y + 20
-	add_child(tree)
+	gameplay_layer.add_child(tree)
+
+	var shadow := Polygon2D.new()
+	shadow.name = "Shadow"
+	shadow.position = Vector2(0, 2)
+	shadow.polygon = PackedVector2Array([
+		Vector2(-24, 0),
+		Vector2(-12, -6),
+		Vector2(0, -8),
+		Vector2(12, -6),
+		Vector2(24, 0),
+		Vector2(12, 6),
+		Vector2(0, 8),
+		Vector2(-12, 6),
+	])
+	shadow.color = Color(0.12, 0.11, 0.09, 0.18)
+	tree.add_child(shadow)
 
 	var trunk := Polygon2D.new()
 	trunk.name = "Trunk"
 	trunk.polygon = PackedVector2Array([
-		Vector2(-7, 0),
-		Vector2(7, 0),
-		Vector2(7, -30),
-		Vector2(-7, -30),
+		Vector2(-8, 0),
+		Vector2(8, 0),
+		Vector2(10, -34),
+		Vector2(4, -42),
+		Vector2(-4, -42),
+		Vector2(-10, -34),
 	])
-	trunk.color = Color("#76533c")
+	trunk.color = Color("#7a5536")
 	tree.add_child(trunk)
 
-	var leaves := Polygon2D.new()
-	leaves.name = "Leaves"
-	leaves.position = Vector2(0, -42)
-	leaves.polygon = PackedVector2Array([
-		Vector2(0, -34),
-		Vector2(30, -6),
-		Vector2(18, 24),
-		Vector2(-18, 24),
-		Vector2(-30, -6),
+	var canopy_back := Polygon2D.new()
+	canopy_back.name = "CanopyBack"
+	canopy_back.position = Vector2(0, -54)
+	canopy_back.polygon = PackedVector2Array([
+		Vector2(0, -30),
+		Vector2(24, -18),
+		Vector2(34, 0),
+		Vector2(26, 18),
+		Vector2(0, 28),
+		Vector2(-26, 18),
+		Vector2(-34, 0),
+		Vector2(-24, -18),
 	])
-	leaves.color = Color("#4d8f55")
-	tree.add_child(leaves)
+	canopy_back.color = Color("#5f8c56")
+	tree.add_child(canopy_back)
+
+	var canopy_front := Polygon2D.new()
+	canopy_front.name = "CanopyFront"
+	canopy_front.position = Vector2(0, -46)
+	canopy_front.polygon = PackedVector2Array([
+		Vector2(0, -24),
+		Vector2(18, -16),
+		Vector2(28, -2),
+		Vector2(24, 14),
+		Vector2(0, 24),
+		Vector2(-24, 14),
+		Vector2(-28, -2),
+		Vector2(-18, -16),
+	])
+	canopy_front.color = Color("#82b26e")
+	tree.add_child(canopy_front)
+
+	var berry := Polygon2D.new()
+	berry.name = "Berry"
+	berry.position = Vector2(10, -42)
+	berry.polygon = PackedVector2Array([
+		Vector2(0, -4),
+		Vector2(4, 0),
+		Vector2(0, 4),
+		Vector2(-4, 0),
+	])
+	berry.color = Color("#d28c6d")
+	tree.add_child(berry)
 
 	var collision := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
@@ -126,19 +380,55 @@ func _add_fence_line(start_tile: Vector2i, length: int) -> void:
 		var fence := StaticBody2D.new()
 		fence.name = "Fence_%s_%s" % [tile.x, tile.y]
 		fence.position = grid_to_world(tile) + Vector2(0, 6)
-		fence.z_index = tile.x + tile.y + 15
-		add_child(fence)
+		gameplay_layer.add_child(fence)
 
-		var rail := Polygon2D.new()
-		rail.name = "Rail"
-		rail.polygon = PackedVector2Array([
-			Vector2(-24, -8),
-			Vector2(24, -8),
-			Vector2(24, 4),
-			Vector2(-24, 4),
+		var post_left := Polygon2D.new()
+		post_left.name = "PostLeft"
+		post_left.position = Vector2(-16, -2)
+		post_left.polygon = PackedVector2Array([
+			Vector2(-3, -18),
+			Vector2(3, -18),
+			Vector2(3, 8),
+			Vector2(-3, 8),
 		])
-		rail.color = Color("#b28a5c")
-		fence.add_child(rail)
+		post_left.color = Color("#a97749")
+		fence.add_child(post_left)
+
+		var post_right := Polygon2D.new()
+		post_right.name = "PostRight"
+		post_right.position = Vector2(16, -2)
+		post_right.polygon = PackedVector2Array([
+			Vector2(-3, -18),
+			Vector2(3, -18),
+			Vector2(3, 8),
+			Vector2(-3, 8),
+		])
+		post_right.color = Color("#a97749")
+		fence.add_child(post_right)
+
+		var rail_top := Polygon2D.new()
+		rail_top.name = "RailTop"
+		rail_top.position = Vector2(0, -10)
+		rail_top.polygon = PackedVector2Array([
+			Vector2(-22, -4),
+			Vector2(22, -4),
+			Vector2(22, 2),
+			Vector2(-22, 2),
+		])
+		rail_top.color = Color("#d4ab73")
+		fence.add_child(rail_top)
+
+		var rail_bottom := Polygon2D.new()
+		rail_bottom.name = "RailBottom"
+		rail_bottom.position = Vector2(0, 0)
+		rail_bottom.polygon = PackedVector2Array([
+			Vector2(-22, -4),
+			Vector2(22, -4),
+			Vector2(22, 2),
+			Vector2(-22, 2),
+		])
+		rail_bottom.color = Color("#c08a57")
+		fence.add_child(rail_bottom)
 
 		var collision := CollisionShape2D.new()
 		var shape := RectangleShape2D.new()
@@ -147,16 +437,17 @@ func _add_fence_line(start_tile: Vector2i, length: int) -> void:
 		fence.add_child(collision)
 
 func _add_map_bounds() -> void:
-	_add_boundary("NorthBoundary", Vector2(32, -56), Vector2(900, 64))
-	_add_boundary("SouthBoundary", Vector2(32, 440), Vector2(900, 64))
-	_add_boundary("WestBoundary", Vector2(-460, 190), Vector2(64, 640))
-	_add_boundary("EastBoundary", Vector2(520, 190), Vector2(64, 640))
+	_add_boundary("NorthBoundary", Vector2(20, -88), Vector2(1180, 64))
+	_add_boundary("SouthBoundary", Vector2(20, 760), Vector2(1180, 64))
+	_add_boundary("WestBoundary", Vector2(-560, 340), Vector2(64, 940))
+	_add_boundary("EastBoundaryTop", Vector2(560, 112), Vector2(64, 220))
+	_add_boundary("EastBoundaryBottom", Vector2(560, 626), Vector2(64, 150))
 
 func _add_boundary(label: String, boundary_position: Vector2, size: Vector2) -> void:
 	var boundary := StaticBody2D.new()
 	boundary.name = label
 	boundary.position = boundary_position
-	add_child(boundary)
+	gameplay_layer.add_child(boundary)
 
 	var collision := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
@@ -165,11 +456,31 @@ func _add_boundary(label: String, boundary_position: Vector2, size: Vector2) -> 
 	boundary.add_child(collision)
 
 func _tile_color(tile: Vector2i) -> Color:
-	if tile in BLOCKED_TILES:
-		return Color("#8dae65")
+	if tile.x >= 12 and tile.y in PATH_ROW_RANGE:
+		return Color("#b59872")
+	if tile in get_static_blocked_tiles():
+		return Color("#88a56b")
 	if (tile.x + tile.y) % 2 == 0:
-		return Color("#76a96a")
-	return Color("#6f9f63")
+		return Color("#79aa70")
+	return Color("#739f67")
+
+func _tile_highlight_color(tile: Vector2i) -> Color:
+	if tile.x >= 12 and tile.y in PATH_ROW_RANGE:
+		return Color("#d1b38a")
+	if tile in get_static_blocked_tiles():
+		return Color("#9abc7f")
+	if (tile.x + tile.y) % 2 == 0:
+		return Color("#a3c78c")
+	return Color("#94be82")
+
+func _tile_patch_color(tile: Vector2i) -> Color:
+	if tile.x >= 12 and tile.y in PATH_ROW_RANGE:
+		return Color("#8d6b52")
+	if (tile.x + tile.y) % 3 == 0:
+		return Color("#ba9c5e")
+	if (tile.x + tile.y) % 3 == 1:
+		return Color("#8ab57a")
+	return Color("#c78868")
 
 func _tile_diamond() -> PackedVector2Array:
 	return PackedVector2Array([

@@ -1,0 +1,103 @@
+[gd_scene load_steps=12 format=3 uid="uid://hearthvale_forest_edge_region"]
+
+[ext_resource type="Script" path="res://world/regions/forest_edge/forest_edge_region_controller.gd" id="1_controller"]
+[ext_resource type="Script" path="res://world/regions/forest_edge/forest_edge_map.gd" id="2_map"]
+[ext_resource type="Script" path="res://systems/player_spawn_system.gd" id="3_spawn"]
+[ext_resource type="Script" path="res://systems/local_save_system.gd" id="4_save"]
+[ext_resource type="Script" path="res://systems/object_registry.gd" id="5_registry"]
+[ext_resource type="Script" path="res://systems/game_state_manager.gd" id="6_game_state"]
+[ext_resource type="Script" path="res://systems/interactable_system.gd" id="7_interactable"]
+[ext_resource type="Script" path="res://systems/inventory_system.gd" id="8_inventory"]
+[ext_resource type="Script" path="res://systems/survival_system.gd" id="9_survival"]
+[ext_resource type="Script" path="res://systems/region_transition_system.gd" id="10_transition"]
+[ext_resource type="PackedScene" path="res://ui/prototype_hud.tscn" id="11_hud"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_transition"]
+size = Vector2(220, 220)
+
+[node name="ForestEdgeRegion" type="Node2D"]
+script = ExtResource("1_controller")
+region_id = "forest_edge"
+
+[node name="Map" type="Node2D" parent="."]
+script = ExtResource("2_map")
+
+[node name="GroundLayer" type="Node2D" parent="Map"]
+
+[node name="GameplayLayer" type="Node2D" parent="Map"]
+y_sort_enabled = true
+
+[node name="PlayerSpawnSystem" type="Node" parent="."]
+script = ExtResource("3_spawn")
+
+[node name="LocalSaveSystem" type="Node" parent="."]
+script = ExtResource("4_save")
+
+[node name="ObjectRegistry" type="Node" parent="."]
+script = ExtResource("5_registry")
+
+[node name="GameStateManager" type="Node" parent="."]
+script = ExtResource("6_game_state")
+
+[node name="InteractableSystem" type="Node" parent="."]
+script = ExtResource("7_interactable")
+
+[node name="InventorySystem" type="Node" parent="."]
+script = ExtResource("8_inventory")
+
+[node name="SurvivalSystem" type="Node" parent="."]
+script = ExtResource("9_survival")
+
+[node name="RegionTransitionSystem" type="Node" parent="."]
+script = ExtResource("10_transition")
+
+[node name="VillageTransitionArea" type="Area2D" parent="."]
+position = Vector2(-430, 224)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="VillageTransitionArea"]
+shape = SubResource("RectangleShape2D_transition")
+
+[node name="AdventureMarker" type="Node2D" parent="."]
+position = Vector2(136, 166)
+
+[node name="StoneBase" type="Polygon2D" parent="AdventureMarker"]
+position = Vector2(0, 4)
+color = Color(0.545098, 0.560784, 0.533333, 1)
+polygon = PackedVector2Array(-26, 0, -14, -10, 0, -14, 14, -10, 26, 0, 14, 12, 0, 16, -14, 12)
+
+[node name="ShrineBody" type="Polygon2D" parent="AdventureMarker"]
+position = Vector2(0, -20)
+color = Color(0.670588, 0.686275, 0.639216, 1)
+polygon = PackedVector2Array(-18, 10, -18, -8, -8, -22, 8, -22, 18, -8, 18, 10, 8, 18, -8, 18)
+
+[node name="GlowHalo" type="Polygon2D" parent="AdventureMarker"]
+position = Vector2(0, -28)
+color = Color(0.839216, 0.933333, 0.694118, 0.28)
+polygon = PackedVector2Array(0, -16, 14, 0, 0, 16, -14, 0)
+
+[node name="GlowCore" type="Polygon2D" parent="AdventureMarker"]
+position = Vector2(0, -28)
+color = Color(0.929412, 0.87451, 0.588235, 0.85)
+polygon = PackedVector2Array(0, -8, 7, 0, 0, 8, -7, 0)
+
+[node name="MushroomLeft" type="Polygon2D" parent="AdventureMarker"]
+position = Vector2(-22, 8)
+color = Color(0.831373, 0.454902, 0.443137, 1)
+polygon = PackedVector2Array(0, -7, 7, -1, 0, 5, -7, -1)
+
+[node name="MushroomRight" type="Polygon2D" parent="AdventureMarker"]
+position = Vector2(22, 10)
+color = Color(0.788235, 0.576471, 0.862745, 1)
+polygon = PackedVector2Array(0, -6, 6, -1, 0, 5, -6, -1)
+
+[node name="PathStoneLeft" type="Polygon2D" parent="AdventureMarker"]
+position = Vector2(-34, 22)
+color = Color(0.666667, 0.658824, 0.623529, 1)
+polygon = PackedVector2Array(-8, 0, -3, -4, 6, -3, 8, 2, 2, 5, -6, 4)
+
+[node name="PathStoneRight" type="Polygon2D" parent="AdventureMarker"]
+position = Vector2(32, 24)
+color = Color(0.666667, 0.658824, 0.623529, 1)
+polygon = PackedVector2Array(-7, -1, -2, -5, 7, -2, 8, 3, 1, 5, -7, 3)
+
+[node name="HUD" parent="." instance=ExtResource("11_hud")]
