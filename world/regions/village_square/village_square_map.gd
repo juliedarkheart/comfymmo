@@ -8,14 +8,278 @@ const MAP_HEIGHT := 20
 const DEFAULT_SPAWN_TILE := Vector2i(8, 10)
 const HOMESTEAD_ENTRY_SPAWN_TILE := Vector2i(4, 10)
 const FOREST_ENTRY_SPAWN_TILE := Vector2i(18, 10)
+const GROUND_APRON := 8
+const BACKDROP_COLOR := Color("#6e9a64")
+const BACKDROP_MARGIN := 200.0
+const WILDERNESS_RADIUS := 14
+const WILDERNESS_SEED := 521977
+const WILDERNESS_DENSITY := 0.09
 
 @onready var ground_layer: Node2D = $GroundLayer
 @onready var gameplay_layer: Node2D = $GameplayLayer
 
 func _ready() -> void:
+	_build_backdrop()
+	_build_apron()
 	_build_ground()
+	_build_topology()
+	_build_wilderness()
 	_build_square_features()
+	_build_edge_dressing()
 	_add_map_bounds()
+
+func _build_backdrop() -> void:
+	# Full-bleed terrain backdrop covering the camera view so the iso ground never
+	# leaves transparent void in the rectangular camera corners.
+	var limits: Rect2i = get_camera_limits()
+	var backdrop: Polygon2D = Polygon2D.new()
+	backdrop.name = "Backdrop"
+	backdrop.polygon = PackedVector2Array([
+		Vector2(limits.position.x - BACKDROP_MARGIN, limits.position.y - BACKDROP_MARGIN),
+		Vector2(limits.end.x + BACKDROP_MARGIN, limits.position.y - BACKDROP_MARGIN),
+		Vector2(limits.end.x + BACKDROP_MARGIN, limits.end.y + BACKDROP_MARGIN),
+		Vector2(limits.position.x - BACKDROP_MARGIN, limits.end.y + BACKDROP_MARGIN),
+	])
+	backdrop.color = BACKDROP_COLOR
+	ground_layer.add_child(backdrop)
+
+func _build_apron() -> void:
+	# Visual-only filler tiles ringing the authored core so the plaza reads as part
+	# of a larger outdoor space. No collision, outside the gameplay grid.
+	for y in range(-GROUND_APRON, MAP_HEIGHT + GROUND_APRON):
+		for x in range(-GROUND_APRON, MAP_WIDTH + GROUND_APRON):
+			if x >= 0 and x < MAP_WIDTH and y >= 0 and y < MAP_HEIGHT:
+				continue
+			var tile := Vector2i(x, y)
+			var filler := Polygon2D.new()
+			filler.position = grid_to_world(tile)
+			filler.polygon = _tile_diamond()
+			if _apron_is_west_road(tile):
+				filler.color = Color("#b59872")
+			elif _apron_is_east_road(tile):
+				filler.color = Color("#ad8a64")
+			else:
+				filler.color = _apron_color(tile)
+			ground_layer.add_child(filler)
+
+func _apron_is_west_road(tile: Vector2i) -> bool:
+	return tile.x < 0 and tile.y >= 9 and tile.y <= 11
+
+func _apron_is_east_road(tile: Vector2i) -> bool:
+	return tile.x >= MAP_WIDTH and tile.y >= 8 and tile.y <= 10
+
+func _apron_color(tile: Vector2i) -> Color:
+	if (tile.x + tile.y) % 2 == 0:
+		return Color("#71a067")
+	return Color("#699760")
+
+func _build_topology() -> void:
+	# Plaza geography: a flagstone disc that makes the fountain read as a landmark,
+	# roads branching out to the west and east exits, two tapering side streets that
+	# imply the village continues (then peters out), and a couple of flower beds.
+	# Flat features live in the ground layer beneath the fountain and props.
+	TerrainShapes.add_disc(ground_layer, Vector2(96, 284), 84, 8, Color("#c4b79a"), 0.5)
+	TerrainShapes.add_disc(ground_layer, Vector2(96, 282), 60, 8, Color("#d2c6ab"), 0.5)
+	TerrainShapes.add_ribbon(
+		ground_layer,
+		PackedVector2Array([Vector2(72, 278), Vector2(-120, 250), Vector2(-330, 234), Vector2(-540, 224)]),
+		26.0, 30.0, Color("#b59872")
+	)
+	TerrainShapes.add_ribbon(
+		ground_layer,
+		PackedVector2Array([Vector2(124, 290), Vector2(300, 358), Vector2(450, 408), Vector2(560, 440)]),
+		26.0, 30.0, Color("#ad8a64")
+	)
+	TerrainShapes.add_ribbon(ground_layer, PackedVector2Array([Vector2(96, 254), Vector2(74, 150), Vector2(64, 70)]), 22.0, 3.0, Color("#b8a383"))
+	TerrainShapes.add_ribbon(ground_layer, PackedVector2Array([Vector2(112, 300), Vector2(150, 418), Vector2(168, 512)]), 20.0, 3.0, Color("#b3a07f"))
+	_add_flower_bed(Vector2(20, 332))
+	_add_flower_bed(Vector2(176, 336))
+
+func _add_flower_bed(world_pos: Vector2) -> void:
+	var soil := Polygon2D.new()
+	soil.position = world_pos
+	soil.polygon = PackedVector2Array([
+		Vector2(-18, 0), Vector2(0, -9), Vector2(18, 0), Vector2(0, 9),
+	])
+	soil.color = Color("#7c5a3a")
+	ground_layer.add_child(soil)
+	var blooms := Polygon2D.new()
+	blooms.position = world_pos
+	blooms.polygon = PackedVector2Array([
+		Vector2(-11, 0), Vector2(0, -5), Vector2(11, 0), Vector2(0, 5),
+	])
+	blooms.color = Color("#d98c82")
+	ground_layer.add_child(blooms)
+
+func _build_edge_dressing() -> void:
+	# Visible border hedge/tree line so the plaza edges feel like the rim of a
+	# larger settlement, with openings left at the west and east road exits.
+	var ring: int = 2
+	for x in range(-ring, MAP_WIDTH + ring + 1, 2):
+		_add_border_prop(Vector2i(x, -ring))
+		_add_border_prop(Vector2i(x, MAP_HEIGHT + ring - 1))
+	for y in range(-ring, MAP_HEIGHT + ring + 1, 2):
+		if not (y >= 9 and y <= 11):
+			_add_border_prop(Vector2i(-ring, y))
+		if not (y >= 8 and y <= 14):
+			_add_border_prop(Vector2i(MAP_WIDTH + ring - 1, y))
+
+func _add_border_prop(tile: Vector2i) -> void:
+	if tile.y % 3 == 0:
+		_add_decor_tree(gameplay_layer, grid_to_world(tile))
+	else:
+		_add_shrub(gameplay_layer, grid_to_world(tile))
+
+func _build_wilderness() -> void:
+	# Deterministic decorative outskirts implying the settlement continues off-screen:
+	# scattered trees and hedges, distant cottage silhouettes, and short road
+	# fragments. Visual only, drawn behind gameplay in the ground layer.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = WILDERNESS_SEED
+	for y in range(-WILDERNESS_RADIUS, MAP_HEIGHT + WILDERNESS_RADIUS):
+		for x in range(-WILDERNESS_RADIUS, MAP_WIDTH + WILDERNESS_RADIUS):
+			if _wilderness_skip(x, y):
+				continue
+			if rng.randf() > WILDERNESS_DENSITY:
+				continue
+			_place_wilderness_prop(rng, Vector2i(x, y))
+
+func _wilderness_skip(x: int, y: int) -> bool:
+	if x >= -3 and x < MAP_WIDTH + 3 and y >= -3 and y < MAP_HEIGHT + 3:
+		return true
+	if x < 0 and y >= 9 and y <= 11:
+		return true
+	if x >= MAP_WIDTH and y >= 8 and y <= 10:
+		return true
+	return false
+
+func _place_wilderness_prop(rng: RandomNumberGenerator, tile: Vector2i) -> void:
+	var pos := grid_to_world(tile) + Vector2(rng.randf_range(-12.0, 12.0), rng.randf_range(-7.0, 7.0))
+	var roll := rng.randf()
+	if roll < 0.22:
+		_add_tree_cluster(rng, ground_layer, pos)
+	elif roll < 0.40:
+		_add_shrub(ground_layer, pos)
+	elif roll < 0.52:
+		_add_rock(ground_layer, pos)
+	elif roll < 0.66:
+		_add_flowers(rng, ground_layer, pos)
+	elif roll < 0.82:
+		_add_grass_tuft(rng, ground_layer, pos)
+	elif roll < 0.92:
+		_add_distant_house(rng, ground_layer, pos)
+	else:
+		_add_path_fragment(rng, ground_layer, pos)
+
+func _add_tree_cluster(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	var count := rng.randi_range(1, 3)
+	for i in range(count):
+		var offset := Vector2(rng.randf_range(-15.0, 15.0), rng.randf_range(-9.0, 9.0))
+		_add_decor_tree(parent, world_pos + offset)
+
+func _add_decor_tree(parent: Node2D, world_pos: Vector2) -> void:
+	var tree := Node2D.new()
+	tree.position = world_pos
+	parent.add_child(tree)
+	var trunk := Polygon2D.new()
+	trunk.polygon = PackedVector2Array([
+		Vector2(-4, 0), Vector2(4, 0), Vector2(5, -22), Vector2(-5, -22),
+	])
+	trunk.color = Color("#7a5536")
+	tree.add_child(trunk)
+	var canopy := Polygon2D.new()
+	canopy.position = Vector2(0, -32)
+	canopy.polygon = PackedVector2Array([
+		Vector2(0, -22), Vector2(20, -6), Vector2(14, 14), Vector2(0, 20), Vector2(-14, 14), Vector2(-20, -6),
+	])
+	canopy.color = Color("#7ba86f")
+	tree.add_child(canopy)
+
+func _add_shrub(parent: Node2D, world_pos: Vector2) -> void:
+	var shrub := Node2D.new()
+	shrub.position = world_pos
+	parent.add_child(shrub)
+	var blob := Polygon2D.new()
+	blob.polygon = PackedVector2Array([
+		Vector2(0, -13), Vector2(12, -5), Vector2(10, 6), Vector2(0, 10), Vector2(-10, 6), Vector2(-12, -5),
+	])
+	blob.color = Color("#5f8c56")
+	shrub.add_child(blob)
+	var hi := Polygon2D.new()
+	hi.position = Vector2(-2, -3)
+	hi.polygon = PackedVector2Array([
+		Vector2(0, -6), Vector2(6, -2), Vector2(4, 4), Vector2(-4, 4), Vector2(-6, -2),
+	])
+	hi.color = Color("#7ba86f")
+	shrub.add_child(hi)
+
+func _add_rock(parent: Node2D, world_pos: Vector2) -> void:
+	var rock := Node2D.new()
+	rock.position = world_pos
+	parent.add_child(rock)
+	var body := Polygon2D.new()
+	body.polygon = PackedVector2Array([
+		Vector2(0, -10), Vector2(12, -2), Vector2(9, 9), Vector2(-9, 9), Vector2(-12, -2),
+	])
+	body.color = Color("#a4a09a")
+	rock.add_child(body)
+
+func _add_flowers(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	var patch := Node2D.new()
+	patch.position = world_pos
+	parent.add_child(patch)
+	var palette := [Color("#d98c82"), Color("#efd07a"), Color("#c69de2"), Color("#e7a9c4")]
+	for i in range(3):
+		var bloom := Polygon2D.new()
+		bloom.position = Vector2(rng.randf_range(-9.0, 9.0), rng.randf_range(-4.0, 4.0))
+		bloom.polygon = PackedVector2Array([
+			Vector2(0, -4), Vector2(4, 0), Vector2(0, 4), Vector2(-4, 0),
+		])
+		bloom.color = palette[rng.randi_range(0, palette.size() - 1)]
+		patch.add_child(bloom)
+
+func _add_grass_tuft(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	var tuft := Node2D.new()
+	tuft.position = world_pos
+	parent.add_child(tuft)
+	for i in range(rng.randi_range(3, 5)):
+		var blade := Polygon2D.new()
+		blade.position = Vector2(rng.randf_range(-7.0, 7.0), 0.0)
+		blade.polygon = PackedVector2Array([
+			Vector2(-1, 0), Vector2(1, 0), Vector2(0, -rng.randf_range(5.0, 9.0)),
+		])
+		blade.color = Color("#6f9d5a") if (i % 2 == 0) else Color("#5d8c4c")
+		tuft.add_child(blade)
+
+func _add_distant_house(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	var house := Node2D.new()
+	house.position = world_pos
+	parent.add_child(house)
+	var wall := Polygon2D.new()
+	wall.polygon = PackedVector2Array([
+		Vector2(-18, 0), Vector2(18, 0), Vector2(18, -20), Vector2(-18, -20),
+	])
+	wall.color = Color("#cdb189") if (rng.randf() < 0.5) else Color("#c2a273")
+	house.add_child(wall)
+	var roof := Polygon2D.new()
+	roof.position = Vector2(0, -20)
+	roof.polygon = PackedVector2Array([
+		Vector2(-22, 0), Vector2(0, -16), Vector2(22, 0),
+	])
+	roof.color = Color("#8c5142")
+	house.add_child(roof)
+
+func _add_path_fragment(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	var frag := Node2D.new()
+	frag.position = world_pos
+	frag.rotation = rng.randf_range(-0.5, 0.5)
+	parent.add_child(frag)
+	var road := Polygon2D.new()
+	road.polygon = PackedVector2Array([
+		Vector2(-26, 6), Vector2(26, 2), Vector2(24, -3), Vector2(-24, 1),
+	])
+	road.color = Color("#b59872")
+	frag.add_child(road)
 
 func grid_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(
@@ -36,7 +300,9 @@ func get_spawn_tile(spawn_id: String = "default") -> Vector2i:
 			return DEFAULT_SPAWN_TILE
 
 func get_camera_limits() -> Rect2i:
-	return Rect2i(-620, -120, 1360, 940)
+	# Wide framing so the plaza reads as the centre of a larger settlement that
+	# continues off-screen in every direction, with the player small in the scene.
+	return Rect2i(-900, -300, 1880, 1340)
 
 func get_camera_zoom() -> Vector2:
 	return Vector2(1.12, 1.12)

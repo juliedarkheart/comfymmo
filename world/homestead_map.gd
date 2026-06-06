@@ -19,14 +19,261 @@ const VILLAGE_RETURN_SPAWN_TILE := Vector2i(15, 10)
 const FENCE_START_TILE := Vector2i(3, 5)
 const FENCE_LENGTH := 8
 const PATH_ROW_RANGE := [8, 9, 10]
+const GROUND_APRON := 8
+const BACKDROP_COLOR := Color("#6a9760")
+const BACKDROP_MARGIN := 200.0
+const WILDERNESS_RADIUS := 14
+const WILDERNESS_SEED := 20240611
+const WILDERNESS_DENSITY := 0.09
 
 @onready var ground_layer: Node2D = $GroundLayer
 @onready var gameplay_layer: Node2D = $GameplayLayer
 
 func _ready() -> void:
+	_build_backdrop()
+	_build_apron()
 	_build_ground()
+	_build_topology()
+	_build_wilderness()
 	_build_homestead_colliders()
+	_build_edge_dressing()
 	_add_map_bounds()
+
+func _build_backdrop() -> void:
+	# A full-bleed terrain backdrop sized to cover the entire camera view, so the
+	# iso ground diamond never leaves transparent void in the rectangular camera
+	# corners. Drawn first, so it sits behind every ground tile.
+	var limits: Rect2i = get_camera_limits()
+	var backdrop: Polygon2D = Polygon2D.new()
+	backdrop.name = "Backdrop"
+	backdrop.polygon = PackedVector2Array([
+		Vector2(limits.position.x - BACKDROP_MARGIN, limits.position.y - BACKDROP_MARGIN),
+		Vector2(limits.end.x + BACKDROP_MARGIN, limits.position.y - BACKDROP_MARGIN),
+		Vector2(limits.end.x + BACKDROP_MARGIN, limits.end.y + BACKDROP_MARGIN),
+		Vector2(limits.position.x - BACKDROP_MARGIN, limits.end.y + BACKDROP_MARGIN),
+	])
+	backdrop.color = BACKDROP_COLOR
+	ground_layer.add_child(backdrop)
+
+func _build_apron() -> void:
+	# Filler ground tiles ringing the authored core so terrain reads as continuous
+	# out toward the backdrop instead of a small floating patch. Visual only: these
+	# tiles carry no collision and are outside the gameplay/placement grid. The east
+	# road is continued into the apron so it visibly runs off toward village_square.
+	for y in range(-GROUND_APRON, MAP_HEIGHT + GROUND_APRON):
+		for x in range(-GROUND_APRON, MAP_WIDTH + GROUND_APRON):
+			if x >= 0 and x < MAP_WIDTH and y >= 0 and y < MAP_HEIGHT:
+				continue
+			var tile := Vector2i(x, y)
+			var filler := Polygon2D.new()
+			filler.position = grid_to_world(tile)
+			filler.polygon = _tile_diamond()
+			if _apron_is_road(tile):
+				filler.color = Color("#b59872")
+			else:
+				filler.color = _apron_color(tile)
+			ground_layer.add_child(filler)
+
+func _apron_is_road(tile: Vector2i) -> bool:
+	# East road corridor continuing out of the playable core toward village_square.
+	return tile.x >= MAP_WIDTH and tile.y in PATH_ROW_RANGE
+
+func _apron_color(tile: Vector2i) -> Color:
+	if (tile.x + tile.y) % 2 == 0:
+		return Color("#6c9962")
+	return Color("#659158")
+
+func _build_topology() -> void:
+	# Gentle world-shape cues: a road curving toward the village exit, a shallow
+	# stream suggestion, distant field hedgerows, and a couple of big foreground
+	# trees (beyond the walls) for depth. Flat features sit in the ground layer,
+	# under props and the player; foreground occluders go in the gameplay layer.
+	TerrainShapes.add_ribbon(
+		ground_layer,
+		PackedVector2Array([Vector2(20, 352), Vector2(180, 398), Vector2(340, 436), Vector2(540, 470)]),
+		22.0, 34.0, Color("#b89a72")
+	)
+	TerrainShapes.add_ribbon(
+		ground_layer,
+		PackedVector2Array([Vector2(-430, 300), Vector2(-250, 360), Vector2(-90, 432), Vector2(110, 506), Vector2(280, 566)]),
+		11.0, 15.0, Color(0.44, 0.58, 0.6, 0.7)
+	)
+	TerrainShapes.add_ribbon(ground_layer, PackedVector2Array([Vector2(300, 150), Vector2(470, 188)]), 5.0, 5.0, Color("#557c4d"))
+	TerrainShapes.add_ribbon(ground_layer, PackedVector2Array([Vector2(360, 86), Vector2(540, 120)]), 5.0, 5.0, Color("#4f7647"))
+	_add_foreground_tree(Vector2(-300, 808), 1.7)
+	_add_foreground_tree(Vector2(280, 824), 1.5)
+
+func _add_foreground_tree(world_pos: Vector2, prop_scale: float) -> void:
+	var holder := Node2D.new()
+	holder.position = world_pos
+	holder.scale = Vector2(prop_scale, prop_scale)
+	gameplay_layer.add_child(holder)
+	_add_decor_tree(holder, Vector2.ZERO)
+
+func _build_edge_dressing() -> void:
+	# Visible vegetated border so the map edges read as intentional instead of an
+	# invisible wall. Props sit just outside the core ring, with a gap left at the
+	# east road so the exit reads as an opening. Visual only, no collision.
+	var ring: int = 2
+	for x in range(-ring, MAP_WIDTH + ring + 1, 2):
+		_add_border_prop(Vector2i(x, -ring))
+		_add_border_prop(Vector2i(x, MAP_HEIGHT + ring - 1))
+	for y in range(-ring, MAP_HEIGHT + ring + 1, 2):
+		_add_border_prop(Vector2i(-ring, y))
+		if not (y in PATH_ROW_RANGE):
+			_add_border_prop(Vector2i(MAP_WIDTH + ring - 1, y))
+
+func _add_border_prop(tile: Vector2i) -> void:
+	if tile.y % 3 == 0:
+		_add_decor_tree(gameplay_layer, grid_to_world(tile))
+	else:
+		_add_shrub(gameplay_layer, grid_to_world(tile))
+
+func _build_wilderness() -> void:
+	# Deterministic, seed-friendly decorative wilderness filling the outer shell well
+	# beyond the gameplay core. Visual only; drawn into the (non-y-sorted) ground
+	# layer so it always sits behind the player and core props. Reads as open
+	# countryside continuing outward, with field fences hinting at neighbouring farms.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = WILDERNESS_SEED
+	for y in range(-WILDERNESS_RADIUS, MAP_HEIGHT + WILDERNESS_RADIUS):
+		for x in range(-WILDERNESS_RADIUS, MAP_WIDTH + WILDERNESS_RADIUS):
+			if _wilderness_skip(x, y):
+				continue
+			if rng.randf() > WILDERNESS_DENSITY:
+				continue
+			_place_wilderness_prop(rng, Vector2i(x, y))
+
+func _wilderness_skip(x: int, y: int) -> bool:
+	# Keep a clean margin around the gameplay core and an open gap at the east road.
+	if x >= -3 and x < MAP_WIDTH + 3 and y >= -3 and y < MAP_HEIGHT + 3:
+		return true
+	if x >= MAP_WIDTH and (y in PATH_ROW_RANGE):
+		return true
+	return false
+
+func _place_wilderness_prop(rng: RandomNumberGenerator, tile: Vector2i) -> void:
+	var pos := grid_to_world(tile) + Vector2(rng.randf_range(-12.0, 12.0), rng.randf_range(-7.0, 7.0))
+	var roll := rng.randf()
+	if roll < 0.26:
+		_add_tree_cluster(rng, ground_layer, pos)
+	elif roll < 0.40:
+		_add_shrub(ground_layer, pos)
+	elif roll < 0.52:
+		_add_rock(ground_layer, pos)
+	elif roll < 0.72:
+		_add_flowers(rng, ground_layer, pos)
+	elif roll < 0.92:
+		_add_grass_tuft(rng, ground_layer, pos)
+	else:
+		_add_field_fence(ground_layer, pos)
+
+func _add_tree_cluster(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	var count := rng.randi_range(1, 3)
+	for i in range(count):
+		var offset := Vector2(rng.randf_range(-15.0, 15.0), rng.randf_range(-9.0, 9.0))
+		_add_decor_tree(parent, world_pos + offset)
+
+func _add_decor_tree(parent: Node2D, world_pos: Vector2) -> void:
+	var tree := Node2D.new()
+	tree.position = world_pos
+	parent.add_child(tree)
+	var trunk := Polygon2D.new()
+	trunk.polygon = PackedVector2Array([
+		Vector2(-4, 0), Vector2(4, 0), Vector2(5, -22), Vector2(-5, -22),
+	])
+	trunk.color = Color("#7a5536")
+	tree.add_child(trunk)
+	var canopy := Polygon2D.new()
+	canopy.position = Vector2(0, -32)
+	canopy.polygon = PackedVector2Array([
+		Vector2(0, -22), Vector2(20, -6), Vector2(14, 14), Vector2(0, 20), Vector2(-14, 14), Vector2(-20, -6),
+	])
+	canopy.color = Color("#5f8c56")
+	tree.add_child(canopy)
+	var canopy_hi := Polygon2D.new()
+	canopy_hi.position = Vector2(-3, -36)
+	canopy_hi.polygon = PackedVector2Array([
+		Vector2(0, -12), Vector2(11, -2), Vector2(6, 9), Vector2(-8, 6), Vector2(-11, -3),
+	])
+	canopy_hi.color = Color("#82b26e")
+	tree.add_child(canopy_hi)
+
+func _add_shrub(parent: Node2D, world_pos: Vector2) -> void:
+	var shrub := Node2D.new()
+	shrub.position = world_pos
+	parent.add_child(shrub)
+	var blob := Polygon2D.new()
+	blob.polygon = PackedVector2Array([
+		Vector2(0, -14), Vector2(13, -6), Vector2(11, 6), Vector2(0, 11), Vector2(-11, 6), Vector2(-13, -6),
+	])
+	blob.color = Color("#5f8c56")
+	shrub.add_child(blob)
+	var hi := Polygon2D.new()
+	hi.position = Vector2(-2, -4)
+	hi.polygon = PackedVector2Array([
+		Vector2(0, -7), Vector2(7, -2), Vector2(4, 5), Vector2(-5, 4), Vector2(-7, -2),
+	])
+	hi.color = Color("#7aa86a")
+	shrub.add_child(hi)
+
+func _add_rock(parent: Node2D, world_pos: Vector2) -> void:
+	var rock := Node2D.new()
+	rock.position = world_pos
+	parent.add_child(rock)
+	var body := Polygon2D.new()
+	body.polygon = PackedVector2Array([
+		Vector2(0, -10), Vector2(12, -2), Vector2(9, 9), Vector2(-9, 9), Vector2(-12, -2),
+	])
+	body.color = Color("#9a968f")
+	rock.add_child(body)
+
+func _add_flowers(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	var patch := Node2D.new()
+	patch.position = world_pos
+	parent.add_child(patch)
+	var palette := [Color("#d98c82"), Color("#efd07a"), Color("#c69de2"), Color("#e7a9c4")]
+	for i in range(3):
+		var bloom := Polygon2D.new()
+		bloom.position = Vector2(rng.randf_range(-9.0, 9.0), rng.randf_range(-4.0, 4.0))
+		bloom.polygon = PackedVector2Array([
+			Vector2(0, -4), Vector2(4, 0), Vector2(0, 4), Vector2(-4, 0),
+		])
+		bloom.color = palette[rng.randi_range(0, palette.size() - 1)]
+		patch.add_child(bloom)
+
+func _add_grass_tuft(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	var tuft := Node2D.new()
+	tuft.position = world_pos
+	parent.add_child(tuft)
+	for i in range(rng.randi_range(3, 5)):
+		var blade := Polygon2D.new()
+		blade.position = Vector2(rng.randf_range(-7.0, 7.0), 0.0)
+		blade.polygon = PackedVector2Array([
+			Vector2(-1, 0), Vector2(1, 0), Vector2(0, -rng.randf_range(5.0, 9.0)),
+		])
+		blade.color = Color("#6f9d5a") if (i % 2 == 0) else Color("#5d8c4c")
+		tuft.add_child(blade)
+
+func _add_field_fence(parent: Node2D, world_pos: Vector2) -> void:
+	var fence := Node2D.new()
+	fence.position = world_pos
+	parent.add_child(fence)
+	for px in [-16, 0, 16]:
+		var post := Polygon2D.new()
+		post.position = Vector2(px, 0)
+		post.polygon = PackedVector2Array([
+			Vector2(-2, -14), Vector2(2, -14), Vector2(2, 4), Vector2(-2, 4),
+		])
+		post.color = Color("#a97749")
+		fence.add_child(post)
+	var rail := Polygon2D.new()
+	rail.position = Vector2(0, -10)
+	rail.polygon = PackedVector2Array([
+		Vector2(-18, -2), Vector2(18, -2), Vector2(18, 2), Vector2(-18, 2),
+	])
+	rail.color = Color("#c08a57")
+	fence.add_child(rail)
 
 func grid_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(
@@ -50,7 +297,9 @@ func get_spawn_tile(spawn_id: String = "default") -> Vector2i:
 			return DEFAULT_SPAWN_TILE
 
 func get_camera_limits() -> Rect2i:
-	return Rect2i(-560, -100, 1120, 860)
+	# Wide framing so the visible countryside dwarfs the gameplay core, the player
+	# reads as small in the landscape, and the camera keeps centered toward exits.
+	return Rect2i(-820, -260, 1640, 1220)
 
 func get_camera_zoom() -> Vector2:
 	return Vector2(1.14, 1.14)

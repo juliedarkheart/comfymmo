@@ -37,7 +37,10 @@ multi-region spine.
   tracks the active region id.
 - `WorldRegionManager`
   Loads the starting region from save data and swaps between region scenes on
-  request.
+  request. Because requests arrive from an `Area2D` `body_entered` callback during
+  the physics flush, `transition_to_region` only validates and queues; the actual
+  unload/load/spawn runs in a deferred `_process_pending_transition` after the
+  flush, and duplicate requests are ignored while one is pending.
 - `RegionTransitionSystem`
   Tiny helper signal surface for explicit region travel.
 - `ObjectRegistry`

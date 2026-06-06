@@ -1,4 +1,5 @@
 extends Node2D
+class_name HomesteadController
 
 @onready var map: HomesteadMap = $Map
 @onready var gameplay_layer: Node2D = $Map/GameplayLayer

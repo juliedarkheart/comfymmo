@@ -2,6 +2,7 @@ extends SceneTree
 
 const RESOURCE_PATHS: Array[String] = [
 	"res://scenes/main.tscn",
+	"res://scenes/world/overworld.tscn",
 	"res://scenes/world/homestead.tscn",
 	"res://scenes/world/regions/homestead/homestead_region.tscn",
 	"res://scenes/world/regions/village_square/village_square_region.tscn",

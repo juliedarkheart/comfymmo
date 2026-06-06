@@ -5,7 +5,7 @@
 [ext_resource type="Script" path="res://systems/region_transition_system.gd" id="3_transition"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_transition"]
-size = Vector2(200, 260)
+size = Vector2(320, 260)
 
 [node name="HomesteadRegion" type="Node2D"]
 script = ExtResource("1_controller")
@@ -17,7 +17,7 @@ region_id = "homestead"
 script = ExtResource("3_transition")
 
 [node name="VillageTransitionArea" type="Area2D" parent="."]
-position = Vector2(430, 432)
+position = Vector2(450, 430)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="VillageTransitionArea"]
 shape = SubResource("RectangleShape2D_transition")

@@ -1,7 +1,17 @@
 # World Regions
 
-Hearthvale now treats the playable world as a set of named regions instead of a
-single always-loaded map scene.
+> **Architecture pivot (2026-06): continuous overworld.** Outdoor traversal is no
+> longer paged. Homestead, village square, and forest edge now live together in one
+> continuous scene, `scenes/world/overworld.tscn`, and the player walks between them
+> with no scene swap, no Area2D transition, and no fade. `WorldRegionManager` boots
+> straight into the overworld and is now reserved for *future instances* (dungeons,
+> caves, interiors, special towns) — those will still scene-swap via the preserved
+> deferred-transition machinery. The legacy paged region scenes below remain on disk
+> as fallbacks / interior templates but are no longer loaded for outdoor play. See
+> "Continuous Overworld" near the end of this document.
+
+Historically Hearthvale treated the playable world as a set of named region scenes
+swapped at the edges; that model now applies only to instanced, non-outdoor spaces.
 
 ## Current Regions
 
@@ -92,6 +102,13 @@ Global player/task data remains outside region data:
 - `F` remains reserved for local interactables such as the mailbox, farm plot, and notice board
 - the world region manager updates `world.current_region_id`
 - a short transition cooldown prevents bounce loops while crossing region edges
+- region swaps are deferred: a `body_entered` trigger only queues the target, and
+  `WorldRegionManager._process_pending_transition` performs the unload/load/spawn on
+  a `call_deferred` after the physics flush completes (so freeing the old region and
+  spawning the player body never mutate physics state mid-query). Duplicate requests
+  are ignored while a transition is pending.
+- destination spawn points sit outside their return triggers, so arrivals do not
+  immediately re-fire the opposite edge
 - homestead state is preserved through existing immediate saves
 - transition areas now sit close to the authored road or trail exits instead of far out in empty space
 
@@ -110,6 +127,65 @@ blocks.
   adventure route without waking combat yet
 - each region now uses tighter camera framing and limits so the player sees
   authored terrain instead of large void margins
+- each map draws a full-bleed terrain **backdrop** (sized to the camera limits plus
+  a margin) behind the iso ground, plus a ring of visual-only **apron** filler tiles
+  around the authored core. Because the iso ground is a diamond and the camera bound
+  is a rectangle, the backdrop guarantees the camera never reveals transparent void
+  in the corners. The apron and backdrop carry no collision and are outside the
+  gameplay/placement grid, so farming, placement, and movement are unchanged.
+- the seamless transition `Area2D` bands were widened to `320x260` and centred over
+  the road/path exits, so normal walking crosses them well before any boundary wall;
+  destination spawns sit on the incoming path and outside the return trigger
+- **continuity (streaming illusion) pass:** several lightweight techniques make the
+  paged regions read as slices of one continuous outdoor world without real chunk
+  streaming:
+  - roads/trails are continued into the apron at each exit (`_apron_is_road`), so a
+    road visibly runs off toward the next region rather than stopping at the edge,
+    and the transition fires while the player is still walking on it
+  - each map lines its non-exit edges with a visible vegetated border
+    (`_build_edge_dressing`: shrubs/trees for homestead and village, a dense
+    pine/rock treeline for forest), leaving openings at the road/path exits so the
+    player intuitively reads where travel happens; these props carry no collision
+  - camera limits were widened and `position_smoothing` enabled on `AvatarCamera`,
+    so the camera keeps the player centred and drifts gently toward exits instead of
+    hard-clamping at borders; `reset_smoothing()` on region entry avoids any swoop
+  - `WorldRegionManager` owns a persistent full-screen fade overlay (on a high
+    `CanvasLayer` that survives region swaps) and plays a brief ~0.32s fade-in after
+    each swap, so travel reads as walking through rather than an instant teleport
+    (no loading screen, deferred-transition and cooldown behaviour preserved)
+- **scale / wilderness expansion pass:** the visible terrain footprint now greatly
+  exceeds the gameplay footprint, moving toward an "authored anchor + generated
+  wilderness" structure without real streaming:
+  - each map runs `_build_wilderness()` — a deterministic, seeded
+    (`WILDERNESS_SEED`) scatter of decorative props across the outer shell
+    (`WILDERNESS_RADIUS` tiles beyond the core). It draws into the non-y-sorted
+    ground layer (always behind gameplay, never occluding the play core) and uses
+    helper drawers (`_add_decor_tree`/`_add_pine`/`_add_shrub`/`_add_rock`/
+    `_add_flowers`/`_add_grass_tuft`, plus region flavour: homestead field fences,
+    village distant cottages + road fragments, forest dense pine clusters). It is
+    seed-friendly and helper-based rather than hardcoded tile lists, so future
+    procedural regions can reuse the same approach
+  - camera limits were widened further so the player reads as small in a broad
+    landscape and the camera stays centred toward exits
+  - apron rings were enlarged (`GROUND_APRON` 6 → 8) and roads continue further into
+    the apron, tapering toward the edges so there are no abrupt endcaps
+  - all wilderness is visual-only (no collision, outside the gameplay/placement
+    grid), so farming, placement, interactables, travel, and saves are unaffected
+- **terrain topology pass:** each map runs `_build_topology()` (between ground and
+  wilderness) to add geographic shape using a tiny reusable primitive library,
+  `world/terrain_shapes.gd` (`class_name TerrainShapes`: `ribbon()` for curved,
+  tapering roads/streams/trails and `disc()` for plazas/treelines/rocks). Each cue
+  is one or two large polygons, so the whole pass adds only ~40 nodes total:
+  - homestead: a road curving toward the village exit, a shallow stream suggestion,
+    distant field hedgerows, and two big foreground trees (placed beyond the walls)
+  - village_square: a flagstone plaza disc making the fountain a landmark, roads
+    branching to the west and east exits, two tapering side-street stubs, flower beds
+  - forest_edge: layered distant treeline masses, a rocky ridge hint, a creek with a
+    decorative crossing bridge, and a trail that curves in from the west and forks up
+    to the tucked-away shrine
+  - flat features draw in the ground layer (under props/player); the bridge and
+    foreground trees are gameplay-layer occluders. Everything is decorative with no
+    collision, so travel, interactions, farming, placement, and saves are unchanged
 - future outdoor-adjacent regions should prefer edge/path travel
 - interact-to-travel should be reserved for interiors, caves, portals, boats,
   and other explicit travel cases
@@ -199,8 +275,44 @@ Examples:
 - "The stump turtle blinks very slowly."
 - "Tiny wings shimmer in the light."
 
+## Continuous Overworld
+
+`scenes/world/overworld.tscn` is the single outdoor scene. Its design reuses the
+proven homestead stack by composition:
+
+- `world/overworld_controller.gd` **extends `HomesteadController`** (the homestead
+  controller now has `class_name HomesteadController`). It inherits the entire
+  working homestead gameplay loop — farming, placement/edit/move/remove, mailbox,
+  rest, mood/day cycling, comfort, inventory, ambient creatures, observe panels,
+  and save — unchanged, then adds the village (Maribel, Bram, notice board, a
+  rabbit) and forest (shrine, three rabbits, two moths) content into the same
+  scene and `InteractableSystem`. It overrides `_on_interaction_requested` to add
+  `villager` / `notice_board` / `shrine_marker` handling and delegates everything
+  else to `super`.
+- `world/overworld_map.gd` **extends `HomesteadMap`**, so the homestead grid,
+  placement/collision helpers, and prop drawers are inherited. It overrides
+  `_ready` to draw one continuous landscape: a screen-filling backdrop, broad
+  region color tints, the detailed homestead yard at the origin, the village and
+  forest areas at `VILLAGE_OFFSET (1500,120)` and `FOREST_OFFSET (3000,160)`,
+  connecting roads, natural borders (north mountains, south river, east dense
+  forest, west cliff), sparse seeded wilderness fill, the homestead colliders, and
+  wide outer boundary walls. Camera framing is broad (`zoom 1.0`, wide limits).
+
+Save compatibility is fully preserved because the overworld writes the same save
+sections the paged regions used: homestead farming → `regions.homestead.farming`,
+villager/notice flags → `regions.village_square.region_flags`, shrine flag →
+`regions.forest_edge.region_flags`, plus the shared `player.*`, `world.global_flags`
+(mood/day), and `tasks.integration`. No save version bump.
+
+`WorldRegionManager` boots the overworld (`_load_starting_region` → `overworld`),
+tolerates a non-`BaseRegionController` active scene, and keeps the deferred swap +
+cooldown + fade machinery for future instance loading only.
+
 ## Notes
 
-- the old homestead scene still contains the live homestead gameplay logic
-- the new homestead region wraps that scene rather than rewriting it
-- future regions should follow the region scene pattern before any chunking work
+- the old homestead/village/forest region scenes still exist as legacy/fallback and
+  future interior templates; they are not loaded for outdoor play
+- the overworld reuses those regions' controllers/content by composition rather than
+  rewriting them
+- long-term direction: authored anchors (homestead/village/forest) with procedural
+  wilderness generated between them inside this one continuous overworld
