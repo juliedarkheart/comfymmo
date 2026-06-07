@@ -19,7 +19,9 @@ func get_camera_limits() -> Rect2i:
 	return Rect2i(-760, -460, 4560, 1640)
 
 func get_camera_zoom() -> Vector2:
-	return Vector2(1.0, 1.0)
+	# Slightly closer than 1.0 for readable detail on high-DPI / 4K monitors. Players
+	# can adjust live with PageUp/PageDown/+/- and reset with R.
+	return Vector2(1.3, 1.3)
 
 func _build_overworld() -> void:
 	_build_overworld_backdrop()

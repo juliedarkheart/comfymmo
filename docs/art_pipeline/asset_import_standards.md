@@ -3,6 +3,34 @@
 How cleaned art enters the Godot project so it imports cleanly, stays organized, and
 remains traceable to its prompt. Pairs with the broader `docs/asset_pipeline.md`.
 
+## Relationship to the existing asset pipeline
+
+The repository already has a **reproducible bundle pipeline** (`docs/asset_pipeline.md`)
+with promotion lanes:
+
+- `assets/concepts/{generated,approved}` — raw concept bundles (image + `asset.json` +
+  `workflow.json`), the canonical generation record.
+- `assets/sprites/{generated,sheets,approved}`, `assets/textures/{generated,tiles,materials}` —
+  sprite/texture production lanes.
+- `assets/imports/{staging,reviewed}`, `assets/published`, `assets/lora`,
+  `assets/metadata/templates/asset_manifest.template.json` — review, publish, training, and the
+  canonical bundle manifest.
+
+This document and the `art_pipeline/` docs are the **Hearthvale-specific style + ComfyUI
+production layer** that sit on top of that pipeline. To avoid two competing systems:
+
+- **Generation + provenance** use the existing bundle pipeline and
+  `asset_manifest.template.json` (it is the canonical sidecar; the lighter `.meta.json`
+  shown below is a convenience for final per-file game assets — keep them consistent).
+- The simple **category destination folders** named by this branch
+  (`assets/tiles|props|characters|creatures|ui|style_reference|import_staging`) are the
+  final, downscaled, game-ready drop points. `assets/import_staging/` is the same role as
+  `assets/imports/staging/`; prefer consolidating to one in a follow-up cleanup — for now
+  `import_staging/` is the entry point for this ComfyUI flow.
+
+When in doubt, generation history lives in the bundle lanes; shippable category sprites
+live in the category folders.
+
 ## File format
 
 - **Props / characters / creatures / crops / buildings / UI:** PNG, RGBA, transparent

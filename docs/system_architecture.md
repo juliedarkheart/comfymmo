@@ -3,6 +3,27 @@
 Hearthvale now has a lightweight foundation for its next major gameplay layers
 without changing the current prototype loop.
 
+## Developer & Admin Scaffolding (local-only)
+
+Local-only infrastructure prepared for future tooling. None of it adds networking,
+accounts, servers, or persistence, and gameplay is unaffected when it is idle:
+
+- **Runtime zoom controls** live on `AvatarCamera`: `PageUp`/`=`/`+` zoom in,
+  `PageDown`/`-` zoom out, `R` resets to the region's base zoom. Zoom is clamped and
+  only changes the camera zoom, so position smoothing and mouse/world-space
+  transforms (placement coordinates, world hints) stay correct. The overworld's
+  default zoom is `1.3` for 4K readability, and the project renders at 1920×1080.
+- **Dev overlay** (`systems/overworld_editor_system.gd` + `systems/dev_tool_state.gd`)
+  toggles with `F10`. It is a read-only inspector — player/mouse world position, the
+  approximate area label (Homestead / Village Square / Forest Edge / Wilderness), and
+  camera zoom — and a seam for future world-building tools. Hidden and not processing
+  while off; only consumes `F10`.
+- **Moderation scaffolding** (`systems/admin/moderation_models.gd`,
+  `systems/admin/audit_log.gd`) provides stubbed data shapes (report model, admin
+  action model, role placeholders) and an in-memory, append-only audit log for a
+  future family/friends moderation layer. Nothing calls these yet. See
+  `docs/backend_tools.md` and `docs/moderation.md` for the staged backend direction.
+
 ## Runtime Shape
 
 The world now boots through a small region layer:

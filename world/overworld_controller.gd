@@ -26,6 +26,16 @@ func _ready() -> void:
 	_apply_overworld_camera(player)
 	_spawn_village_content(player)
 	_spawn_forest_content(player)
+	_setup_dev_overlay(player)
+
+func _setup_dev_overlay(player: AvatarController) -> void:
+	var camera: AvatarCamera = null
+	if player != null:
+		camera = player.get_node_or_null("Camera2D") as AvatarCamera
+	var editor: OverworldEditorSystem = OverworldEditorSystem.new()
+	editor.name = "OverworldEditorSystem"
+	add_child(editor)
+	editor.setup(player, camera)
 
 func _find_player() -> AvatarController:
 	for child in gameplay_layer.get_children():

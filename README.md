@@ -88,3 +88,11 @@ These checks are trusted for tool and project-load validation. Full gameplay acc
 - [Asset Pipeline](docs/asset_pipeline.md)
 - [Prototype Playtest](docs/prototype_playtest.md)
 - [Building Placement](docs/building_placement.md)
+
+### Art Pipeline (ComfyUI)
+
+- [Art Pipeline Overview / ComfyUI Workflows](docs/art_pipeline/comfyui_workflows.md)
+- [Style Guide](docs/art_pipeline/style_guide.md)
+- [Asset Import Standards](docs/art_pipeline/asset_import_standards.md)
+- [Alpha 0.1 Asset Targets](docs/art_pipeline/alpha_01_asset_targets.md)
+- [Prompt Templates](assets/prompts/) — start from `hearthvale_master_style.md`

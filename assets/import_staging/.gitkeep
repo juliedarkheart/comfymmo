@@ -1,0 +1,3 @@
+# Transient: cleaned PNGs awaiting wiring into Godot, then moved to a category folder.
+# Simple staging entry point for the ComfyUI art flow. See docs/art_pipeline/asset_import_standards.md.
+# (Relates to the existing bundle-staging at assets/imports/staging — see the reconciliation note in that doc.)

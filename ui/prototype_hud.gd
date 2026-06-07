@@ -1,7 +1,7 @@
 extends CanvasLayer
 
 var _title_text: String = "Hearthvale Prototype"
-var _controls_text: String = "Move: WASD / Arrow Keys | Eat carrot: C | Inventory: I | Time: T"
+var _controls_text: String = "Move: WASD/Arrows | Eat: C | Inv: I | Time: T | Zoom: PgUp/PgDn (R reset) | Dev: F10"
 var _mood_display: String = "Morning"
 var _day_number: int = 1
 var _current_mode_name: String = "Explore"
