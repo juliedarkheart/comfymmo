@@ -16,9 +16,17 @@ the MMO before the design has earned that complexity.
 
 ## Current Status
 
-Playable local prototype. The project launches into a small isometric homestead
-with a controllable character, camera follow, basic collision, one local
-placeable object flow, and placeholder visuals.
+Playable local prototype. The project launches into **one continuous isometric
+overworld** (`scenes/world/overworld.tscn`) containing a homestead, village square,
+and forest edge as connected areas — you walk between them with no scene transition.
+It includes farming, object placement/edit/move, a mailbox/task loop, inventory,
+comfort, a rest/day/mood cycle, villagers, ambient creatures, a shrine and notice
+board, 4K zoom controls, and a local-only `F10` dev overlay. Outdoor travel never
+scene-swaps; `WorldRegionManager` is reserved for future dungeons/interiors.
+
+See **[Overworld Architecture](docs/overworld_architecture.md)** for the
+authoritative outdoor model, system boundaries, and save layout — read it before
+changing outdoor structure.
 
 ## Repository Layout
 
@@ -82,6 +90,10 @@ These checks are trusted for tool and project-load validation. Full gameplay acc
 
 ## Documentation
 
+- [Overworld Architecture](docs/overworld_architecture.md) — main outdoor model (start here)
+- [System Architecture](docs/system_architecture.md)
+- [Save Data Model](docs/save_data_model.md)
+- [Dev Tools](docs/dev_tools.md) · [Backend Tools](docs/backend_tools.md) · [Moderation](docs/moderation.md)
 - [Architecture](docs/architecture.md)
 - [Milestones](docs/milestones.md)
 - [Coding Standards](docs/coding_standards.md)

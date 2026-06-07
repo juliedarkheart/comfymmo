@@ -13,11 +13,15 @@ accounts, servers, or persistence, and gameplay is unaffected when it is idle:
   only changes the camera zoom, so position smoothing and mouse/world-space
   transforms (placement coordinates, world hints) stay correct. The overworld's
   default zoom is `1.3` for 4K readability, and the project renders at 1920×1080.
-- **Dev overlay** (`systems/overworld_editor_system.gd` + `systems/dev_tool_state.gd`)
-  toggles with `F10`. It is a read-only inspector — player/mouse world position, the
-  approximate area label (Homestead / Village Square / Forest Edge / Wilderness), and
-  camera zoom — and a seam for future world-building tools. Hidden and not processing
-  while off; only consumes `F10`.
+- **Dev overlay + markers** (`systems/overworld_editor_system.gd`,
+  `systems/dev_tool_state.gd`, `systems/dev_world_marker.gd`) toggles with `F10`. It
+  inspects (player/mouse world position, area label, zoom) and lets you select a tool
+  (`1`-`4`), drop temporary visual-only markers (`M` / left-click in Marker tool),
+  clear them (`C`), and export them to `user://dev_marker_export.json` (`E`). Markers
+  carry no collision and are never saved with the game. Dev keys are handled in
+  `_input` and only consumed while dev mode is on, so they never collide with
+  gameplay or building placement and nothing leaks while off. Placing/clearing
+  markers appends to the local in-memory `AuditLog`. See `docs/dev_tools.md`.
 - **Moderation scaffolding** (`systems/admin/moderation_models.gd`,
   `systems/admin/audit_log.gd`) provides stubbed data shapes (report model, admin
   action model, role placeholders) and an in-memory, append-only audit log for a
@@ -26,13 +30,24 @@ accounts, servers, or persistence, and gameplay is unaffected when it is idle:
 
 ## Runtime Shape
 
-The world now boots through a small region layer:
+> **Current model:** the outdoor world is **one continuous overworld scene**
+> (`scenes/world/overworld.tscn`), not paged regions. Boot is
+> `scenes/main.tscn` → `game_bootstrap.gd` → `WorldRegionManager`
+> (`_load_starting_region` → `"overworld"`) → the overworld. Outdoor traversal is
+> walking and **never scene-swaps**; `WorldRegionManager` is reserved for future
+> instances (dungeons/interiors). The authoritative description of the outdoor
+> architecture, system boundaries (global vs overworld-local vs homestead-area-only),
+> and save model is **`docs/overworld_architecture.md`** — read it before changing
+> outdoor structure.
+
+The notes below describe the original paged-region layer, which now applies only to
+the legacy/fallback region scenes and to future instanced scenes:
 
 - `WorldRegionManager`
-- one active region scene at a time
-- a small shared region controller pattern
+- one active region scene at a time (legacy/instances only)
+- a small shared region controller pattern (`BaseRegionController`, legacy/instances)
 
-The homestead region scene still owns a set of local systems as sibling nodes:
+Each scene owns a set of local systems as sibling nodes:
 
 - `GameStateManager`
 - `ObjectRegistry`

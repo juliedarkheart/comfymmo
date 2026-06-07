@@ -6,6 +6,11 @@ class_name OverworldMap
 ## homestead area at the origin) and draws homestead, village, and forest as one
 ## connected landscape with roads, natural borders, and wilderness fill. There is
 ## no outdoor region paging — this is a single scene.
+##
+## INHERITANCE NOTE (transitional): `extends HomesteadMap` reuses the homestead grid
+## (the placement/farming grid still lives at the origin) and its prop drawers. This
+## is intentional and stable for now; a future cleaner split would extract a shared
+## `IsoMapHelpers` for grid math + prop drawers. See docs/overworld_architecture.md.
 
 const VILLAGE_OFFSET := Vector2(1500.0, 120.0)
 const FOREST_OFFSET := Vector2(3000.0, 160.0)

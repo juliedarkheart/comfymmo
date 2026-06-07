@@ -49,8 +49,9 @@ no servers, databases, accounts, or network calls in the project.
 
 | Concern | Local stub | Future |
 |---|---|---|
-| Dev inspection | `systems/overworld_editor_system.gd` (`F10` overlay) | World-building + moderation review tools |
+| Dev inspection + markers | `systems/overworld_editor_system.gd` (`F10` overlay, temporary markers, export) | World-building + moderation review tools |
 | Tool state | `systems/dev_tool_state.gd` | Shared editor/tool state |
+| Temporary markers | `systems/dev_world_marker.gd` + `user://dev_marker_export.json` | Authored/persisted landmarks & spawn points |
 | Roles | `ModerationModels.ROLES` | Server-enforced permissions |
 | Reports | `ModerationModels.make_report` | Server report queue |
 | Admin actions | `ModerationModels.make_admin_action` | Server-validated actions |

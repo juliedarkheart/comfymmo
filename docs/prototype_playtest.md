@@ -151,6 +151,14 @@ The smoke test is only a safe project-load check. Use the editor for actual game
 - Confirm no creature spams the interaction prompt when the player stands still.
 - Confirm no creature blocks or slows player movement.
 - Confirm no Godot debugger errors appear during creature spawning or wandering.
+- Press `F10` and confirm the dev overlay appears with player position, area, and zoom.
+- Press `1`/`2`/`3`/`4` and confirm the overlay `Tool:` line changes (Inspect/Marker/Blocked Note/Spawn Note).
+- Press `M` (or left-click in Marker tool) and confirm a pin + label marker appears at the mouse world position.
+- Place markers across the homestead, village, and forest areas and confirm the overlay marker count updates.
+- Press `C` and confirm all markers disappear.
+- Press `E` and confirm the overlay reports an export to `user://dev_marker_export.json`.
+- Press `F10` again and confirm the overlay hides and normal gameplay input resumes (e.g. `C` eats a carrot again, not clears markers).
+- Confirm dev markers never block movement and never persist after a scene reload.
 - Confirm placement, edit, and move modes suppress the mailbox prompt.
 - Confirm `Esc` exits the current placement or edit mode cleanly.
 - Confirm the HUD returns to `Explore` after canceling or leaving decorating modes.

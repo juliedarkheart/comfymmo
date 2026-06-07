@@ -91,7 +91,11 @@ save_version = 3
     "global_flags": {
       "current_mood": "morning",
       "day_count": 1
-    }
+    },
+    "overworld": {
+      "flags": {}
+    },
+    "instances": {}
   },
   "player": {
     "inventory": {
@@ -170,6 +174,33 @@ or this:
 ```
 
 are migrated automatically into the new versioned format on load.
+
+## Overworld, Instances, and Legacy Compatibility Paths
+
+After the pivot to a single continuous overworld (`docs/overworld_architecture.md`),
+the save model is intentionally a **compatibility layer**, not a broad migration:
+
+- `world.overworld.flags` — the clean home for **new** overworld-wide flags. Read/write
+  via `LocalSaveSystem.get_overworld_flags` / `get_overworld_flag` / `set_overworld_flag`
+  / `ensure_overworld_state`. Empty by default.
+- `world.instances` — reserved for **future** instanced, scene-swapped spaces
+  (dungeons/caves/interiors). Read/write via `get_instance_state` / `set_instance_state`.
+  Empty by default; outdoor play never scene-swaps.
+- **Legacy compatibility paths (still in use, do not migrate):** the overworld keeps
+  reading/writing the original region-scoped sections so old saves keep working with no
+  wipe and no version bump:
+  - homestead farming → `world.regions.homestead.farming`
+  - villager intro/visit + notice-board flags → `world.regions.village_square.region_flags`
+  - shrine seen flag → `world.regions.forest_edge.region_flags`
+  - placed objects → `world.regions.homestead.placed_objects`
+
+  These remain the source of truth for that state for now. Migrating them into
+  `world.overworld` would be a fragile broad change for no functional gain, so it is
+  deliberately deferred.
+
+Both `world.overworld` and `world.instances` are added additively (default save +
+migration ensures they exist) with **no `save_version` bump**; helpers default safely
+when absent.
 
 ## World Mood / Global Flags
 

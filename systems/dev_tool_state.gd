@@ -8,6 +8,9 @@ class_name DevToolState
 ## performs no networking or persistence.
 
 const TOOL_INSPECT := "inspect"
+const TOOL_MARKER := "marker"
+const TOOL_BLOCKED_NOTE := "blocked_note"
+const TOOL_SPAWN_NOTE := "spawn_note"
 # Reserved future tool ids (not implemented yet):
 const TOOL_TERRAIN_PAINT := "terrain_paint"
 const TOOL_PLACE_LANDMARK := "place_landmark"
@@ -21,6 +24,19 @@ var active_tool: String = TOOL_INSPECT
 func toggle() -> bool:
 	dev_mode_enabled = not dev_mode_enabled
 	return dev_mode_enabled
+
+static func tool_display_name(tool_id: String) -> String:
+	match tool_id:
+		TOOL_INSPECT:
+			return "Inspect"
+		TOOL_MARKER:
+			return "Marker"
+		TOOL_BLOCKED_NOTE:
+			return "Blocked Note"
+		TOOL_SPAWN_NOTE:
+			return "Spawn Note"
+		_:
+			return tool_id.capitalize()
 
 ## Approximate area label from a world position, matching the overworld layout
 ## (homestead at the origin, village near x=1500, forest near x=3000).

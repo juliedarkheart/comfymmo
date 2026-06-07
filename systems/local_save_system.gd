@@ -56,6 +56,83 @@ func set_day_count(day_count: int) -> void:
 	save_data["world"] = world_data
 	save_save_data(save_data)
 
+# --- Continuous overworld state (forward-looking, additive) -------------------
+# The continuous overworld is the main outdoor world. Its own global flags live
+# under `world.overworld.flags`. For save compatibility the homestead farming and
+# the village/forest seen-flags still live in their legacy `world.regions.*` paths
+# (see the region helpers below and docs/save_data_model.md); these helpers are the
+# clean home for NEW overworld-wide state. No migration is forced.
+
+func get_overworld_state() -> Dictionary:
+	var save_data: Dictionary = load_save_data()
+	var world_data: Dictionary = _get_dictionary_section(save_data, "world")
+	return _get_dictionary_section(world_data, "overworld")
+
+func ensure_overworld_state() -> Dictionary:
+	var save_data: Dictionary = load_save_data()
+	var world_data: Dictionary = _get_dictionary_section(save_data, "world")
+	var overworld_data: Dictionary = _get_dictionary_section(world_data, "overworld")
+	if not overworld_data.has("flags"):
+		overworld_data["flags"] = {}
+	world_data["overworld"] = overworld_data
+	save_data["world"] = world_data
+	save_save_data(save_data)
+	return overworld_data
+
+func get_overworld_flags() -> Dictionary:
+	var flags: Variant = get_overworld_state().get("flags", {})
+	if typeof(flags) != TYPE_DICTIONARY:
+		return {}
+	return flags as Dictionary
+
+func get_overworld_flag(key: String, default_value: Variant = null) -> Variant:
+	if key.is_empty():
+		return default_value
+	return get_overworld_flags().get(key, default_value)
+
+func set_overworld_flag(key: String, value: Variant) -> void:
+	if key.is_empty():
+		return
+
+	var save_data: Dictionary = load_save_data()
+	var world_data: Dictionary = _get_dictionary_section(save_data, "world")
+	var overworld_data: Dictionary = _get_dictionary_section(world_data, "overworld")
+	var flags: Dictionary = {}
+	var raw_flags: Variant = overworld_data.get("flags", {})
+	if typeof(raw_flags) == TYPE_DICTIONARY:
+		flags = raw_flags as Dictionary
+	flags[key] = value
+	overworld_data["flags"] = flags
+	world_data["overworld"] = overworld_data
+	save_data["world"] = world_data
+	save_save_data(save_data)
+
+# --- Future instanced scenes (dungeons / caves / interiors) -------------------
+# Reserved for when WorldRegionManager loads non-outdoor instances. Outdoor play is
+# one continuous overworld and never scene-swaps, so this stays empty for now.
+
+func get_instance_state(instance_id: String) -> Dictionary:
+	if instance_id.is_empty():
+		return {}
+	var save_data: Dictionary = load_save_data()
+	var world_data: Dictionary = _get_dictionary_section(save_data, "world")
+	var instances_data: Dictionary = _get_dictionary_section(world_data, "instances")
+	var entry: Variant = instances_data.get(instance_id, {})
+	if typeof(entry) != TYPE_DICTIONARY:
+		return {}
+	return entry as Dictionary
+
+func set_instance_state(instance_id: String, instance_state: Dictionary) -> void:
+	if instance_id.is_empty():
+		return
+	var save_data: Dictionary = load_save_data()
+	var world_data: Dictionary = _get_dictionary_section(save_data, "world")
+	var instances_data: Dictionary = _get_dictionary_section(world_data, "instances")
+	instances_data[instance_id] = instance_state
+	world_data["instances"] = instances_data
+	save_data["world"] = world_data
+	save_save_data(save_data)
+
 func load_save_data() -> Dictionary:
 	if not FileAccess.file_exists(HOMESTEAD_SAVE_PATH):
 		return _create_default_save_data()
@@ -235,6 +312,12 @@ func _migrate_save_data(save_data: Dictionary) -> Dictionary:
 	migrated_data["world"] = world_data
 	migrated_data["world"]["current_region_id"] = current_region_id
 	migrated_data["world"]["regions"] = normalized_regions_data
+	# Ensure the forward-looking overworld/instances sections exist on migrated saves
+	# (additive, preserves any existing values, no version bump).
+	if not migrated_data["world"].has("overworld"):
+		migrated_data["world"]["overworld"] = {"flags": {}}
+	if not migrated_data["world"].has("instances"):
+		migrated_data["world"]["instances"] = {}
 	migrated_data["player"] = player_data
 	migrated_data["tasks"] = tasks_data
 	migrated_data["save_version"] = CURRENT_SAVE_VERSION
@@ -260,6 +343,16 @@ func _create_default_save_data() -> Dictionary:
 				"current_mood": DEFAULT_MOOD,
 				"day_count": DEFAULT_DAY_COUNT,
 			},
+			# Main continuous outdoor world's own global flags. Note: homestead farming
+			# and village/forest seen-flags still live under world.regions.* for save
+			# compatibility (see docs/save_data_model.md). This is the clean home for
+			# new overworld-wide flags.
+			"overworld": {
+				"flags": {},
+			},
+			# Reserved for future instanced, scene-swapped spaces (dungeons, caves,
+			# interiors). Outdoor traversal never scene-swaps.
+			"instances": {},
 		},
 		"player": {
 			"inventory": {

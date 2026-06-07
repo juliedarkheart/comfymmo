@@ -6,6 +6,13 @@ class_name OverworldController
 ## comfort, save) unchanged, then adds the village and forest content — villagers,
 ## notice board, shrine, and their ambient creatures — into the same single scene.
 ## No outdoor scene swapping happens; this is one continuous world.
+##
+## INHERITANCE NOTE (transitional): `extends HomesteadController` was the low-risk
+## way to reuse the proven gameplay stack during the pivot away from paged regions.
+## It is stable and intentionally kept for now. The eventual cleaner shape is a
+## shared `OutdoorAreaController` base (or component systems) that both the overworld
+## and any future authored area build on; do NOT attempt that refactor casually —
+## it must preserve every system here. See docs/overworld_architecture.md.
 
 const MARIBEL_SCENE := preload("res://scenes/villagers/maribel_tock.tscn")
 const BRAM_SCENE := preload("res://scenes/villagers/bram_nettle.tscn")
@@ -32,10 +39,18 @@ func _setup_dev_overlay(player: AvatarController) -> void:
 	var camera: AvatarCamera = null
 	if player != null:
 		camera = player.get_node_or_null("Camera2D") as AvatarCamera
+
+	# A world-space layer (origin-aligned, drawn above props) that holds temporary
+	# dev markers. It carries no collision and is never saved.
+	var marker_layer: Node2D = Node2D.new()
+	marker_layer.name = "DevMarkerLayer"
+	marker_layer.z_index = 200
+	map.add_child(marker_layer)
+
 	var editor: OverworldEditorSystem = OverworldEditorSystem.new()
 	editor.name = "OverworldEditorSystem"
 	add_child(editor)
-	editor.setup(player, camera)
+	editor.setup(player, camera, marker_layer)
 
 func _find_player() -> AvatarController:
 	for child in gameplay_layer.get_children():

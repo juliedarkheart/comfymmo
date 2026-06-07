@@ -1,6 +1,19 @@
 extends Node
 class_name WorldRegionManager
 
+## Boot + future instance loader. Its ONLY current job is to load the single
+## continuous overworld at startup (`_load_starting_region` -> "overworld").
+##
+## IMPORTANT: outdoor traversal is now continuous walking in ONE scene. It must NEVER
+## scene-swap. Do not re-add outdoor Area2D transitions or per-area region swapping —
+## that paged model was deliberately retired (see docs/overworld_architecture.md).
+##
+## The deferred-swap + cooldown + fade machinery below is intentionally kept for
+## FUTURE non-outdoor instances only: dungeons, caves, interiors, and special towns.
+## Those will request `transition_to_region(<instance_id>)`; returning loads the
+## overworld again. The legacy paged region scenes remain registered solely as
+## fallbacks / interior templates and are not used for outdoor play.
+
 const OVERWORLD_SCENE := preload("res://scenes/world/overworld.tscn")
 # Legacy paged outdoor regions, kept as fallbacks / future interior templates. They
 # are no longer the outdoor world — the continuous overworld replaces outdoor paging.
