@@ -669,13 +669,13 @@ func _register_interactable_for_object(record_id: String, object_id: String, pla
 	if interactable_system == null:
 		return
 
-	if object_id != "mailbox":
+	if object_id != ContentIds.PLACEABLE_MAILBOX:
 		return
 
 	interactable_system.register_interactable(
 		record_id,
 		placed_object,
-		"mailbox",
+		ContentIds.INTERACTION_MAILBOX,
 		"Press F to check mailbox"
 	)
 
@@ -683,7 +683,7 @@ func _unregister_interactable_for_object(record_id: String, object_id: String) -
 	if interactable_system == null:
 		return
 
-	if object_id != "mailbox":
+	if object_id != ContentIds.PLACEABLE_MAILBOX:
 		return
 
 	interactable_system.unregister_interactable(record_id)

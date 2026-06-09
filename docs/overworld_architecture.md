@@ -128,9 +128,11 @@ paths resolve).
 
 - **Do** add new outdoor content inside `overworld.tscn` / the overworld controller.
 - **Do** use `ContentIds` for any id (items, crops, areas, flags, tasks, interaction
-  types, …) instead of inline string literals; the controllers' id constants and the
-  interaction-type matches already derive from it. Runtime-generated interactable ids
-  (e.g. `ow_maribel`, `homestead_rest`) have no stable id and stay local.
+  types, actions, placeables, …) instead of inline string literals; the controllers'
+  id constants, interaction-type matches, and action returns already derive from it.
+  Note the two distinct id concepts: `INTERACTION_*` (what something *is*) vs
+  `ACTION_*` (what the player can *do* with it). Runtime-generated interactable
+  instance ids (e.g. `ow_maribel`, `homestead_rest`) have no stable id and stay local.
 - **Do** use `ContentRegistry` for display names / metadata, but not as a gameplay
   authority (save/placement/farming/tasks still own live state).
 - **Do** put new overworld-wide flags in `world.overworld.flags`

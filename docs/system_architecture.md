@@ -27,24 +27,32 @@ no save output changed):
   *names* are kept, since other code references them): `HomesteadController`'s region/
   item/crop/farm-plot ids and `OverworldController`'s region ids + villager/notice/
   shrine region-flag ids.
-- **Interaction type ids are centralized** through `ContentIds.INTERACTION_*`:
-  `InteractableSystem`'s `get_available_actions` / `_get_prompt_text` matches and its
-  `register_interactable` default, plus the controllers' dispatch matches and
-  `register_interactable` type args. Match patterns use the class constants directly
-  (valid GDScript constant patterns); values are unchanged.
-- `DevToolState.area_label` (display-only) resolves an area via `ContentIds` and gets
-  its label from `ContentRegistry` — the displayed strings are unchanged.
+Two separate id concepts:
+
+- **Interaction type ids** (`ContentIds.INTERACTION_*`) identify what something *is*
+  (mailbox / farm plot / villager / …). Centralized across `InteractableSystem`'s
+  `get_available_actions` / `_get_prompt_text` matches and its `register_interactable`
+  default, the controllers' dispatch matches and `register_interactable` type args,
+  `PlaceableMailbox.get_interaction_type`, and `BuildingPlacementSystem`'s mailbox
+  registration. Match patterns use the class constants directly (valid GDScript
+  constant patterns).
+- **Action ids** (`ContentIds.ACTION_*`) identify what the player can *do*
+  (`check_mail`, `tend_plot`, `read_notice`, `travel`, `review_tasks`, `observe`,
+  `talk`, `rest`, `inspect`) — the values returned by
+  `InteractableSystem.get_available_actions`, now adopted there.
+
+The mailbox **placeable** object id (`ContentIds.PLACEABLE_MAILBOX`) is adopted in
+`BuildingPlacementSystem`'s special-case checks; `DevToolState.area_label` resolves an
+area via `ContentIds` and labels it via `ContentRegistry` (display unchanged).
 
 `ContentRegistry` is safe for **display/metadata** only; it is **not** a gameplay
 authority yet (save loading, placement scene loading, the farming state machine, and
-task mutation still own their live state). A few literals intentionally remain:
-runtime-generated interactable ids (`ow_maribel`, `homestead_rest`, …) that have no
-stable id; the local `_villager_data` dict key `"villager"` (a data key, not an
-interaction type); the mailbox *placeable* object id inside `placeable_mailbox.gd` /
-`building_placement_system.gd` (a save id, not an interaction type, and outside this
-pass's scope); and the legacy region controllers (not loaded for outdoor play).
-`tools/validate_project.gd` asserts the adopted constants and every
-`ContentIds.INTERACTION_*` still equal their original strings.
+task mutation still own their live state). The literals that intentionally remain are
+runtime-generated interactable instance ids (`ow_maribel`, `homestead_rest`, …) that
+have no stable id, the local `_villager_data` dict key `"villager"` (a data key), and
+the legacy region controllers (not loaded for outdoor play). `tools/
+validate_project.gd` asserts every adopted constant — interaction, action, item,
+placeable, area, flag, and task — still equals its original string.
 
 ## Developer & Admin Scaffolding (local-only)
 

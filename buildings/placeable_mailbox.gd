@@ -7,7 +7,7 @@ class_name PlaceableMailbox
 var _has_new_mail: bool = false
 
 func get_interaction_type() -> String:
-	return "mailbox"
+	return ContentIds.INTERACTION_MAILBOX
 
 func set_has_new_mail(is_active: bool) -> void:
 	_has_new_mail = is_active

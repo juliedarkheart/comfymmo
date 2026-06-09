@@ -116,6 +116,16 @@ func _initialize() -> void:
 		[ContentIds.INTERACTION_REGION_TRANSITION, "region_transition"],
 		[ContentIds.INTERACTION_TASK_BOARD, "task_board"],
 		[ContentIds.INTERACTION_GENERIC, "generic"],
+		# Action ids (what the player can do; values from get_available_actions).
+		[ContentIds.ACTION_CHECK_MAIL, "check_mail"],
+		[ContentIds.ACTION_TEND_PLOT, "tend_plot"],
+		[ContentIds.ACTION_READ_NOTICE, "read_notice"],
+		[ContentIds.ACTION_TRAVEL, "travel"],
+		[ContentIds.ACTION_REVIEW_TASKS, "review_tasks"],
+		[ContentIds.ACTION_OBSERVE, "observe"],
+		[ContentIds.ACTION_TALK, "talk"],
+		[ContentIds.ACTION_REST, "rest"],
+		[ContentIds.ACTION_INSPECT, "inspect"],
 	]
 	for pair in id_pairs:
 		if String(pair[0]) != String(pair[1]):
@@ -130,6 +140,8 @@ func _initialize() -> void:
 		ContentIds.INTERACTION_MAILBOX, ContentIds.INTERACTION_FARM_PLOT, ContentIds.INTERACTION_VILLAGER,
 		ContentIds.INTERACTION_AMBIENT_CREATURE, ContentIds.INTERACTION_NOTICE_BOARD,
 		ContentIds.INTERACTION_SHRINE_MARKER, ContentIds.INTERACTION_REST, ContentIds.INTERACTION_GENERIC,
+		ContentIds.ACTION_CHECK_MAIL, ContentIds.ACTION_TEND_PLOT, ContentIds.ACTION_OBSERVE,
+		ContentIds.ACTION_TALK, ContentIds.ACTION_REST, ContentIds.ACTION_INSPECT,
 	]:
 		if String(critical_id).is_empty():
 			push_error("Critical content id is empty")

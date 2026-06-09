@@ -56,6 +56,19 @@ const INTERACTION_REGION_TRANSITION := "region_transition"
 const INTERACTION_TASK_BOARD := "task_board"
 const INTERACTION_GENERIC := "generic"
 
+# --- Action ids (what the player can DO with an interactable; the values returned
+# by InteractableSystem.get_available_actions). These are a separate concept from
+# INTERACTION_* (which identifies what something IS). Exact existing strings only. --
+const ACTION_CHECK_MAIL := "check_mail"
+const ACTION_TEND_PLOT := "tend_plot"
+const ACTION_READ_NOTICE := "read_notice"
+const ACTION_TRAVEL := "travel"
+const ACTION_REVIEW_TASKS := "review_tasks"
+const ACTION_OBSERVE := "observe"
+const ACTION_TALK := "talk"
+const ACTION_REST := "rest"
+const ACTION_INSPECT := "inspect"
+
 # --- Areas / region ids (world.regions.* keys; outdoor areas of the overworld) --
 const AREA_HOMESTEAD := "homestead"
 const AREA_VILLAGE_SQUARE := "village_square"

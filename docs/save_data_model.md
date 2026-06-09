@@ -192,6 +192,12 @@ save strings have a single source of truth. `tools/validate_project.gd` asserts 
 `ContentIds` and these adopted controller constants still equal their save strings.
 New content should add ids to `ContentIds` rather than inventing inline literals.
 
+Note: **placeable object ids** (e.g. `mailbox`, written into
+`world.regions.*.placed_objects[].object_id`) are save ids and are centralized in
+`ContentIds.PLACEABLE_*`. **Interaction type ids** (`INTERACTION_*`) and **action ids**
+(`ACTION_*`) are runtime concepts, not save keys — they are centralized for
+consistency but are not part of the save contract.
+
 ## Overworld, Instances, and Legacy Compatibility Paths
 
 After the pivot to a single continuous overworld (`docs/overworld_architecture.md`),

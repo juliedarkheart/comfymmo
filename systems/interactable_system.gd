@@ -90,23 +90,23 @@ func get_available_actions(interactable_id: String) -> Array[String]:
 	var interaction_type: String = get_interaction_type(interactable_id)
 	match interaction_type:
 		ContentIds.INTERACTION_MAILBOX:
-			return ["check_mail"]
+			return [ContentIds.ACTION_CHECK_MAIL]
 		ContentIds.INTERACTION_FARM_PLOT:
-			return ["tend_plot"]
+			return [ContentIds.ACTION_TEND_PLOT]
 		ContentIds.INTERACTION_NOTICE_BOARD:
-			return ["read_notice"]
+			return [ContentIds.ACTION_READ_NOTICE]
 		ContentIds.INTERACTION_REGION_TRANSITION:
-			return ["travel"]
+			return [ContentIds.ACTION_TRAVEL]
 		ContentIds.INTERACTION_TASK_BOARD:
-			return ["review_tasks"]
+			return [ContentIds.ACTION_REVIEW_TASKS]
 		ContentIds.INTERACTION_AMBIENT_CREATURE:
-			return ["observe"]
+			return [ContentIds.ACTION_OBSERVE]
 		ContentIds.INTERACTION_VILLAGER:
-			return ["talk"]
+			return [ContentIds.ACTION_TALK]
 		ContentIds.INTERACTION_REST:
-			return ["rest"]
+			return [ContentIds.ACTION_REST]
 		_:
-			return ["inspect"]
+			return [ContentIds.ACTION_INSPECT]
 
 func _refresh_nearest_interactable() -> void:
 	var nearest_interactable_id: String = ""
