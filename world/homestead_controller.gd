@@ -26,16 +26,18 @@ var _rest_panel_open: bool = false
 var _rest_phase: String = ""
 var _rest_marker: Node2D = null
 var _ambient_creatures: Dictionary = {}
-const REGION_ID: String = "homestead"
+# Constant names kept (referenced across this controller); values now come from
+# ContentIds so the stable ids live in one place. Strings are unchanged.
+const REGION_ID: String = ContentIds.AREA_HOMESTEAD
 const REST_INTERACTABLE_ID: String = "homestead_rest"
-const CARROT_ITEM_ID: String = "carrot"
-const TURNIP_ITEM_ID: String = "turnip"
-const BERRY_ITEM_ID: String = "berry"
+const CARROT_ITEM_ID: String = ContentIds.ITEM_CARROT
+const TURNIP_ITEM_ID: String = ContentIds.ITEM_TURNIP
+const BERRY_ITEM_ID: String = ContentIds.ITEM_BERRY
 const CARROT_COMFORT_BONUS: float = 5.0
-const LEGACY_FARM_PLOT_ID: String = "farm_plot_main"
-const FARM_PLOT_CARROT_ID: String = "farm_plot_carrot"
-const FARM_PLOT_TURNIP_ID: String = "farm_plot_turnip"
-const FARM_PLOT_BERRY_ID: String = "farm_plot_berry"
+const LEGACY_FARM_PLOT_ID: String = ContentIds.FARM_PLOT_LEGACY_MAIN
+const FARM_PLOT_CARROT_ID: String = ContentIds.FARM_PLOT_CARROT
+const FARM_PLOT_TURNIP_ID: String = ContentIds.FARM_PLOT_TURNIP
+const FARM_PLOT_BERRY_ID: String = ContentIds.FARM_PLOT_BERRY
 
 var _farm_plots: Dictionary = {}
 
@@ -464,8 +466,7 @@ func _close_rest_panel() -> void:
 	building_placement_system.set_process_unhandled_input(true)
 
 func _apply_saved_day() -> void:
-	if hud.has_method("set_day"):
-		hud.call("set_day", save_system.get_day_count())
+	OutdoorControllerHelpers.apply_day(hud, save_system.get_day_count())
 
 func _can_cycle_mood() -> bool:
 	# Mood cycling is an Explore-mode action: suppress it while a modal panel is
@@ -479,14 +480,10 @@ func _can_cycle_mood() -> bool:
 	)
 
 func _apply_saved_mood() -> void:
-	if hud.has_method("set_mood"):
-		hud.call("set_mood", save_system.get_current_mood())
+	OutdoorControllerHelpers.apply_mood(hud, save_system.get_current_mood())
 
 func _cycle_mood() -> void:
-	var next_mood: String = WorldMood.next_mood(save_system.get_current_mood())
-	save_system.set_current_mood(next_mood)
-	if hud.has_method("set_mood"):
-		hud.call("set_mood", next_mood)
+	OutdoorControllerHelpers.cycle_mood(save_system, hud)
 
 func _get_inventory_counts() -> Dictionary:
 	return {

@@ -1,9 +1,11 @@
 extends Node
 class_name TaskIntegrationSystem
 
-const WATER_GARDEN_TASK_ID: String = "mock_water_garden"
-const LEGACY_WATER_GARDEN_TASK_ID: String = "mock_garden"
-const HARVEST_CARROT_TASK_ID: String = "mock_harvest_carrot"
+# Public ids kept (controllers reference TaskIntegrationSystem.<NAME>); values now
+# come from ContentIds so the strings live in one place. Unchanged at runtime.
+const WATER_GARDEN_TASK_ID: String = ContentIds.TASK_WATER_GARDEN
+const LEGACY_WATER_GARDEN_TASK_ID: String = ContentIds.TASK_LEGACY_WATER_GARDEN
+const HARVEST_CARROT_TASK_ID: String = ContentIds.TASK_HARVEST_CARROT
 
 var _mock_tasks: Array[Dictionary] = []
 var _mailbox_message_state: Dictionary = {}
@@ -108,7 +110,7 @@ func mark_message_completed(message_id: String) -> bool:
 func _seed_default_tasks() -> void:
 	_mock_tasks = [
 		{
-			"id": "mock_groceries",
+			"id": ContentIds.TASK_GROCERIES,
 			"title": "Pick up groceries",
 			"body": "Market board reminder",
 			"source": "mock",
@@ -129,14 +131,14 @@ func _seed_default_tasks() -> void:
 			"status": "pending",
 		},
 		{
-			"id": "mock_cookout",
+			"id": ContentIds.TASK_COOKOUT,
 			"title": "Community cookout Saturday",
 			"body": "Bring something cozy and shareable",
 			"source": "mock",
 			"status": "upcoming",
 		},
 		{
-			"id": "mock_delivery",
+			"id": ContentIds.TASK_DELIVERY,
 			"title": "Creature feed delivery arrived",
 			"body": "Dani sent you blueberries",
 			"source": "mock",

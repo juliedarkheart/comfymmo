@@ -3,6 +3,41 @@
 Hearthvale now has a lightweight foundation for its next major gameplay layers
 without changing the current prototype loop.
 
+## Content Ids & Registries
+
+`systems/content/` centralizes the previously-scattered content strings:
+
+- `content_ids.gd` (`ContentIds`) — the single source of truth for stable string ids:
+  items, crops, farm plots, placeables, creatures, villagers, interaction types,
+  areas/region ids, region flags, task/message ids, and future instance categories.
+- `content_registry.gd` (`ContentRegistry`) — lightweight, read-only **data**
+  definitions keyed by those ids (display name, category, scene path, harvest item,
+  etc.). It is intentionally **not** wired into the runtime systems yet; the live
+  state still lives in `ObjectRegistry` / `FarmingSystem` / `TaskIntegrationSystem`.
+
+These ids are part of **save compatibility** — see `docs/save_data_model.md`. They
+must never be renamed casually; display names may change, ids must not. They will
+also matter for multiplayer/backend/moderation, which will key off the same ids.
+
+Adoption is incremental and value-preserving (every adopted string is identical, so
+no save output changed):
+
+- `ObjectRegistry` (placeable/item ids) and `TaskIntegrationSystem` (task ids).
+- The controllers now point their **constant values** at `ContentIds` (the constant
+  *names* are kept, since other code references them): `HomesteadController`'s region/
+  item/crop/farm-plot ids and `OverworldController`'s region ids + villager/notice/
+  shrine region-flag ids.
+- `DevToolState.area_label` (display-only) resolves an area via `ContentIds` and gets
+  its label from `ContentRegistry` — the displayed strings are unchanged.
+
+`ContentRegistry` is safe for **display/metadata** only; it is **not** a gameplay
+authority yet (save loading, placement scene loading, the farming state machine, and
+task mutation still own their live state). Some inline literals (e.g. interaction-type
+strings inside controller method bodies, runtime interactable ids like
+`homestead_rest`) intentionally remain for now to keep the pass small. `tools/
+validate_project.gd` asserts the adopted constants still equal their original strings
+and that `ContentRegistry` returns the expected display names.
+
 ## Developer & Admin Scaffolding (local-only)
 
 Local-only infrastructure prepared for future tooling. None of it adds networking,
@@ -38,7 +73,11 @@ accounts, servers, or persistence, and gameplay is unaffected when it is idle:
 > instances (dungeons/interiors). The authoritative description of the outdoor
 > architecture, system boundaries (global vs overworld-local vs homestead-area-only),
 > and save model is **`docs/overworld_architecture.md`** — read it before changing
-> outdoor structure.
+> outdoor structure. Shared, behaviour-identical helpers (`world/iso_map_helpers.gd`
+> for grid math, `world/outdoor_controller_helpers.gd` for HUD/mood/day glue) are
+> extracted and delegated to by the load-bearing classes, so the homestead↔overworld
+> inheritance is now backed by reusable pieces rather than being the only home for
+> that logic.
 
 The notes below describe the original paged-region layer, which now applies only to
 the legacy/fallback region scenes and to future instanced scenes:

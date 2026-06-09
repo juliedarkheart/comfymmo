@@ -42,9 +42,30 @@ Area2D paging.
 
 This was the low-risk way to reuse the proven homestead gameplay stack during the
 pivot. It is **stable and intentionally kept**. The eventual cleaner shape is a shared
-`OutdoorAreaController` base (or component systems) plus an `IsoMapHelpers` for grid
-math/prop drawers — but that refactor must preserve every system and is **not** to be
-attempted casually. Treat the inheritance as a documented seam, not debt to rush.
+`OutdoorAreaController` base (or component systems) plus shared map helpers — but that
+refactor must preserve every system and is **not** to be attempted casually. Treat the
+inheritance as a documented seam, not debt to rush.
+
+### Shared helpers (Foundation Chunk 2)
+
+To start decoupling without unwinding the inheritance, the reusable, behaviour-
+identical pieces are extracted into stateless static helpers that the load-bearing
+classes now delegate to (so the logic is no longer "owned" by the homestead and a
+future non-homestead base can reuse it):
+
+- `world/iso_map_helpers.gd` (`IsoMapHelpers`) — pure iso grid math:
+  `grid_to_world`, `world_to_grid`, `tile_diamond`. `HomesteadMap` (and thus
+  `OverworldMap` by inheritance) delegate to it; the math is unchanged, so placement,
+  farming, and collision behave exactly as before.
+- `world/outdoor_controller_helpers.gd` (`OutdoorControllerHelpers`) — the mechanical
+  HUD/mood/day glue: `call_if_has`, `apply_mood`, `apply_day`, `cycle_mood`.
+  `HomesteadController` delegates its mood/day HUD application to it.
+
+These are deliberately small: only obviously-pure helpers were moved. The entangled,
+stateful wiring (observe/rest panels, interactable registration, farming/placement
+setup) stays in the controllers for now — extracting it is the next milestone and must
+be test-guarded. The legacy region maps still keep their own inline grid copies (they
+are not loaded for outdoor play); they may delegate to `IsoMapHelpers` later.
 
 ## System boundaries
 
@@ -106,6 +127,10 @@ paths resolve).
 ## Do / don't for future agents
 
 - **Do** add new outdoor content inside `overworld.tscn` / the overworld controller.
+- **Do** use `ContentIds` for any id (items, crops, areas, flags, tasks, …) instead of
+  inline string literals; the controllers' id constants already derive from it.
+- **Do** use `ContentRegistry` for display names / metadata, but not as a gameplay
+  authority (save/placement/farming/tasks still own live state).
 - **Do** put new overworld-wide flags in `world.overworld.flags`
   (`LocalSaveSystem.set_overworld_flag`).
 - **Don't** re-add outdoor Area2D transitions or per-area scene swapping.

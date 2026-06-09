@@ -175,6 +175,23 @@ or this:
 
 are migrated automatically into the new versioned format on load.
 
+## Stable Content Ids
+
+The string ids written into saves and used as dictionary keys are centralized in
+`systems/content/content_ids.gd` (`ContentIds`) — items (`carrot`/`turnip`/`berry`/…),
+placeables (`crate`/`mailbox`/`stool`/`lantern`/`planter`), farm plots
+(`farm_plot_carrot`/…), region/area ids (`homestead`/`village_square`/`forest_edge`),
+region flags (`maribel_intro_seen`/…), and task ids (`mock_water_garden`/…).
+
+**These ids are part of the save contract. Never rename them casually** — a rename
+silently breaks old saves. Display names (e.g. "Carrot") may change freely; the ids
+behind them must not. The controllers' id constants (e.g.
+`HomesteadController.CARROT_ITEM_ID`, `OverworldController.VILLAGE_REGION_ID`, the
+farm-plot and region-flag ids) now derive their values from `ContentIds`, so the
+save strings have a single source of truth. `tools/validate_project.gd` asserts both
+`ContentIds` and these adopted controller constants still equal their save strings.
+New content should add ids to `ContentIds` rather than inventing inline literals.
+
 ## Overworld, Instances, and Legacy Compatibility Paths
 
 After the pivot to a single continuous overworld (`docs/overworld_architecture.md`),

@@ -16,14 +16,15 @@ class_name OverworldController
 
 const MARIBEL_SCENE := preload("res://scenes/villagers/maribel_tock.tscn")
 const BRAM_SCENE := preload("res://scenes/villagers/bram_nettle.tscn")
-const VILLAGE_REGION_ID := "village_square"
-const FOREST_REGION_ID := "forest_edge"
-const MARIBEL_INTRO_FLAG := "maribel_intro_seen"
-const MARIBEL_COUNT_FLAG := "maribel_visit_count"
-const BRAM_INTRO_FLAG := "bram_intro_seen"
-const BRAM_COUNT_FLAG := "bram_visit_count"
-const NOTICE_SEEN_FLAG := "notice_board_seen"
-const SHRINE_SEEN_FLAG := "adventure_marker_seen"
+# Constant names kept; values now come from ContentIds (stable, save-compatible).
+const VILLAGE_REGION_ID := ContentIds.AREA_VILLAGE_SQUARE
+const FOREST_REGION_ID := ContentIds.AREA_FOREST_EDGE
+const MARIBEL_INTRO_FLAG := ContentIds.FLAG_MARIBEL_INTRO_SEEN
+const MARIBEL_COUNT_FLAG := ContentIds.FLAG_MARIBEL_VISIT_COUNT
+const BRAM_INTRO_FLAG := ContentIds.FLAG_BRAM_INTRO_SEEN
+const BRAM_COUNT_FLAG := ContentIds.FLAG_BRAM_VISIT_COUNT
+const NOTICE_SEEN_FLAG := ContentIds.FLAG_NOTICE_BOARD_SEEN
+const SHRINE_SEEN_FLAG := ContentIds.FLAG_ADVENTURE_MARKER_SEEN
 
 var _villager_data: Dictionary = {}
 

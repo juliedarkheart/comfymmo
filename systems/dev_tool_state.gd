@@ -38,14 +38,20 @@ static func tool_display_name(tool_id: String) -> String:
 		_:
 			return tool_id.capitalize()
 
-## Approximate area label from a world position, matching the overworld layout
-## (homestead at the origin, village near x=1500, forest near x=3000).
-static func area_label(world_pos: Vector2) -> String:
+## Approximate area id from a world position, matching the overworld layout
+## (homestead at the origin, village near x=1500, forest near x=3000). Returns a
+## stable ContentIds area id.
+static func area_id_at(world_pos: Vector2) -> String:
 	var x: float = world_pos.x
 	if x >= -760.0 and x < 760.0:
-		return "Homestead"
+		return ContentIds.AREA_HOMESTEAD
 	if x >= 1150.0 and x < 2050.0:
-		return "Village Square"
+		return ContentIds.AREA_VILLAGE_SQUARE
 	if x >= 2550.0 and x < 3760.0:
-		return "Forest Edge"
-	return "Wilderness/Unknown"
+		return ContentIds.AREA_FOREST_EDGE
+	return ContentIds.AREA_WILDERNESS
+
+## Human-readable area label for the dev overlay (display only). The display names
+## come from ContentRegistry; the returned strings are unchanged from before.
+static func area_label(world_pos: Vector2) -> String:
+	return ContentRegistry.area_display_name(area_id_at(world_pos))

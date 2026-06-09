@@ -44,34 +44,35 @@ func _register_defaults() -> void:
 	if not _placeable_ids.is_empty():
 		return
 
-	_register_placeable("crate", "Wooden Crate", Vector2i.ONE, PLACEABLE_CRATE_SCENE)
-	_register_placeable("mailbox", "Cozy Mailbox", Vector2i.ONE, PLACEABLE_MAILBOX_SCENE)
-	_register_placeable("stool", "Small Stool", Vector2i.ONE, PLACEABLE_STOOL_SCENE)
-	_register_placeable("lantern", "Porch Lantern", Vector2i.ONE, PLACEABLE_LANTERN_SCENE)
-	_register_placeable("planter", "Cozy Planter", Vector2i.ONE, PLACEABLE_PLANTER_SCENE)
+	# Ids come from ContentIds (stable, save-compatible). Values are unchanged.
+	_register_placeable(ContentIds.PLACEABLE_CRATE, "Wooden Crate", Vector2i.ONE, PLACEABLE_CRATE_SCENE)
+	_register_placeable(ContentIds.PLACEABLE_MAILBOX, "Cozy Mailbox", Vector2i.ONE, PLACEABLE_MAILBOX_SCENE)
+	_register_placeable(ContentIds.PLACEABLE_STOOL, "Small Stool", Vector2i.ONE, PLACEABLE_STOOL_SCENE)
+	_register_placeable(ContentIds.PLACEABLE_LANTERN, "Porch Lantern", Vector2i.ONE, PLACEABLE_LANTERN_SCENE)
+	_register_placeable(ContentIds.PLACEABLE_PLANTER, "Cozy Planter", Vector2i.ONE, PLACEABLE_PLANTER_SCENE)
 
-	_item_definitions["placeholder_seed_packet"] = {
-		"id": "placeholder_seed_packet",
+	_item_definitions[ContentIds.ITEM_PLACEHOLDER_SEED_PACKET] = {
+		"id": ContentIds.ITEM_PLACEHOLDER_SEED_PACKET,
 		"display_name": "Placeholder Seed Packet",
 		"tags": ["placeholder", "farming"],
 	}
-	_item_definitions["mail_token"] = {
-		"id": "mail_token",
+	_item_definitions[ContentIds.ITEM_MAIL_TOKEN] = {
+		"id": ContentIds.ITEM_MAIL_TOKEN,
 		"display_name": "Mail Token",
 		"tags": ["placeholder", "task"],
 	}
-	_item_definitions["carrot"] = {
-		"id": "carrot",
+	_item_definitions[ContentIds.ITEM_CARROT] = {
+		"id": ContentIds.ITEM_CARROT,
 		"display_name": "Carrot",
 		"tags": ["farming", "crop", "food"],
 	}
-	_item_definitions["turnip"] = {
-		"id": "turnip",
+	_item_definitions[ContentIds.ITEM_TURNIP] = {
+		"id": ContentIds.ITEM_TURNIP,
 		"display_name": "Turnip",
 		"tags": ["farming", "crop", "food"],
 	}
-	_item_definitions["berry"] = {
-		"id": "berry",
+	_item_definitions[ContentIds.ITEM_BERRY] = {
+		"id": ContentIds.ITEM_BERRY,
 		"display_name": "Berry",
 		"tags": ["farming", "crop", "food"],
 	}
