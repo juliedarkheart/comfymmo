@@ -27,16 +27,24 @@ no save output changed):
   *names* are kept, since other code references them): `HomesteadController`'s region/
   item/crop/farm-plot ids and `OverworldController`'s region ids + villager/notice/
   shrine region-flag ids.
+- **Interaction type ids are centralized** through `ContentIds.INTERACTION_*`:
+  `InteractableSystem`'s `get_available_actions` / `_get_prompt_text` matches and its
+  `register_interactable` default, plus the controllers' dispatch matches and
+  `register_interactable` type args. Match patterns use the class constants directly
+  (valid GDScript constant patterns); values are unchanged.
 - `DevToolState.area_label` (display-only) resolves an area via `ContentIds` and gets
   its label from `ContentRegistry` — the displayed strings are unchanged.
 
 `ContentRegistry` is safe for **display/metadata** only; it is **not** a gameplay
 authority yet (save loading, placement scene loading, the farming state machine, and
-task mutation still own their live state). Some inline literals (e.g. interaction-type
-strings inside controller method bodies, runtime interactable ids like
-`homestead_rest`) intentionally remain for now to keep the pass small. `tools/
-validate_project.gd` asserts the adopted constants still equal their original strings
-and that `ContentRegistry` returns the expected display names.
+task mutation still own their live state). A few literals intentionally remain:
+runtime-generated interactable ids (`ow_maribel`, `homestead_rest`, …) that have no
+stable id; the local `_villager_data` dict key `"villager"` (a data key, not an
+interaction type); the mailbox *placeable* object id inside `placeable_mailbox.gd` /
+`building_placement_system.gd` (a save id, not an interaction type, and outside this
+pass's scope); and the legacy region controllers (not loaded for outdoor play).
+`tools/validate_project.gd` asserts the adopted constants and every
+`ContentIds.INTERACTION_*` still equal their original strings.
 
 ## Developer & Admin Scaffolding (local-only)
 

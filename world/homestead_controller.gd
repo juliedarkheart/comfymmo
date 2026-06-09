@@ -157,13 +157,13 @@ func _on_interaction_requested(interactable_id: String, interaction_type: String
 		return
 
 	match interaction_type:
-		"mailbox":
+		ContentIds.INTERACTION_MAILBOX:
 			_open_mailbox()
-		"farm_plot":
+		ContentIds.INTERACTION_FARM_PLOT:
 			_handle_farm_plot_interaction(interactable_id)
-		"ambient_creature":
+		ContentIds.INTERACTION_AMBIENT_CREATURE:
 			_handle_creature_observe(interactable_id)
-		"rest":
+		ContentIds.INTERACTION_REST:
 			_open_rest_panel()
 		_:
 			pass
@@ -340,7 +340,7 @@ func _register_farm_plot_interactions() -> void:
 		interactable_system.register_interactable(
 			plot_id,
 			plot,
-			"farm_plot",
+			ContentIds.INTERACTION_FARM_PLOT,
 			farming_system.get_plot_prompt(plot_id)
 		)
 
@@ -350,7 +350,7 @@ func _spawn_ambient_creatures(player: AvatarController) -> void:
 	gameplay_layer.add_child(rabbit)
 	rabbit.configure_creature(player)
 	interactable_system.register_interactable(
-		"homestead_rabbit_0", rabbit, "ambient_creature", "Press F to observe"
+		"homestead_rabbit_0", rabbit, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe"
 	)
 	_ambient_creatures["homestead_rabbit_0"] = rabbit
 
@@ -359,7 +359,7 @@ func _spawn_ambient_creatures(player: AvatarController) -> void:
 	gameplay_layer.add_child(turtle)
 	turtle.configure_creature(player)
 	interactable_system.register_interactable(
-		"homestead_turtle_0", turtle, "ambient_creature", "Press F to observe"
+		"homestead_turtle_0", turtle, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe"
 	)
 	_ambient_creatures["homestead_turtle_0"] = turtle
 
@@ -415,7 +415,7 @@ func _setup_rest_marker() -> void:
 
 	_rest_marker = marker
 	interactable_system.register_interactable(
-		REST_INTERACTABLE_ID, marker, "rest", "Press F to rest"
+		REST_INTERACTABLE_ID, marker, ContentIds.INTERACTION_REST, "Press F to rest"
 	)
 
 func _open_rest_panel() -> void:

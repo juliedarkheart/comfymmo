@@ -37,7 +37,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		interaction_requested.emit(_nearest_interactable_id, interaction_type)
 		_mark_input_handled()
 
-func register_interactable(interactable_id: String, node: Node2D, interaction_type: String = "generic", prompt_text: String = "") -> void:
+func register_interactable(interactable_id: String, node: Node2D, interaction_type: String = ContentIds.INTERACTION_GENERIC, prompt_text: String = "") -> void:
 	_interactables[interactable_id] = {
 		"node": node,
 		"interaction_type": interaction_type,
@@ -89,21 +89,21 @@ func get_available_actions(interactable_id: String) -> Array[String]:
 
 	var interaction_type: String = get_interaction_type(interactable_id)
 	match interaction_type:
-		"mailbox":
+		ContentIds.INTERACTION_MAILBOX:
 			return ["check_mail"]
-		"farm_plot":
+		ContentIds.INTERACTION_FARM_PLOT:
 			return ["tend_plot"]
-		"notice_board":
+		ContentIds.INTERACTION_NOTICE_BOARD:
 			return ["read_notice"]
-		"region_transition":
+		ContentIds.INTERACTION_REGION_TRANSITION:
 			return ["travel"]
-		"task_board":
+		ContentIds.INTERACTION_TASK_BOARD:
 			return ["review_tasks"]
-		"ambient_creature":
+		ContentIds.INTERACTION_AMBIENT_CREATURE:
 			return ["observe"]
-		"villager":
+		ContentIds.INTERACTION_VILLAGER:
 			return ["talk"]
-		"rest":
+		ContentIds.INTERACTION_REST:
 			return ["rest"]
 		_:
 			return ["inspect"]
@@ -152,21 +152,21 @@ func _get_prompt_text(interactable_id: String) -> String:
 		return prompt_text
 
 	match String(interaction_data.get("interaction_type", "")):
-		"mailbox":
+		ContentIds.INTERACTION_MAILBOX:
 			return MAILBOX_PROMPT
-		"farm_plot":
+		ContentIds.INTERACTION_FARM_PLOT:
 			return "Press F to tend plot"
-		"notice_board":
+		ContentIds.INTERACTION_NOTICE_BOARD:
 			return "Press F to read notice board"
-		"region_transition":
+		ContentIds.INTERACTION_REGION_TRANSITION:
 			return "Press F to travel"
-		"task_board":
+		ContentIds.INTERACTION_TASK_BOARD:
 			return "Press F to review tasks"
-		"ambient_creature":
+		ContentIds.INTERACTION_AMBIENT_CREATURE:
 			return "Press F to observe"
-		"villager":
+		ContentIds.INTERACTION_VILLAGER:
 			return "Press F to talk"
-		"rest":
+		ContentIds.INTERACTION_REST:
 			return "Press F to rest"
 		_:
 			return "Press F to inspect"

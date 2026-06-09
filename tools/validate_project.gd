@@ -105,6 +105,17 @@ func _initialize() -> void:
 		[OverworldController.BRAM_INTRO_FLAG, "bram_intro_seen"],
 		[OverworldController.NOTICE_SEEN_FLAG, "notice_board_seen"],
 		[OverworldController.SHRINE_SEEN_FLAG, "adventure_marker_seen"],
+		# Interaction type ids (now centralized through ContentIds.INTERACTION_*).
+		[ContentIds.INTERACTION_MAILBOX, "mailbox"],
+		[ContentIds.INTERACTION_FARM_PLOT, "farm_plot"],
+		[ContentIds.INTERACTION_AMBIENT_CREATURE, "ambient_creature"],
+		[ContentIds.INTERACTION_VILLAGER, "villager"],
+		[ContentIds.INTERACTION_NOTICE_BOARD, "notice_board"],
+		[ContentIds.INTERACTION_SHRINE_MARKER, "shrine_marker"],
+		[ContentIds.INTERACTION_REST, "rest"],
+		[ContentIds.INTERACTION_REGION_TRANSITION, "region_transition"],
+		[ContentIds.INTERACTION_TASK_BOARD, "task_board"],
+		[ContentIds.INTERACTION_GENERIC, "generic"],
 	]
 	for pair in id_pairs:
 		if String(pair[0]) != String(pair[1]):
@@ -113,7 +124,13 @@ func _initialize() -> void:
 			return
 
 	# No critical id may be empty.
-	for critical_id in [ContentIds.ITEM_CARROT, ContentIds.PLACEABLE_MAILBOX, ContentIds.AREA_HOMESTEAD, ContentIds.AREA_VILLAGE_SQUARE, ContentIds.AREA_FOREST_EDGE]:
+	for critical_id in [
+		ContentIds.ITEM_CARROT, ContentIds.PLACEABLE_MAILBOX,
+		ContentIds.AREA_HOMESTEAD, ContentIds.AREA_VILLAGE_SQUARE, ContentIds.AREA_FOREST_EDGE,
+		ContentIds.INTERACTION_MAILBOX, ContentIds.INTERACTION_FARM_PLOT, ContentIds.INTERACTION_VILLAGER,
+		ContentIds.INTERACTION_AMBIENT_CREATURE, ContentIds.INTERACTION_NOTICE_BOARD,
+		ContentIds.INTERACTION_SHRINE_MARKER, ContentIds.INTERACTION_REST, ContentIds.INTERACTION_GENERIC,
+	]:
 		if String(critical_id).is_empty():
 			push_error("Critical content id is empty")
 			quit(1)
