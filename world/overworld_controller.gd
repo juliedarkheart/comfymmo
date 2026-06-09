@@ -37,9 +37,7 @@ func _ready() -> void:
 	_setup_dev_overlay(player)
 
 func _setup_dev_overlay(player: AvatarController) -> void:
-	var camera: AvatarCamera = null
-	if player != null:
-		camera = player.get_node_or_null("Camera2D") as AvatarCamera
+	var camera: AvatarCamera = get_camera(player)
 
 	# A world-space layer (origin-aligned, drawn above props) that holds temporary
 	# dev markers. It carries no collision and is never saved.
@@ -54,15 +52,13 @@ func _setup_dev_overlay(player: AvatarController) -> void:
 	editor.setup(player, camera, marker_layer)
 
 func _find_player() -> AvatarController:
-	for child in gameplay_layer.get_children():
-		if child is AvatarController:
-			return child as AvatarController
-	return null
+	# Player lookup is now a shared OutdoorAreaController helper (phase-1 seam).
+	return get_player_avatar(gameplay_layer)
 
 func _apply_overworld_camera(player: AvatarController) -> void:
 	if player == null:
 		return
-	var camera: AvatarCamera = player.get_node_or_null("Camera2D") as AvatarCamera
+	var camera: AvatarCamera = get_camera(player)
 	if camera != null:
 		camera.apply_region_view(map.get_camera_zoom(), map.get_camera_limits())
 

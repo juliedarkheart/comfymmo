@@ -7,6 +7,7 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://scenes/world/overworld.tscn",
 	"res://world/overworld_controller.gd",
 	"res://world/overworld_map.gd",
+	"res://world/outdoor_area_controller.gd",
 	"res://world/homestead_controller.gd",
 	"res://world/homestead_map.gd",
 	"res://world/terrain_shapes.gd",
@@ -161,6 +162,34 @@ func _initialize() -> void:
 			push_error("ContentRegistry display-name mismatch: got '%s', expected '%s'" % [pair[0], pair[1]])
 			quit(1)
 			return
+
+	# Phase-1 inheritance chain: HomesteadController -> OutdoorAreaController, and
+	# OverworldController -> HomesteadController -> OutdoorAreaController.
+	var homestead_controller: HomesteadController = HomesteadController.new()
+	var homestead_chain_ok: bool = homestead_controller is OutdoorAreaController
+	# Generic observe/message-panel lifecycle must live on the shared base.
+	var panel_api_ok: bool = (
+		homestead_controller.has_method("_open_observe_panel")
+		and homestead_controller.has_method("_close_observe_panel")
+		and homestead_controller.has_method("is_observe_panel_open")
+	)
+	homestead_controller.free()
+	if not homestead_chain_ok:
+		push_error("HomesteadController no longer extends OutdoorAreaController")
+		quit(1)
+		return
+	if not panel_api_ok:
+		push_error("Observe panel lifecycle missing from the outdoor controller chain")
+		quit(1)
+		return
+
+	var overworld_controller: OverworldController = OverworldController.new()
+	var overworld_chain_ok: bool = (overworld_controller is HomesteadController) and (overworld_controller is OutdoorAreaController)
+	overworld_controller.free()
+	if not overworld_chain_ok:
+		push_error("OverworldController inheritance chain regressed")
+		quit(1)
+		return
 
 	print("Project smoke test passed.")
 	quit(0)

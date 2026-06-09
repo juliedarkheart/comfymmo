@@ -37,8 +37,37 @@ Area2D paging.
 
 ## Inheritance (transitional, intentional)
 
-- `OverworldController extends HomesteadController`
-- `OverworldMap extends HomesteadMap`
+Controller chain (after Foundation Chunk 8, phase 2):
+`OverworldController` → `HomesteadController` → `OutdoorAreaController` → `Node2D`.
+Map chain: `OverworldMap` → `HomesteadMap`.
+
+- `world/outdoor_area_controller.gd` (`OutdoorAreaController`) is the shared base. It
+  holds only **generic, gameplay-free** wiring:
+  - lookups: `get_hud` / `get_save_system` / `get_interactable_system` /
+    `get_player_avatar` / `get_camera`, a safe HUD call wrapper (`call_hud`), and
+    `_mark_input_handled`.
+  - the **observe/message panel lifecycle**: the `_observe_panel_open` state,
+    `is_observe_panel_open()`, `_open_observe_panel(title, body[, footer])`, and
+    `_close_observe_panel()`. These show/hide the shared HUD message panel and toggle
+    interactions. Area-specific input suspension is delegated to two overridable
+    hooks — `_set_area_input_suspended(bool)` and `_area_interactions_enabled()` —
+    so the base stays gameplay-free.
+  It owns **no** gameplay. It `extends Node2D` (not `BaseRegionController`) on purpose:
+  the overworld must never be a swappable region, and adding region machinery here
+  would change `WorldRegionManager`'s boot wiring.
+- **Phase 1 (Chunk 7):** created the seam with the generic lookup helpers.
+- **Phase 2 (this chunk):** moved the generic observe/message panel lifecycle to the
+  base. `HomesteadController` now only provides the placement-aware hooks (it suspends
+  building-placement input and keeps interactions disabled while decorating); the
+  message *text* and the decision of *when* to open stay in the controllers
+  (creature observe in `HomesteadController`; villager/notice/shrine in
+  `OverworldController`). Behaviour is identical. `OverworldController` still extends
+  `HomesteadController`.
+- **Phase 3 (later):** extract the remaining shared *stateful* wiring (interactable
+  registration plumbing, `_ready` orchestration), then switch `OverworldController` to
+  extend `OutdoorAreaController` directly so the homestead is no longer load-bearing
+  for the whole outdoor world. This must preserve every system and every save string
+  and is **not** to be rushed.
 
 This was the low-risk way to reuse the proven homestead gameplay stack during the
 pivot. It is **stable and intentionally kept**. The eventual cleaner shape is a shared

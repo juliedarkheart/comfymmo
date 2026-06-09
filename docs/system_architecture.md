@@ -93,7 +93,12 @@ accounts, servers, or persistence, and gameplay is unaffected when it is idle:
 > for grid math, `world/outdoor_controller_helpers.gd` for HUD/mood/day glue) are
 > extracted and delegated to by the load-bearing classes, so the homestead↔overworld
 > inheritance is now backed by reusable pieces rather than being the only home for
-> that logic.
+> that logic. A thin `world/outdoor_area_controller.gd` (`OutdoorAreaController`) base
+> now sits under `HomesteadController` (chain: `OverworldController` →
+> `HomesteadController` → `OutdoorAreaController` → `Node2D`) holding generic lookup
+> helpers and the generic observe/message-panel lifecycle (open/close/state, with
+> placement coupling delegated to overridable hooks) — phases 1–2 of detaching the
+> overworld from the homestead.
 
 The notes below describe the original paged-region layer, which now applies only to
 the legacy/fallback region scenes and to future instanced scenes:

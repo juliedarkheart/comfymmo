@@ -1,4 +1,4 @@
-extends Node2D
+extends OutdoorAreaController
 class_name HomesteadController
 
 @onready var map: HomesteadMap = $Map
@@ -21,7 +21,8 @@ class_name HomesteadController
 @onready var dungeon_system: DungeonSystem = $DungeonSystem
 @onready var hud: CanvasLayer = $HUD
 var _decorating_mode_active: bool = false
-var _observe_panel_open: bool = false
+# _observe_panel_open + the observe-panel open/close lifecycle now live in
+# OutdoorAreaController; this controller only provides the placement-aware hooks.
 var _rest_panel_open: bool = false
 var _rest_phase: String = ""
 var _rest_marker: Node2D = null
@@ -369,19 +370,14 @@ func _handle_creature_observe(interactable_id: String) -> void:
 		return
 	_open_observe_panel(creature.get_display_name(), creature.get_observe_text())
 
-func _open_observe_panel(title: String, body: String) -> void:
-	_observe_panel_open = true
-	interactable_system.set_interactions_enabled(false)
-	building_placement_system.set_process_unhandled_input(false)
-	if hud.has_method("show_message_panel"):
-		hud.call("show_message_panel", title, body)
+# Observe-panel hooks for OutdoorAreaController's generic lifecycle: the homestead
+# area also suspends building placement input and keeps interactions disabled while a
+# decorating mode is active. Together these reproduce the original behaviour exactly.
+func _set_area_input_suspended(suspended: bool) -> void:
+	building_placement_system.set_process_unhandled_input(not suspended)
 
-func _close_observe_panel() -> void:
-	_observe_panel_open = false
-	if hud.has_method("hide_message_panel"):
-		hud.call("hide_message_panel")
-	interactable_system.set_interactions_enabled(not _decorating_mode_active)
-	building_placement_system.set_process_unhandled_input(true)
+func _area_interactions_enabled() -> bool:
+	return not _decorating_mode_active
 
 func _setup_rest_marker() -> void:
 	# A cozy doormat at the cottage doorway. No collision, so it never blocks the
@@ -496,7 +492,4 @@ func _toggle_inventory_panel() -> void:
 	if hud.has_method("toggle_inventory_panel"):
 		hud.call("toggle_inventory_panel")
 
-func _mark_input_handled() -> void:
-	var viewport: Viewport = get_viewport()
-	if viewport != null:
-		viewport.set_input_as_handled()
+# _mark_input_handled() is inherited from OutdoorAreaController.
