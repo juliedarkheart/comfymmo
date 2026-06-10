@@ -173,6 +173,13 @@ func _initialize() -> void:
 		and homestead_controller.has_method("_close_observe_panel")
 		and homestead_controller.has_method("is_observe_panel_open")
 	)
+	# Generic interactable-registration plumbing must live on the shared base too.
+	var registration_api_ok: bool = (
+		homestead_controller.has_method("register_world_interactable")
+		and homestead_controller.has_method("unregister_world_interactable")
+		and homestead_controller.has_method("get_world_interactable_data")
+		and homestead_controller.has_method("_dispatch_world_interactable")
+	)
 	homestead_controller.free()
 	if not homestead_chain_ok:
 		push_error("HomesteadController no longer extends OutdoorAreaController")
@@ -180,6 +187,10 @@ func _initialize() -> void:
 		return
 	if not panel_api_ok:
 		push_error("Observe panel lifecycle missing from the outdoor controller chain")
+		quit(1)
+		return
+	if not registration_api_ok:
+		push_error("World interactable registration plumbing missing from the outdoor controller chain")
 		quit(1)
 		return
 

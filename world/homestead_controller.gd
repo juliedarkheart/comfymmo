@@ -159,15 +159,16 @@ func _on_interaction_requested(interactable_id: String, interaction_type: String
 
 	match interaction_type:
 		ContentIds.INTERACTION_MAILBOX:
+			# Mailboxes are registered by BuildingPlacementSystem (no callback), so
+			# they stay on the explicit match, like the farming-owned plots below.
 			_open_mailbox()
 		ContentIds.INTERACTION_FARM_PLOT:
 			_handle_farm_plot_interaction(interactable_id)
-		ContentIds.INTERACTION_AMBIENT_CREATURE:
-			_handle_creature_observe(interactable_id)
-		ContentIds.INTERACTION_REST:
-			_open_rest_panel()
 		_:
-			pass
+			# Everything registered through register_world_interactable (creatures,
+			# rest, and the overworld's villagers/notice/shrine) dispatches via its
+			# bound callback. The guards above ran first, exactly as before.
+			_dispatch_world_interactable(interactable_id)
 
 func _on_inventory_changed() -> void:
 	_save_inventory_state()
@@ -350,8 +351,9 @@ func _spawn_ambient_creatures(player: AvatarController) -> void:
 	rabbit.position = Vector2(-64.0, 384.0)
 	gameplay_layer.add_child(rabbit)
 	rabbit.configure_creature(player)
-	interactable_system.register_interactable(
-		"homestead_rabbit_0", rabbit, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe"
+	register_world_interactable(
+		"homestead_rabbit_0", rabbit, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe",
+		_handle_creature_observe.bind("homestead_rabbit_0")
 	)
 	_ambient_creatures["homestead_rabbit_0"] = rabbit
 
@@ -359,8 +361,9 @@ func _spawn_ambient_creatures(player: AvatarController) -> void:
 	turtle.position = Vector2(40.0, 256.0)
 	gameplay_layer.add_child(turtle)
 	turtle.configure_creature(player)
-	interactable_system.register_interactable(
-		"homestead_turtle_0", turtle, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe"
+	register_world_interactable(
+		"homestead_turtle_0", turtle, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe",
+		_handle_creature_observe.bind("homestead_turtle_0")
 	)
 	_ambient_creatures["homestead_turtle_0"] = turtle
 
@@ -410,8 +413,9 @@ func _setup_rest_marker() -> void:
 	marker.add_child(stitch)
 
 	_rest_marker = marker
-	interactable_system.register_interactable(
-		REST_INTERACTABLE_ID, marker, ContentIds.INTERACTION_REST, "Press F to rest"
+	register_world_interactable(
+		REST_INTERACTABLE_ID, marker, ContentIds.INTERACTION_REST, "Press F to rest",
+		_open_rest_panel
 	)
 
 func _open_rest_panel() -> void:

@@ -91,3 +91,64 @@ func _set_area_input_suspended(_suspended: bool) -> void:
 ## true; an area with a decorating/edit mode overrides this to stay disabled there.
 func _area_interactions_enabled() -> bool:
 	return true
+
+# --- World interactable registration (generic plumbing) ------------------------
+# A thin wrapper over InteractableSystem registration that also remembers an
+# optional per-id callback (bound at registration, invoked with no args) and an
+# optional data dictionary. The base owns NO gameplay: content controllers still
+# decide what to register, the prompt/type/id strings, and what the callbacks do.
+# Mirrors BaseRegionController.register_region_interactable's callback pattern.
+
+var _world_interactable_callbacks: Dictionary = {}
+var _world_interactable_data: Dictionary = {}
+
+func register_world_interactable(
+	interactable_id: String,
+	node: Node2D,
+	interaction_type: String,
+	prompt: String,
+	callback: Callable = Callable(),
+	data: Dictionary = {}
+) -> bool:
+	if interactable_id.is_empty() or node == null:
+		return false
+
+	var interactable: InteractableSystem = get_interactable_system()
+	if interactable == null:
+		return false
+
+	interactable.register_interactable(interactable_id, node, interaction_type, prompt)
+	if callback.is_valid():
+		_world_interactable_callbacks[interactable_id] = callback
+	if not data.is_empty():
+		_world_interactable_data[interactable_id] = data
+	return true
+
+func unregister_world_interactable(interactable_id: String) -> void:
+	if interactable_id.is_empty():
+		return
+
+	var interactable: InteractableSystem = get_interactable_system()
+	if interactable != null:
+		interactable.unregister_interactable(interactable_id)
+	_world_interactable_callbacks.erase(interactable_id)
+	_world_interactable_data.erase(interactable_id)
+
+func has_world_interactable(interactable_id: String) -> bool:
+	return _world_interactable_callbacks.has(interactable_id) or _world_interactable_data.has(interactable_id)
+
+func get_world_interactable_data(interactable_id: String) -> Dictionary:
+	var entry: Variant = _world_interactable_data.get(interactable_id, {})
+	if typeof(entry) != TYPE_DICTIONARY:
+		return {}
+	return entry as Dictionary
+
+## Invokes the registered callback for an id, if any. Returns true when handled.
+## Callers apply their own guards (panels/modes) BEFORE dispatching, exactly as the
+## previous inline match dispatch did.
+func _dispatch_world_interactable(interactable_id: String) -> bool:
+	var callback: Callable = _world_interactable_callbacks.get(interactable_id, Callable()) as Callable
+	if callback.is_valid():
+		callback.call()
+		return true
+	return false

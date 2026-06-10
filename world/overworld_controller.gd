@@ -67,7 +67,10 @@ func _spawn_village_content(player: AvatarController) -> void:
 	var maribel: SimpleVillager = MARIBEL_SCENE.instantiate() as SimpleVillager
 	maribel.position = c + Vector2(128, 218)
 	gameplay_layer.add_child(maribel)
-	interactable_system.register_interactable("ow_maribel", maribel, ContentIds.INTERACTION_VILLAGER, "Press F to talk to Maribel")
+	register_world_interactable(
+		"ow_maribel", maribel, ContentIds.INTERACTION_VILLAGER, "Press F to talk to Maribel",
+		_talk_villager.bind("ow_maribel")
+	)
 	_villager_data["ow_maribel"] = {
 		"villager": maribel, "intro": MARIBEL_INTRO_FLAG, "count": MARIBEL_COUNT_FLAG,
 		"passage": Callable(self, "_maribel_passage_line"),
@@ -76,26 +79,38 @@ func _spawn_village_content(player: AvatarController) -> void:
 	var bram: SimpleVillager = BRAM_SCENE.instantiate() as SimpleVillager
 	bram.position = c + Vector2(60, 452)
 	gameplay_layer.add_child(bram)
-	interactable_system.register_interactable("ow_bram", bram, ContentIds.INTERACTION_VILLAGER, "Press F to talk to Bram")
+	register_world_interactable(
+		"ow_bram", bram, ContentIds.INTERACTION_VILLAGER, "Press F to talk to Bram",
+		_talk_villager.bind("ow_bram")
+	)
 	_villager_data["ow_bram"] = {
 		"villager": bram, "intro": BRAM_INTRO_FLAG, "count": BRAM_COUNT_FLAG,
 		"passage": Callable(self, "_bram_passage_line"),
 	}
 
 	var notice: Node2D = _build_notice_marker(c + Vector2(176, 160))
-	interactable_system.register_interactable("ow_notice", notice, ContentIds.INTERACTION_NOTICE_BOARD, "Press F to read notice board")
+	register_world_interactable(
+		"ow_notice", notice, ContentIds.INTERACTION_NOTICE_BOARD, "Press F to read notice board",
+		_open_notice_board
+	)
 
 	var rabbit: MossRabbit = MossRabbit.new()
 	rabbit.position = c + Vector2(-10, 360)
 	gameplay_layer.add_child(rabbit)
 	rabbit.configure_creature(player)
-	interactable_system.register_interactable("ow_village_rabbit", rabbit, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe")
+	register_world_interactable(
+		"ow_village_rabbit", rabbit, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe",
+		_handle_creature_observe.bind("ow_village_rabbit")
+	)
 	_ambient_creatures["ow_village_rabbit"] = rabbit
 
 func _spawn_forest_content(player: AvatarController) -> void:
 	var c: Vector2 = OverworldMap.FOREST_OFFSET
 	var shrine: Node2D = _build_shrine_marker(c + Vector2(136, 166))
-	interactable_system.register_interactable("ow_shrine", shrine, ContentIds.INTERACTION_SHRINE_MARKER, "Press F to inspect shrine")
+	register_world_interactable(
+		"ow_shrine", shrine, ContentIds.INTERACTION_SHRINE_MARKER, "Press F to inspect shrine",
+		_open_shrine
+	)
 
 	var rabbit_positions: Array[Vector2] = [Vector2(32, 304), Vector2(192, 448), Vector2(-64, 448)]
 	for i in range(rabbit_positions.size()):
@@ -104,7 +119,10 @@ func _spawn_forest_content(player: AvatarController) -> void:
 		gameplay_layer.add_child(rabbit)
 		rabbit.configure_creature(player)
 		var rabbit_id: String = "ow_forest_rabbit_%d" % i
-		interactable_system.register_interactable(rabbit_id, rabbit, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe")
+		register_world_interactable(
+			rabbit_id, rabbit, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe",
+			_handle_creature_observe.bind(rabbit_id)
+		)
 		_ambient_creatures[rabbit_id] = rabbit
 
 	var moth_positions: Array[Vector2] = [Vector2(224, 336), Vector2(-128, 320)]
@@ -114,22 +132,16 @@ func _spawn_forest_content(player: AvatarController) -> void:
 		gameplay_layer.add_child(moth)
 		moth.configure_creature(player)
 		var moth_id: String = "ow_forest_moth_%d" % i
-		interactable_system.register_interactable(moth_id, moth, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe")
+		register_world_interactable(
+			moth_id, moth, ContentIds.INTERACTION_AMBIENT_CREATURE, "Press F to observe",
+			_handle_creature_observe.bind(moth_id)
+		)
 		_ambient_creatures[moth_id] = moth
 
-func _on_interaction_requested(interactable_id: String, interaction_type: String) -> void:
-	match interaction_type:
-		ContentIds.INTERACTION_VILLAGER, ContentIds.INTERACTION_NOTICE_BOARD, ContentIds.INTERACTION_SHRINE_MARKER:
-			if _observe_panel_open or _rest_panel_open or _is_mailbox_open() or _decorating_mode_active:
-				return
-			if interaction_type == ContentIds.INTERACTION_VILLAGER:
-				_talk_villager(interactable_id)
-			elif interaction_type == ContentIds.INTERACTION_NOTICE_BOARD:
-				_open_notice_board()
-			else:
-				_open_shrine()
-		_:
-			super._on_interaction_requested(interactable_id, interaction_type)
+# Interaction dispatch is fully inherited now: villagers, notice board, shrine, and
+# creatures were registered with bound callbacks via register_world_interactable, so
+# HomesteadController._on_interaction_requested's default branch dispatches them
+# after the same four panel/mode guards this controller previously duplicated.
 
 func _talk_villager(interactable_id: String) -> void:
 	var data: Dictionary = _villager_data.get(interactable_id, {})

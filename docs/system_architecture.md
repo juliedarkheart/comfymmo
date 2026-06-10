@@ -96,9 +96,12 @@ accounts, servers, or persistence, and gameplay is unaffected when it is idle:
 > that logic. A thin `world/outdoor_area_controller.gd` (`OutdoorAreaController`) base
 > now sits under `HomesteadController` (chain: `OverworldController` →
 > `HomesteadController` → `OutdoorAreaController` → `Node2D`) holding generic lookup
-> helpers and the generic observe/message-panel lifecycle (open/close/state, with
-> placement coupling delegated to overridable hooks) — phases 1–2 of detaching the
-> overworld from the homestead.
+> helpers, the generic observe/message-panel lifecycle (open/close/state, with
+> placement coupling delegated to overridable hooks), and the generic interactable
+> registration plumbing (`register_world_interactable` + per-id bound callbacks +
+> `_dispatch_world_interactable`) — phases 1–3 of detaching the overworld from the
+> homestead. Content handlers, text, and flags stay in their controllers; mailbox and
+> farm plots stay on the explicit dispatch match.
 
 The notes below describe the original paged-region layer, which now applies only to
 the legacy/fallback region scenes and to future instanced scenes:

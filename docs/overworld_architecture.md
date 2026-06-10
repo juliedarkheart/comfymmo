@@ -56,18 +56,29 @@ Map chain: `OverworldMap` → `HomesteadMap`.
   the overworld must never be a swappable region, and adding region machinery here
   would change `WorldRegionManager`'s boot wiring.
 - **Phase 1 (Chunk 7):** created the seam with the generic lookup helpers.
-- **Phase 2 (this chunk):** moved the generic observe/message panel lifecycle to the
-  base. `HomesteadController` now only provides the placement-aware hooks (it suspends
+- **Phase 2 (Chunk 8):** moved the generic observe/message panel lifecycle to the
+  base. `HomesteadController` provides the placement-aware hooks (it suspends
   building-placement input and keeps interactions disabled while decorating); the
-  message *text* and the decision of *when* to open stay in the controllers
-  (creature observe in `HomesteadController`; villager/notice/shrine in
-  `OverworldController`). Behaviour is identical. `OverworldController` still extends
-  `HomesteadController`.
-- **Phase 3 (later):** extract the remaining shared *stateful* wiring (interactable
-  registration plumbing, `_ready` orchestration), then switch `OverworldController` to
-  extend `OutdoorAreaController` directly so the homestead is no longer load-bearing
-  for the whole outdoor world. This must preserve every system and every save string
-  and is **not** to be rushed.
+  message *text* and the decision of *when* to open stay in the controllers.
+- **Phase 3 (Chunk 9):** the base now owns the generic **interactable registration
+  plumbing**: `register_world_interactable(id, node, type, prompt, callback, data)`
+  wraps `InteractableSystem` registration and remembers an optional zero-arg bound
+  `Callable` per id (plus optional data); `_dispatch_world_interactable(id)` invokes
+  it; `unregister_world_interactable` / `has_world_interactable` /
+  `get_world_interactable_data` round it out. Content adopted: homestead creatures +
+  rest, and the overworld's villagers, notice board, shrine, and creatures all
+  register with bound callbacks. `HomesteadController._on_interaction_requested`
+  keeps its four panel/mode guards, matches mailbox (registered by
+  `BuildingPlacementSystem`, no callback) and farm plots (farming-owned) explicitly,
+  and its default branch dispatches everything else via the registry.
+  `OverworldController`'s dispatch override was removed — its guard set was identical
+  to the inherited one, so villager/notice/shrine now flow through the shared path
+  with byte-identical behaviour. Content callbacks, villager data, flags, and text
+  all stay in their controllers.
+- **Phase 4 (later):** extract the remaining shared `_ready`/setup orchestration,
+  then switch `OverworldController` to extend `OutdoorAreaController` directly so the
+  homestead is no longer load-bearing for the whole outdoor world. This must preserve
+  every system and every save string and is **not** to be rushed.
 
 This was the low-risk way to reuse the proven homestead gameplay stack during the
 pivot. It is **stable and intentionally kept**. The eventual cleaner shape is a shared
