@@ -37,7 +37,7 @@ Area2D paging.
 
 ## Inheritance (transitional, intentional)
 
-Controller chain (after Foundation Chunk 8, phase 2):
+Controller chain (after Foundation Chunk 10, phase 4 step 1):
 `OverworldController` → `HomesteadController` → `OutdoorAreaController` → `Node2D`.
 Map chain: `OverworldMap` → `HomesteadMap`.
 
@@ -75,10 +75,20 @@ Map chain: `OverworldMap` → `HomesteadMap`.
   to the inherited one, so villager/notice/shrine now flow through the shared path
   with byte-identical behaviour. Content callbacks, villager data, flags, and text
   all stay in their controllers.
-- **Phase 4 (later):** extract the remaining shared `_ready`/setup orchestration,
-  then switch `OverworldController` to extend `OutdoorAreaController` directly so the
-  homestead is no longer load-bearing for the whole outdoor world. This must preserve
-  every system and every save string and is **not** to be rushed.
+- **Phase 4 step 1 (Chunk 10):** two template-method hooks added to
+  `OutdoorAreaController` as safe no-ops: `_setup_area_content(player)` and
+  `_after_area_setup(player)`. `HomesteadController._ready` now calls
+  `_setup_area_content(player)` in place of the inline `_spawn_ambient_creatures` /
+  `_setup_rest_marker` calls, and calls `_after_area_setup(player)` at the very end.
+  `HomesteadController` provides the override of `_setup_area_content` that runs those
+  two calls. `OverworldController` is **unchanged**: it still does its post-super work
+  (camera, village/forest content, dev overlay) directly in its own `_ready` after
+  `super._ready()`. No gameplay or save changes.
+- **Phase 4 step 2 (next):** move OverworldController's post-super work into its own
+  `_setup_area_content` / `_after_area_setup` overrides, then switch
+  `OverworldController` to extend `OutdoorAreaController` directly so the homestead is
+  no longer load-bearing for the whole outdoor world. This must preserve every system
+  and every save string and is **not** to be rushed.
 
 This was the low-risk way to reuse the proven homestead gameplay stack during the
 pivot. It is **stable and intentionally kept**. The eventual cleaner shape is a shared

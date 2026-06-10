@@ -180,6 +180,11 @@ func _initialize() -> void:
 		and homestead_controller.has_method("get_world_interactable_data")
 		and homestead_controller.has_method("_dispatch_world_interactable")
 	)
+	# Phase-4 setup orchestration hooks must be present (added in Chunk 10 step 1).
+	var setup_hooks_ok: bool = (
+		homestead_controller.has_method("_setup_area_content")
+		and homestead_controller.has_method("_after_area_setup")
+	)
 	homestead_controller.free()
 	if not homestead_chain_ok:
 		push_error("HomesteadController no longer extends OutdoorAreaController")
@@ -191,6 +196,10 @@ func _initialize() -> void:
 		return
 	if not registration_api_ok:
 		push_error("World interactable registration plumbing missing from the outdoor controller chain")
+		quit(1)
+		return
+	if not setup_hooks_ok:
+		push_error("Setup orchestration hooks (_setup_area_content/_after_area_setup) missing from the outdoor controller chain")
 		quit(1)
 		return
 

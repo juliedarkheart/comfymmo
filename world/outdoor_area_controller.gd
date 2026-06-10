@@ -152,3 +152,30 @@ func _dispatch_world_interactable(interactable_id: String) -> bool:
 		callback.call()
 		return true
 	return false
+
+# --- Setup orchestration hooks (phase 4 step 1 skeleton) --------------------------
+# Template-method hooks that let subclasses participate in a shared setup sequence
+# without requiring HomesteadController or OverworldController to be restructured
+# all at once. The base provides safe no-op defaults.
+#
+# Current call sites (after step 1):
+#   HomesteadController._ready calls _setup_area_content(player) where the homestead
+#   creature + rest spawning used to be, and _after_area_setup(player) at the very end.
+#
+# Step 2 will move OverworldController's post-super._ready() work (camera, village/
+# forest content, dev overlay) into its own _setup_area_content / _after_area_setup
+# overrides and detach it from HomesteadController.
+
+## Hook: spawn and register area-specific interactable content once the player avatar
+## is available and interactable_system is configured. No-op in the base.
+## HomesteadController overrides it to spawn the homestead creatures and rest marker.
+func _setup_area_content(_player: AvatarController) -> void:
+	pass
+
+## Hook: final post-setup pass once all content and systems are live — camera limits,
+## dev overlays, or anything that must follow content registration. No-op in the base.
+## Called from HomesteadController._ready at the end of the setup sequence.
+## OverworldController will override this in Phase 4 Step 2 (for now it still does
+## its post-super work directly in its own _ready).
+func _after_area_setup(_player: AvatarController) -> void:
+	pass

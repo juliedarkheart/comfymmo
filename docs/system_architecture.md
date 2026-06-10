@@ -97,10 +97,16 @@ accounts, servers, or persistence, and gameplay is unaffected when it is idle:
 > now sits under `HomesteadController` (chain: `OverworldController` →
 > `HomesteadController` → `OutdoorAreaController` → `Node2D`) holding generic lookup
 > helpers, the generic observe/message-panel lifecycle (open/close/state, with
-> placement coupling delegated to overridable hooks), and the generic interactable
+> placement coupling delegated to overridable hooks), the generic interactable
 > registration plumbing (`register_world_interactable` + per-id bound callbacks +
-> `_dispatch_world_interactable`) — phases 1–3 of detaching the overworld from the
-> homestead. Content handlers, text, and flags stay in their controllers; mailbox and
+> `_dispatch_world_interactable`), and a **phase-4 setup orchestration skeleton**: two
+> template-method hooks — `_setup_area_content(player)` (for area-specific content
+> spawning after player spawn) and `_after_area_setup(player)` (for post-setup work
+> like camera limits and dev overlays). `HomesteadController` overrides
+> `_setup_area_content` and calls both hooks from `_ready`. `OverworldController` is
+> unchanged (it still extends `HomesteadController` and does its post-super work
+> directly in its own `_ready`); the hooks are the prepared seam for Step 2 when it
+> detaches. Content handlers, text, and flags stay in their controllers; mailbox and
 > farm plots stay on the explicit dispatch match.
 
 The notes below describe the original paged-region layer, which now applies only to

@@ -57,8 +57,7 @@ func _ready() -> void:
 
 	var player: AvatarController = player_spawn_system.spawn_player(gameplay_layer, map.get_spawn_position())
 	interactable_system.configure(player)
-	_spawn_ambient_creatures(player)
-	_setup_rest_marker()
+	_setup_area_content(player)
 	building_placement_system.configure(
 		map,
 		gameplay_layer,
@@ -78,6 +77,7 @@ func _ready() -> void:
 	_refresh_survival_hud()
 	_apply_saved_mood()
 	_apply_saved_day()
+	_after_area_setup(player)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if (
@@ -345,6 +345,14 @@ func _register_farm_plot_interactions() -> void:
 			ContentIds.INTERACTION_FARM_PLOT,
 			farming_system.get_plot_prompt(plot_id)
 		)
+
+# OutdoorAreaController phase-4 hook: spawn homestead-specific area content.
+# Called from HomesteadController._ready after the player is spawned and the
+# interactable_system is configured. OverworldController inherits this and gains
+# the homestead creatures + rest marker as part of the overworld scene.
+func _setup_area_content(player: AvatarController) -> void:
+	_spawn_ambient_creatures(player)
+	_setup_rest_marker()
 
 func _spawn_ambient_creatures(player: AvatarController) -> void:
 	var rabbit: MossRabbit = MossRabbit.new()
