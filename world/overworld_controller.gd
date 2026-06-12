@@ -16,6 +16,7 @@ class_name OverworldController
 
 const MARIBEL_SCENE := preload("res://scenes/villagers/maribel_tock.tscn")
 const BRAM_SCENE := preload("res://scenes/villagers/bram_nettle.tscn")
+const DEV_CHARACTER_CREATOR_SCENE := preload("res://ui/dev_character_creator_panel.tscn")
 # Constant names kept; values now come from ContentIds (stable, save-compatible).
 const VILLAGE_REGION_ID := ContentIds.AREA_VILLAGE_SQUARE
 const FOREST_REGION_ID := ContentIds.AREA_FOREST_EDGE
@@ -50,6 +51,20 @@ func _setup_dev_overlay(player: AvatarController) -> void:
 	editor.name = "OverworldEditorSystem"
 	add_child(editor)
 	editor.setup(player, camera, marker_layer)
+
+	# Saved appearance + the dev character creator (F9). The avatar built its
+	# default look in _ready; rebuild with the persisted appearance (old saves
+	# without the key resolve to the same default, so this is a no-op for them).
+	var avatar_visual: Node = null
+	if player != null:
+		avatar_visual = player.get_node_or_null("Body")
+	if avatar_visual != null and avatar_visual.has_method("rebuild"):
+		avatar_visual.call("rebuild", save_system.get_player_appearance())
+
+	var creator_panel: CanvasLayer = DEV_CHARACTER_CREATOR_SCENE.instantiate() as CanvasLayer
+	creator_panel.name = "DevCharacterCreatorPanel"
+	add_child(creator_panel)
+	creator_panel.call("setup", avatar_visual, save_system)
 
 func _find_player() -> AvatarController:
 	# Player lookup is now a shared OutdoorAreaController helper (phase-1 seam).

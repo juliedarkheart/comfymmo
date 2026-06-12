@@ -1,7 +1,8 @@
 # Character customization — foundation (v1)
 
-Status: **data + visual builder only.** No UI, no save integration yet.
-Nothing in this system touches `LocalSaveSystem` or existing save files.
+Status: **data + visual builder + dev panel + save integration.** A dev-only
+appearance panel (F9 in-game) cycles every registry option, applies it live to
+the player, and persists it under `player.appearance`.
 
 ## Pieces
 
@@ -34,20 +35,46 @@ Nothing in this system touches `LocalSaveSystem` or existing save files.
 | accessory | none, leaf_clip, tiny_hat | none |
 | face_style | happy | happy |
 
-## Future save integration (not implemented)
+## Save integration (implemented)
 
-Planned shape: a `player.appearance` dictionary of slot→id stored alongside
-existing player data. Rules when we do it:
+Appearance lives at `player.appearance` in `user://homestead_save.json` as a
+flat dict of slot→id strings, e.g.:
 
-1. Read with `CharacterAppearance.normalized(save_dict)` — old saves with no
-   appearance key get the default look; saves written by newer builds with
-   unknown ids degrade per-slot instead of failing.
-2. Write only ids, never display names or colors.
-3. Never remove an id from the registry once shipped in a save; retire by
+```json
+"player": {
+	"inventory": { ... },
+	"survival": { ... },
+	"appearance": {
+		"body_style": "cozy_default",
+		"skin_tone": "peach",
+		"hair_style": "round_bob",
+		"hair_color": "warm_brown",
+		"outfit_style": "starter_overalls",
+		"outfit_color": "moss_green",
+		"accessory": "none",
+		"face_style": "happy"
+	}
+}
+```
+
+Rules (enforced by `LocalSaveSystem.get/set_player_appearance` and checked by
+`tools/validate_project.gd`):
+
+1. The key is optional — old saves without it load the default look. No save
+   version bump; migration passes the `player` section through untouched.
+2. Reads and writes both go through `CharacterAppearance.normalized()`, so
+   unknown ids (e.g. from a newer build) degrade per-slot to defaults.
+3. Write only ids, never display names or colors.
+4. Never remove an id from the registry once shipped in a save; retire by
    mapping it to a successor inside `normalized()`.
 
-## Future character creator UI (not implemented)
+## Dev character creator panel (implemented)
 
-A dev-only panel can be built safely on top of what exists: enumerate options
-from the registry, build a candidate dict, call `AvatarVisual.rebuild()` for
-live preview. No other system needs to change.
+`ui/dev_character_creator_panel.tscn` — toggled with **F9** in the overworld.
+Prev/next buttons per slot (hair style/color, skin tone, outfit style/color,
+accessory), plus Reset Default and Close. Every change applies live via
+`AvatarVisual.rebuild()` and persists immediately. It is instanced by
+`OverworldController._setup_dev_overlay`, which also applies the saved
+appearance to the avatar at boot. The panel touches no gameplay state — it is
+an overlay only, and the real player-facing character creator remains future
+work.

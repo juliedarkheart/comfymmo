@@ -23,6 +23,11 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/dev_world_marker.gd",
 	"res://systems/admin/moderation_models.gd",
 	"res://systems/admin/audit_log.gd",
+	"res://systems/character/character_appearance.gd",
+	"res://systems/character/character_appearance_registry.gd",
+	"res://systems/character/character_visual_builder.gd",
+	"res://avatar/avatar_visual.gd",
+	"res://ui/dev_character_creator_panel.tscn",
 	"res://scenes/world/homestead.tscn",
 	"res://scenes/world/regions/homestead/homestead_region.tscn",
 	"res://scenes/world/regions/village_square/village_square_region.tscn",
@@ -210,6 +215,48 @@ func _initialize() -> void:
 		push_error("OverworldController inheritance chain regressed")
 		quit(1)
 		return
+
+	# Character appearance foundation: defaults must be complete and stable,
+	# unknown ids must normalize to defaults, and the save helper must always
+	# return a valid (already-normalized) appearance dict.
+	var default_appearance: Dictionary = CharacterAppearance.default_appearance()
+	if CharacterAppearance.normalized({}) != default_appearance:
+		push_error("Empty appearance did not normalize to the default appearance")
+		quit(1)
+		return
+	if CharacterAppearance.normalized(default_appearance) != default_appearance:
+		push_error("Default appearance contains an id missing from the registry")
+		quit(1)
+		return
+	var junk_appearance: Dictionary = CharacterAppearance.normalized({
+		"hair_style": "not_a_style",
+		"outfit_color": "not_a_color",
+		"accessory": "tiny_hat",
+	})
+	if String(junk_appearance.get("hair_style", "")) != String(default_appearance["hair_style"]):
+		push_error("Unknown hair_style id did not fall back to the default")
+		quit(1)
+		return
+	if String(junk_appearance.get("accessory", "")) != "tiny_hat":
+		push_error("Valid accessory id was not preserved through normalization")
+		quit(1)
+		return
+
+	# The dev character creator toggle must stay a real InputMap action (bound
+	# to F9 logical + physical) — an exact-keycode check broke on Fn-layer
+	# keyboards once already.
+	if not InputMap.has_action("toggle_character_creator"):
+		push_error("InputMap action 'toggle_character_creator' is missing from project.godot")
+		quit(1)
+		return
+
+	var appearance_save_system: LocalSaveSystem = LocalSaveSystem.new()
+	var saved_appearance: Dictionary = appearance_save_system.get_player_appearance()
+	if CharacterAppearance.normalized(saved_appearance) != saved_appearance:
+		push_error("get_player_appearance returned a non-normalized appearance")
+		quit(1)
+		return
+	appearance_save_system.free()
 
 	print("Project smoke test passed.")
 	quit(0)

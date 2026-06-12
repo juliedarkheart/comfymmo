@@ -107,6 +107,28 @@ func set_overworld_flag(key: String, value: Variant) -> void:
 	save_data["world"] = world_data
 	save_save_data(save_data)
 
+# --- Player appearance (additive, backward-compatible) ------------------------
+# Stored under `player.appearance` as a dict of stable option ids (see
+# CharacterAppearanceRegistry). Old saves simply lack the key and resolve to
+# CharacterAppearance.default_appearance(); unknown ids normalize per-slot to
+# defaults. No save version bump: the key is optional and migration passes the
+# whole player section through untouched.
+
+func get_player_appearance() -> Dictionary:
+	var save_data: Dictionary = load_save_data()
+	var player_data: Dictionary = _get_dictionary_section(save_data, "player")
+	var raw_appearance: Variant = player_data.get("appearance", {})
+	if typeof(raw_appearance) != TYPE_DICTIONARY:
+		return CharacterAppearance.default_appearance()
+	return CharacterAppearance.normalized(raw_appearance as Dictionary)
+
+func set_player_appearance(appearance: Dictionary) -> void:
+	var save_data: Dictionary = load_save_data()
+	var player_data: Dictionary = _get_dictionary_section(save_data, "player")
+	player_data["appearance"] = CharacterAppearance.normalized(appearance)
+	save_data["player"] = player_data
+	save_save_data(save_data)
+
 # --- Future instanced scenes (dungeons / caves / interiors) -------------------
 # Reserved for when WorldRegionManager loads non-outdoor instances. Outdoor play is
 # one continuous overworld and never scene-swaps, so this stays empty for now.
