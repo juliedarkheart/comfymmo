@@ -12,13 +12,22 @@ First boot shows a welcome panel with the controls. Key reference:
 - Mirror by the cottage = wardrobe · F9 dev creator · F10 dev tools · F8 multiplayer
 
 What to do first: walk to a gather pile (wood logs SW of the cottage, stone
-to the east, fiber/clay to the north-east), press F a few times, then B to
-build something with the materials line in the HUD.
+to the east, fiber/clay to the north-east), press F — you get a "+2 Wood"
+toast in the chat log, then the spot dims and recovers for ~20 seconds. Then
+B to build something with the materials line in the HUD.
+
+## Chat
+
+Press **Enter** to open chat (lower-left), type, Enter to send, Esc to close.
+While typing, WASD types instead of moving. Offline, the chat box is a local
+event log only (gather toasts, system lines) — connect via F8 to actually
+talk. Join/leave announcements and placement denials also land there.
+Prototype chat: 200-char cap, no moderation/filtering/admin commands yet.
 
 ## Two-instance multiplayer playtest
 
-1. Start the server (docs/run_local_server.md).
-2. Start client A: run the project, F8 → Connect.
+1. Start the server: `.\tools\run_server_local.ps1` (docs/run_local_server.md).
+2. Start client A: `.\tools\run_client_local.ps1` (or run the project), F8 → Connect.
 3. Start client B: second Godot instance of the same project (the editor's
    Debug > "Run Multiple Instances" set to 2 makes this one click), F8 →
    set a different display name → Connect.

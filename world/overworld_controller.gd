@@ -18,6 +18,7 @@ const MARIBEL_SCENE := preload("res://scenes/villagers/maribel_tock.tscn")
 const BRAM_SCENE := preload("res://scenes/villagers/bram_nettle.tscn")
 const DEV_CHARACTER_CREATOR_SCENE := preload("res://ui/dev_character_creator_panel.tscn")
 const NETWORK_CONNECT_PANEL_SCENE := preload("res://ui/network_connect_panel.tscn")
+const CHAT_PANEL_SCENE := preload("res://ui/chat_panel.tscn")
 # Constant names kept; values now come from ContentIds (stable, save-compatible).
 const VILLAGE_REGION_ID := ContentIds.AREA_VILLAGE_SQUARE
 const FOREST_REGION_ID := ContentIds.AREA_FOREST_EDGE
@@ -31,6 +32,7 @@ const SHRINE_SEEN_FLAG := ContentIds.FLAG_ADVENTURE_MARKER_SEEN
 var _villager_data: Dictionary = {}
 var _profile_manager: LocalProfileManager = LocalProfileManager.new()
 var _creator_panel: CanvasLayer = null
+var _chat_panel: CanvasLayer = null
 var _network_player: AvatarController = null
 var _resource_nodes: Dictionary = {}
 var _gather_rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -47,6 +49,7 @@ func _ready() -> void:
 	_setup_resource_nodes()
 	_setup_dev_overlay(player)
 	_setup_wardrobe()
+	_setup_cottage_sign()
 	_setup_network(player)
 	_show_welcome_if_first_boot.call_deferred()
 
@@ -230,48 +233,70 @@ func _maribel_passage_line(day_count: int, mood_id: String) -> String:
 # --- Gathering (survival-lite materials) -------------------------------------
 
 func _setup_resource_nodes() -> void:
-	# Gather spots in every area: homestead corners (clear of the cottage,
-	# trees, fence, path, and spawn tiles), plus village/forest extras. Nodes
-	# are visual-only Node2Ds; the interaction adds materials to the inventory,
-	# which auto-saves via the existing inventory_changed handler.
-	var spots: Array = [
-		["gather_home_wood", ResourceNode.TYPE_WOOD, map.grid_to_world(Vector2i(3, 14))],
-		["gather_home_stone", ResourceNode.TYPE_STONE, map.grid_to_world(Vector2i(17, 13))],
-		["gather_home_fiber", ResourceNode.TYPE_FIBER, map.grid_to_world(Vector2i(12, 3))],
-		["gather_home_clay", ResourceNode.TYPE_CLAY, map.grid_to_world(Vector2i(16, 2))],
-		["gather_village_fiber", ResourceNode.TYPE_FIBER, OverworldMap.VILLAGE_OFFSET + Vector2(-160, 320)],
-		["gather_forest_wood", ResourceNode.TYPE_WOOD, OverworldMap.FOREST_OFFSET + Vector2(-220, 390)],
-		["gather_forest_stone", ResourceNode.TYPE_STONE, OverworldMap.FOREST_OFFSET + Vector2(70, 430)],
-		["gather_forest_clay", ResourceNode.TYPE_CLAY, OverworldMap.FOREST_OFFSET + Vector2(300, 250)],
-	]
-	for spot in spots:
+	# Gather spots come from ResourceSpawnRegistry — the same catalog the
+	# server validates gather requests against, so client and server can never
+	# disagree about what is gatherable.
+	for definition_variant in ResourceSpawnRegistry.definitions():
+		var definition: Dictionary = definition_variant as Dictionary
 		var node: ResourceNode = ResourceNode.new()
-		node.position = spot[2]
+		node.position = _resolve_spawn_position(definition)
 		gameplay_layer.add_child(node)
-		node.configure(String(spot[1]))
-		var node_id: String = String(spot[0])
+		node.configure(String(definition["type"]))
+		var node_id: String = String(definition["node_id"])
 		_resource_nodes[node_id] = node
 		register_world_interactable(
 			node_id, node, ContentIds.INTERACTION_GENERIC, node.get_prompt(),
 			_handle_gather.bind(node_id)
 		)
 
+func _resolve_spawn_position(definition: Dictionary) -> Vector2:
+	var x: float = float(definition.get("x", 0))
+	var y: float = float(definition.get("y", 0))
+	match String(definition.get("anchor", "homestead")):
+		"village":
+			return OverworldMap.VILLAGE_OFFSET + Vector2(x, y)
+		"forest":
+			return OverworldMap.FOREST_OFFSET + Vector2(x, y)
+		_:
+			return map.grid_to_world(Vector2i(int(x), int(y)))
+
 func _handle_gather(node_id: String) -> void:
 	var node: ResourceNode = _resource_nodes.get(node_id) as ResourceNode
 	if node == null:
+		return
+
+	# Connected: the server owns the pouch and the cooldown; results come back
+	# via gather_result/gather_denied signals (wired in _setup_network).
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null and bool(session.call("is_client_connected")):
+		session.call("request_gather", node_id)
+		return
+
+	# Offline: local cooldown + local inventory (auto-saves via the existing
+	# inventory_changed handler), with a non-modal toast in the chat log.
+	if not node.is_ready():
+		_chat_toast("This spot is still recovering (%ds)." % node.remaining_seconds())
 		return
 	var result: Dictionary = node.roll_yield(_gather_rng)
 	var material_id: String = String(result.get("material_id", ""))
 	var amount: int = int(result.get("amount", 1))
 	inventory_system.add_item(material_id, amount)
-	_open_observe_panel(
-		ResourceIds.display_name(material_id),
-		"You %s %d %s. You now have %d." % [
-			String(result.get("verb", "gather")), amount,
-			ResourceIds.display_name(material_id).to_lower(),
-			inventory_system.get_quantity(material_id),
-		]
-	)
+	node.start_cooldown()
+	_chat_toast("+%d %s (now %d)" % [amount, ResourceIds.display_name(material_id), inventory_system.get_quantity(material_id)])
+
+func _chat_toast(text: String) -> void:
+	if _chat_panel != null and _chat_panel.has_method("add_system_line"):
+		_chat_panel.call("add_system_line", text)
+
+func _on_network_gather_result(node_id: String, material_id: String, amount: int) -> void:
+	# Mirror the server cooldown on the local node visual and toast the gain.
+	var node: ResourceNode = _resource_nodes.get(node_id) as ResourceNode
+	if node != null:
+		node.start_cooldown()
+	_chat_toast("+%d %s" % [amount, ResourceIds.display_name(material_id)])
+
+func _on_network_gather_denied(_node_id: String, reason: String) -> void:
+	_chat_toast("%s." % reason)
 
 # --- Wardrobe mirror -----------------------------------------------------------
 
@@ -314,9 +339,54 @@ func _open_wardrobe() -> void:
 	if _creator_panel != null and _creator_panel.has_method("open_panel"):
 		_creator_panel.call("open_panel", true)
 
+# --- Cottage door sign (interiors deferred) ----------------------------------
+# TODO(interiors): when interiors land (docs/interiors_plan.md), this sign is
+# replaced by a real door interaction routed through WorldRegionManager as a
+# server-backed interior instance. Until then the world stays one continuous
+# outdoor overworld and NOTHING teleports the player inside.
+
+func _setup_cottage_sign() -> void:
+	var sign_marker: Node2D = Node2D.new()
+	sign_marker.position = map.grid_to_world(Vector2i(5, 8))
+	gameplay_layer.add_child(sign_marker)
+	var post: Polygon2D = Polygon2D.new()
+	post.polygon = PackedVector2Array([Vector2(-1.5, 0), Vector2(1.5, 0), Vector2(1.5, -16), Vector2(-1.5, -16)])
+	post.color = Color("#8a5e3c")
+	sign_marker.add_child(post)
+	var board: Polygon2D = Polygon2D.new()
+	board.polygon = PackedVector2Array([
+		Vector2(-10, -25), Vector2(10, -25), Vector2(12, -21), Vector2(10, -14), Vector2(-10, -14), Vector2(-12, -21),
+	])
+	board.color = Color("#e0bf8a")
+	sign_marker.add_child(board)
+	for line_y: float in [-22.0, -18.5]:
+		var scribble: Polygon2D = Polygon2D.new()
+		scribble.polygon = PackedVector2Array([
+			Vector2(-7, line_y), Vector2(6, line_y), Vector2(6, line_y + 1.4), Vector2(-7, line_y + 1.4),
+		])
+		scribble.color = Color("#8a5e3c")
+		sign_marker.add_child(scribble)
+
+	register_world_interactable(
+		"cottage_door_sign", sign_marker, ContentIds.INTERACTION_GENERIC,
+		"Press F to read the door sign", _read_cottage_sign
+	)
+
+func _read_cottage_sign() -> void:
+	_open_observe_panel(
+		"Cottage Door",
+		"\"Inside coming soon!\" For now, all of Hearthvale's coziness lives outdoors — the door stays shut while the interior is being furnished (a future update)."
+	)
+
 # --- Network bridge (client side) ------------------------------------------------
 
-func _setup_network(_player: AvatarController) -> void:
+func _setup_network(player: AvatarController) -> void:
+	# Chat / event log first so even offline toasts have somewhere to land.
+	_chat_panel = CHAT_PANEL_SCENE.instantiate() as CanvasLayer
+	_chat_panel.name = "ChatPanel"
+	add_child(_chat_panel)
+	_chat_panel.call("setup", player, Callable(self, "_chat_can_open"))
+
 	# Runtime autoload lookup (direct identifier breaks --script validation).
 	var session: Node = get_node_or_null("/root/NetworkSession")
 	if session == null:
@@ -324,10 +394,22 @@ func _setup_network(_player: AvatarController) -> void:
 	session.call("register_world", self)
 	session.connect("place_denied_received", _on_network_place_denied)
 	session.connect("server_materials_changed", _on_server_materials_changed)
+	session.connect("gather_result_received", _on_network_gather_result)
+	session.connect("gather_denied_received", _on_network_gather_denied)
 	var network_panel: CanvasLayer = NETWORK_CONNECT_PANEL_SCENE.instantiate() as CanvasLayer
 	network_panel.name = "NetworkConnectPanel"
 	add_child(network_panel)
 	network_panel.call("setup", _profile_manager)
+
+## Chat may open on Enter only while plain-exploring: never during placement/
+## edit/move (Enter places there) and never while a panel is using the keys.
+func _chat_can_open() -> bool:
+	return (
+		not _decorating_mode_active
+		and not _is_mailbox_open()
+		and not is_observe_panel_open()
+		and not _rest_panel_open
+	)
 
 ## NetworkSession bridge: own avatar position for the sync loop.
 func get_player_position() -> Vector2:
@@ -354,7 +436,8 @@ func spawn_network_placed_object(record: Dictionary) -> Node:
 	return node
 
 func _on_network_place_denied(reason: String) -> void:
-	_open_observe_panel("Town Builder", "%s." % reason)
+	# Non-modal: a chat-log line instead of a panel, so building flow continues.
+	_chat_toast("Server: placement denied — %s." % reason.to_lower())
 
 func _on_server_materials_changed(materials: Dictionary) -> void:
 	if hud.has_method("set_materials_text"):

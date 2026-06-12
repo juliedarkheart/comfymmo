@@ -30,11 +30,27 @@
 - network objects are display-only on clients: no remove/move, and they
   overlap visually with your own offline objects in the homestead area.
 - movement is client-trusted; a hacked client could teleport. Fine for LAN.
-- gathering is offline-only inventory; connected building uses the separate
-  server pouch (starter pack) — intentional, documented in survival doc.
+- gathering is server-authoritative when connected (node ids validated against
+  ResourceSpawnRegistry, per-node cooldowns), but server cooldowns are
+  in-memory and reset on restart — temporary, documented.
+- chat is prototype-grade: no moderation, filtering, admin commands, or
+  history; names are server-assigned (deduplicated) but profiles are
+  unauthenticated, so impersonation is possible on a hostile LAN.
+- house interiors are deliberately absent (docs/interiors_plan.md); the
+  cottage door sign says so in-game and never teleports.
 - wardrobe mirror tile is not placement-blocked; you can build a crate under
   the mirror. Cosmetic.
 - profiles file is per-machine: two instances on one PC share it.
+
+## External access status
+
+Run scripts (`tools/run_server_*.ps1`, `run_client_*.ps1`), `--bind=` /
+`--config=` support, the firewall helper pair, and the LAN/internet guide
+(docs/external_server_access.md) exist and are machine-validated. Actually
+reaching a server across a real LAN / the internet (firewall rule, router
+forwarding, CGNAT check) is environment-specific and needs a live test with a
+second machine. The server prints a firewall/port-forwarding reminder whenever
+it binds non-locally.
 
 ## Suggested 15-minute playtest script
 

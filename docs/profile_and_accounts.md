@@ -47,6 +47,18 @@ key the server uses to remember your materials between sessions.
 Untouched. A pre-profile save loads exactly as before; the default profile is
 created beside it and only seeds appearance when the save has none.
 
+## Registering on a server (how "accounts" work today)
+
+There is no signup form: joining a server **is** registration. On your first
+join the server stores your profile_id in its world file (`known_profiles`)
+with your display name and material pouch, and tells you in chat —
+"Registered on this server as Julie". Returning with the same profile gets
+"Welcome back" and your saved materials. Your display name is set in the F8
+panel (it also shows your profile id); if someone online already uses your
+name, the server renames you "Name#2" for the session. **No passwords exist**,
+so anyone who copies or fabricates a profile_id can impersonate it — fine for
+trusted friends, the documented reason this is not public-ready.
+
 ## Toward real accounts
 
 When a persistent backend arrives: profile_id becomes a server-issued id,

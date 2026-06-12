@@ -49,6 +49,9 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://server/hearthvale_server.gd",
 	"res://server/server_main.tscn",
 	"res://ui/network_connect_panel.tscn",
+	"res://systems/network/chat_message.gd",
+	"res://systems/resources/resource_spawn_registry.gd",
+	"res://ui/chat_panel.tscn",
 	"res://scenes/world/homestead.tscn",
 	"res://scenes/world/regions/homestead/homestead_region.tscn",
 	"res://scenes/world/regions/village_square/village_square_region.tscn",
@@ -389,6 +392,105 @@ func _initialize() -> void:
 
 	if not InputMap.has_action("toggle_network_panel"):
 		push_error("InputMap action 'toggle_network_panel' is missing from project.godot")
+		quit(1)
+		return
+
+	# --- Server run/external-access pass ----------------------------------------
+	for required_file in [
+		"res://tools/run_server_local.ps1",
+		"res://tools/run_server_public.ps1",
+		"res://tools/run_client_local.ps1",
+		"res://tools/run_client_editor.ps1",
+		"res://tools/open_firewall_server_port.ps1",
+		"res://tools/remove_firewall_server_port.ps1",
+		"res://server/server_config.example.json",
+		"res://docs/external_server_access.md",
+		"res://docs/run_local_server.md",
+		"res://docs/run_local_playtest.md",
+		"res://docs/playtest_readiness.md",
+		"res://docs/interiors_plan.md",
+	]:
+		if not FileAccess.file_exists(required_file):
+			push_error("Required playtest file missing: %s" % required_file)
+			quit(1)
+			return
+
+	# Server config resolution: defaults < config file values < CLI args.
+	var config_defaults: Dictionary = ServerConfig.defaults()
+	for config_key in ["bind_address", "port", "world", "max_players", "save_on_change", "log_connections"]:
+		if not config_defaults.has(config_key):
+			push_error("ServerConfig.defaults() missing key '%s'" % config_key)
+			quit(1)
+			return
+	var resolved_config: Dictionary = ServerConfig.resolve(["--port=9001", "--bind=0.0.0.0", "--max-players=4"])
+	if int(resolved_config["port"]) != 9001 or String(resolved_config["bind_address"]) != "*" or int(resolved_config["max_players"]) != 4:
+		push_error("ServerConfig.resolve() did not apply CLI overrides correctly")
+		quit(1)
+		return
+	if not ServerConfig.resolve(["--port=999999"]).get("port", 0) == ServerConfig.DEFAULT_PORT:
+		push_error("ServerConfig accepted an out-of-range port")
+		quit(1)
+		return
+	var example_config: Dictionary = ServerConfig.load_config_file("res://server/server_config.example.json")
+	var merged_example: Dictionary = ServerConfig.merge(config_defaults, example_config)
+	if int(merged_example["max_players"]) != 8 or String(merged_example["bind_address"]) != "*":
+		push_error("server_config.example.json did not merge as expected")
+		quit(1)
+		return
+	if ServerConfig.normalize_bind("not_an_ip") != "" or ServerConfig.normalize_bind("192.168.1.10") != "192.168.1.10":
+		push_error("ServerConfig.normalize_bind() validation regressed")
+		quit(1)
+		return
+	if ServerConfig.is_externally_reachable("127.0.0.1") or not ServerConfig.is_externally_reachable("*"):
+		push_error("ServerConfig.is_externally_reachable() logic regressed")
+		quit(1)
+		return
+
+	# --- Gathering + chat pass ----------------------------------------------------
+	var seen_node_ids: Dictionary = {}
+	var yield_definitions: Dictionary = ResourceNode.definitions()
+	for spawn_variant in ResourceSpawnRegistry.definitions():
+		var spawn: Dictionary = spawn_variant as Dictionary
+		var spawn_node_id: String = String(spawn.get("node_id", ""))
+		if spawn_node_id.is_empty() or seen_node_ids.has(spawn_node_id):
+			push_error("ResourceSpawnRegistry has a missing/duplicate node_id: '%s'" % spawn_node_id)
+			quit(1)
+			return
+		seen_node_ids[spawn_node_id] = true
+		var spawn_type: String = String(spawn.get("type", ""))
+		if not yield_definitions.has(spawn_type):
+			push_error("ResourceSpawnRegistry node '%s' has unknown type '%s'" % [spawn_node_id, spawn_type])
+			quit(1)
+			return
+		var yield_material: String = String((yield_definitions[spawn_type] as Dictionary).get("material_id", ""))
+		if not ResourceIds.is_material(yield_material):
+			push_error("Resource type '%s' yields unknown material '%s'" % [spawn_type, yield_material])
+			quit(1)
+			return
+		if not ["homestead", "village", "forest"].has(String(spawn.get("anchor", ""))):
+			push_error("ResourceSpawnRegistry node '%s' has unknown anchor" % spawn_node_id)
+			quit(1)
+			return
+	if seen_node_ids.size() < 8:
+		push_error("Expected at least 8 gatherable nodes, found %d" % seen_node_ids.size())
+		quit(1)
+		return
+	if ResourceSpawnRegistry.has_node_id("not_a_real_node"):
+		push_error("ResourceSpawnRegistry.has_node_id() matched a bogus id")
+		quit(1)
+		return
+
+	if ChatMessage.sanitize("   ") != "" or ChatMessage.is_sendable("  \n "):
+		push_error("ChatMessage failed to reject empty/whitespace messages")
+		quit(1)
+		return
+	var long_message: String = "a".repeat(ChatMessage.MAX_LENGTH + 50)
+	if ChatMessage.sanitize(long_message).length() != ChatMessage.MAX_LENGTH:
+		push_error("ChatMessage failed to cap message length")
+		quit(1)
+		return
+	if ChatMessage.sanitize("hi\nthere\t friend") != "hi there friend":
+		push_error("ChatMessage failed to collapse whitespace/newlines")
 		quit(1)
 		return
 

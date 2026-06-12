@@ -7,13 +7,24 @@ Transport: Godot high-level multiplayer over ENet, RPCs on the
 `offline` (default, always boots), `client`, `server`.
 
 ### Syncs today
-- player join/leave presence
+- player join/leave presence (+ "X joined/left" chat system lines)
 - display name + appearance (sent in the join request, sanitized server-side
-  by `PlayerIdentity.normalized`)
+  by `PlayerIdentity.normalized`; display names deduplicated against online
+  players: second "Villager" becomes "Villager#2")
 - player positions (~8 Hz, unreliable-ordered, lerped client-side via
   `RemotePlayer`)
 - placements: request → server validate (id, occupancy, materials) → commit →
   broadcast → persist
+- **gathering**: request → server validates the node id against
+  `ResourceSpawnRegistry` + per-node 20s cooldown → grants materials → updates
+  the requester's pouch ("+2 Wood" toast). Server gather cooldowns are
+  in-memory and reset on server restart (documented temporary behaviour).
+- **chat**: client sends text → server sanitizes (`ChatMessage`: trimmed,
+  single line, 200 chars) and broadcasts with ITS identity-state name, never
+  the wire name. Enter opens chat, Esc closes, movement is suspended while
+  typing. PROTOTYPE: no moderation, no filtering, no admin commands, no
+  history persistence; offline the chat panel is a local system-message log
+  only.
 - per-player server materials (private to each requester)
 
 ### Does NOT sync yet (client-local)
@@ -21,8 +32,8 @@ Transport: Godot high-level multiplayer over ENet, RPCs on the
   alongside them)
 - remove/move/edit of placed objects
 - farming, day/mood, comfort, mailbox/tasks
-- villagers, creatures, gathering yields (offline inventory only)
-- chat (none exists)
+- villagers, creatures
+- house interiors (none exist — see docs/interiors_plan.md)
 
 ### Message reference
 See `systems/network/network_messages.gd` for every payload shape, including

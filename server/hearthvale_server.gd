@@ -9,6 +9,11 @@ extends Node
 func _ready() -> void:
 	var config: Dictionary = ServerConfig.parse_from_args()
 	print("=== Hearthvale Server (prototype) ===")
+	print("[server] Config: bind=%s port=%d world=%s max_players=%d" % [
+		String(config["bind_address"]), int(config["port"]),
+		String(config["world"]), int(config["max_players"]),
+	])
+	print("[server] (defaults < --config=<file> < CLI args; see server/server_config.example.json)")
 	# Runtime autoload lookup (direct identifier breaks --script validation).
 	var session: Node = get_node_or_null("/root/NetworkSession")
 	if session == null:
@@ -16,7 +21,9 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	var started: bool = bool(session.call(
-		"start_server", int(config["port"]), String(config["world"]), int(config["max_clients"])
+		"start_server",
+		int(config["port"]), String(config["world"]),
+		int(config["max_players"]), String(config["bind_address"])
 	))
 	if not started:
 		push_error("Server failed to start; exiting.")

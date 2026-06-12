@@ -14,6 +14,10 @@ extends Node
 signal connection_state_changed(state_text: String)
 signal place_denied_received(reason: String)
 signal server_materials_changed(materials: Dictionary)
+signal chat_received(display_name: String, text: String)
+signal chat_system_received(text: String)
+signal gather_result_received(node_id: String, material_id: String, amount: int)
+signal gather_denied_received(node_id: String, reason: String)
 
 const POSITION_SYNC_INTERVAL := 0.12
 const REMOTE_PLAYER_SCRIPT := preload("res://systems/network/remote_player.gd")
@@ -27,6 +31,10 @@ var _world: Node = null
 var _server_save: ServerSaveSystem = null
 var _server_world: ServerWorldState = null
 var _players: Dictionary = {}
+# Per-node gather cooldowns (node_id -> ready-at msec). In-memory only: gather
+# cooldowns reset on server restart — documented temporary behaviour.
+var _gather_ready_at: Dictionary = {}
+var _server_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 # Client state.
 var _remote_avatars: Dictionary = {}
@@ -56,23 +64,35 @@ func register_world(world: Node) -> void:
 
 # --- Server ---------------------------------------------------------------
 
-func start_server(port: int, world_name: String, max_clients: int = 16) -> bool:
+func start_server(port: int, world_name: String, max_clients: int = 16, bind_address: String = "*") -> bool:
 	var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+	var bind: String = ServerConfig.normalize_bind(bind_address)
+	if bind.is_empty():
+		bind = "*"
+	peer.set_bind_ip(bind)
 	var error: Error = peer.create_server(port, max_clients)
 	if error != OK:
-		push_warning("Hearthvale server failed to listen on port %d (error %d)" % [port, error])
+		push_warning("Hearthvale server failed to listen on %s:%d (error %d) — is the port already in use?" % [bind, port, error])
 		return false
 
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_server_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_server_peer_disconnected)
 	_mode = NetworkMode.SERVER
+	_server_rng.randomize()
+	var world_existed: bool = FileAccess.file_exists(ServerSaveSystem.new(world_name).world_path())
 	_server_save = ServerSaveSystem.new(world_name)
 	_server_world = ServerWorldState.from_world(_server_save.load_world())
-	print("[server] Hearthvale server listening on port %d" % port)
+	print("[server] Listening on %s:%d (UDP/ENet), max %d players" % [bind, port, max_clients])
+	if not world_existed:
+		print("[server] Created new world save: %s" % _server_save.world_path())
 	print("[server] World '%s' loaded: %d placed objects (%s)" % [
 		world_name, _server_world.placed_objects().size(), _server_save.world_path(),
 	])
+	if ServerConfig.is_externally_reachable(bind):
+		print("[server] Reminder: external/LAN clients need UDP %d allowed through the Windows firewall" % port)
+		print("[server]           (tools/open_firewall_server_port.ps1) and, for internet play, router")
+		print("[server]           port forwarding of UDP %d to this PC. See docs/external_server_access.md." % port)
 	return true
 
 func _on_server_peer_connected(peer_id: int) -> void:
@@ -84,6 +104,7 @@ func _on_server_peer_disconnected(peer_id: int) -> void:
 		_server_world.remember_profile(player)
 		_server_save.save_world(_server_world.world)
 		print("[server] %s (peer %d) left." % [player.display_name, peer_id])
+		_rpc_chat_system.rpc("%s left." % player.display_name)
 	_players.erase(peer_id)
 	_rpc_player_left.rpc(peer_id)
 
@@ -173,8 +194,15 @@ func _rpc_join_request(payload: Dictionary) -> void:
 	var peer_id: int = multiplayer.get_remote_sender_id()
 	var identity: Dictionary = PlayerIdentity.normalized(payload)
 
+	# Session registration: a profile is "registered" the first time it joins —
+	# no passwords, the profile_id is the identity (prototype trust model).
+	# Display names are deduplicated against currently-online players so two
+	# "Villager"s stay distinguishable in chat and name tags.
+	identity["display_name"] = _dedupe_display_name(String(identity.get("display_name", "Villager")))
+
 	var materials: MaterialInventory
 	var known: Dictionary = _server_world.get_known_profile(String(identity.get("profile_id", "")))
+	var is_returning: bool = not known.is_empty()
 	if known.has("materials") and typeof(known["materials"]) == TYPE_DICTIONARY:
 		materials = MaterialInventory.from_dictionary(known["materials"] as Dictionary)
 	else:
@@ -185,7 +213,15 @@ func _rpc_join_request(payload: Dictionary) -> void:
 	_players[peer_id] = player
 	_server_world.remember_profile(player)
 	_server_save.save_world(_server_world.world)
-	print("[server] %s (peer %d, profile %s) joined." % [player.display_name, peer_id, player.profile_id])
+	print("[server] %s (peer %d, profile %s) joined%s." % [
+		player.display_name, peer_id, player.profile_id,
+		" (returning)" if is_returning else " (new registration)",
+	])
+	_rpc_chat_system.rpc("%s joined." % player.display_name)
+	_rpc_chat_system.rpc_id(peer_id, (
+		"Welcome back, %s!" % player.display_name if is_returning
+		else "Registered on this server as %s (your profile is your identity — no password)." % player.display_name
+	))
 
 	var others: Array = []
 	for other_peer_id in _players.keys():
@@ -251,25 +287,113 @@ func _rpc_request_place(content_id: String, tile_x: int, tile_y: int) -> void:
 	if player == null:
 		return
 	if not ContentRegistry.placeables().has(content_id):
-		_rpc_place_denied.rpc_id(peer_id, "Unknown item")
+		_deny_place(peer_id, player.display_name, content_id, "Unknown item")
 		return
 	if not _server_world.is_tile_free(tile_x, tile_y):
-		_rpc_place_denied.rpc_id(peer_id, "That spot is taken")
+		_deny_place(peer_id, player.display_name, content_id, "That spot is taken")
 		return
 	var cost: Dictionary = BuildCosts.cost_of(content_id)
 	if not player.materials.spend(cost):
-		_rpc_place_denied.rpc_id(peer_id, "Needs %s" % BuildCosts.cost_text(content_id))
+		_deny_place(peer_id, player.display_name, content_id, "Needs %s" % BuildCosts.cost_text(content_id))
 		return
 
 	var record: Dictionary = _server_world.add_placed_object(content_id, tile_x, tile_y, player.profile_id, player.display_name)
 	if record.is_empty():
-		_rpc_place_denied.rpc_id(peer_id, "That spot is taken")
+		_deny_place(peer_id, player.display_name, content_id, "That spot is taken")
 		return
 	_server_world.remember_profile(player)
 	_server_save.save_world(_server_world.world)
 	print("[server] %s placed %s at (%d, %d)." % [player.display_name, content_id, tile_x, tile_y])
 	_rpc_placement_committed.rpc(record)
 	_rpc_materials_update.rpc_id(peer_id, player.materials.to_dictionary())
+
+func _dedupe_display_name(base_name: String) -> String:
+	var candidate: String = base_name
+	var suffix: int = 2
+	while _is_display_name_online(candidate):
+		candidate = "%s#%d" % [base_name, suffix]
+		suffix += 1
+	return candidate
+
+func _is_display_name_online(display_name: String) -> bool:
+	for player_variant in _players.values():
+		if (player_variant as ServerPlayerState).display_name == display_name:
+			return true
+	return false
+
+# --- Chat (prototype: no moderation/filtering/admin commands) ----------------
+
+func send_chat(text: String) -> void:
+	if is_client_connected():
+		_rpc_chat_send.rpc_id(1, text)
+
+@rpc("any_peer", "reliable")
+func _rpc_chat_send(text: String) -> void:
+	if not is_server():
+		return
+	var player: ServerPlayerState = _players.get(multiplayer.get_remote_sender_id())
+	if player == null:
+		return
+	var clean: String = ChatMessage.sanitize(text)
+	if clean.is_empty():
+		return
+	# The server's identity state names the sender — never the wire payload.
+	print("[server] <%s> %s" % [player.display_name, clean])
+	_rpc_chat_broadcast.rpc(player.display_name, clean)
+
+@rpc("authority", "reliable")
+func _rpc_chat_broadcast(display_name: String, text: String) -> void:
+	chat_received.emit(display_name, text)
+
+@rpc("authority", "reliable")
+func _rpc_chat_system(text: String) -> void:
+	chat_system_received.emit(text)
+
+# --- Gathering (server-authoritative when connected) -------------------------
+
+func request_gather(node_id: String) -> void:
+	if is_client_connected():
+		_rpc_request_gather.rpc_id(1, node_id)
+
+@rpc("any_peer", "reliable")
+func _rpc_request_gather(node_id: String) -> void:
+	if not is_server():
+		return
+	var peer_id: int = multiplayer.get_remote_sender_id()
+	var player: ServerPlayerState = _players.get(peer_id)
+	if player == null:
+		return
+	var definition: Dictionary = ResourceSpawnRegistry.find(node_id)
+	if definition.is_empty():
+		_rpc_gather_denied.rpc_id(peer_id, node_id, "There is nothing to gather there")
+		return
+	var now: int = Time.get_ticks_msec()
+	if now < int(_gather_ready_at.get(node_id, 0)):
+		_rpc_gather_denied.rpc_id(peer_id, node_id, "This spot is still recovering")
+		return
+
+	var yields: Dictionary = ResourceNode.definitions().get(String(definition["type"]), {}) as Dictionary
+	var material_id: String = String(yields.get("material_id", ResourceIds.MATERIAL_WOOD))
+	var amount: int = _server_rng.randi_range(int(yields.get("min", 1)), int(yields.get("max", 2)))
+	player.materials.add(material_id, amount)
+	_gather_ready_at[node_id] = now + int(ResourceSpawnRegistry.COOLDOWN_SECONDS * 1000.0)
+	_server_world.remember_profile(player)
+	_server_save.save_world(_server_world.world)
+	print("[server] %s gathered %d %s at %s." % [player.display_name, amount, material_id, node_id])
+	_rpc_materials_update.rpc_id(peer_id, player.materials.to_dictionary())
+	_rpc_gather_result.rpc_id(peer_id, node_id, material_id, amount)
+
+@rpc("authority", "reliable")
+func _rpc_gather_result(node_id: String, material_id: String, amount: int) -> void:
+	gather_result_received.emit(node_id, material_id, amount)
+
+@rpc("authority", "reliable")
+func _rpc_gather_denied(node_id: String, reason: String) -> void:
+	gather_denied_received.emit(node_id, reason)
+
+func _deny_place(peer_id: int, display_name: String, content_id: String, reason: String) -> void:
+	print("[server] Denied placement of '%s' by %s (peer %d): %s" % [content_id, display_name, peer_id, reason])
+	_rpc_place_denied.rpc_id(peer_id, reason)
 
 @rpc("authority", "reliable")
 func _rpc_place_denied(reason: String) -> void:

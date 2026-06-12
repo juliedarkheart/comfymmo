@@ -17,10 +17,18 @@ player save with zero migration; the HUD shows them on their own line.
 
 ## Gathering
 
-Eight `ResourceNode` spots across the overworld (wood/stone/fiber/clay ×
-homestead/village/forest). Walk up, press F: 1–3 of the material, a friendly
-panel, auto-saved. Nodes are infinite for now — respawn timers/cooldowns are
-listed future work, deliberately skipped to stay un-punishing.
+Twelve `ResourceNode` spots across the overworld (wood/stone/fiber/clay ×
+homestead/village/forest), defined in `resource_spawn_registry.gd` — the same
+catalog the server validates against. Walk up, press F: a "+2 Wood" toast in
+the chat log, auto-saved. Each node then **recovers for 20 seconds** (dimmed;
+"This spot is still recovering") instead of depleting — regeneration, never
+punishment.
+
+Connected to a server, gathering is **server-authoritative**: the client sends
+the node id, the server validates it against the registry and its own per-node
+cooldown, grants the materials into your server pouch, and the toast comes
+from the server's reply. Note: server-side gather cooldowns are in-memory and
+reset when the server restarts (temporary, documented).
 
 ## Build costs (`systems/building/build_costs.gd`)
 

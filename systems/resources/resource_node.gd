@@ -2,10 +2,11 @@ extends Node2D
 class_name ResourceNode
 
 ## A gatherable spot in the world: a wood pile, a stone outcrop, a fiber bush,
-## or a clay pit. Visual + yield data only; the area controller registers the
-## interaction and adds the materials to the inventory. Nodes are infinite for
-## the prototype (cozy, no depletion punishment) — a respawn/cooldown pass is
-## documented future work.
+## or a clay pit. Visual + yield data; the area controller registers the
+## interaction and adds the materials to the inventory. Nodes regenerate on a
+## short cooldown (dimmed while recovering) instead of depleting — cozy, never
+## punishing. Offline the cooldown is local; connected, the server enforces its
+## own per-node cooldown and this one just mirrors it visually.
 
 const TYPE_WOOD := "wood_source"
 const TYPE_STONE := "stone_source"
@@ -13,6 +14,8 @@ const TYPE_FIBER := "fiber_source"
 const TYPE_CLAY := "clay_source"
 
 var resource_type: String = TYPE_WOOD
+var cooldown_seconds: float = ResourceSpawnRegistry.COOLDOWN_SECONDS
+var _ready_at_msec: int = 0
 
 static func definitions() -> Dictionary:
 	return {
@@ -31,6 +34,24 @@ func get_definition() -> Dictionary:
 
 func get_prompt() -> String:
 	return String(get_definition().get("prompt", "Press F to gather"))
+
+func is_ready() -> bool:
+	return Time.get_ticks_msec() >= _ready_at_msec
+
+func remaining_seconds() -> int:
+	return maxi(0, int(ceilf(float(_ready_at_msec - Time.get_ticks_msec()) / 1000.0)))
+
+## Dim the node and start the regeneration window. Visual only — gameplay
+## validity is checked via is_ready() (offline) or by the server (connected).
+func start_cooldown() -> void:
+	_ready_at_msec = Time.get_ticks_msec() + int(cooldown_seconds * 1000.0)
+	modulate = Color(1.0, 1.0, 1.0, 0.45)
+	var timer: SceneTreeTimer = get_tree().create_timer(cooldown_seconds)
+	timer.timeout.connect(_on_cooldown_finished)
+
+func _on_cooldown_finished() -> void:
+	if is_instance_valid(self):
+		modulate = Color(1.0, 1.0, 1.0, 1.0)
 
 func roll_yield(rng: RandomNumberGenerator) -> Dictionary:
 	var definition: Dictionary = get_definition()

@@ -10,6 +10,7 @@ var _session: Node = null
 
 @onready var _rows: VBoxContainer = $Panel/Rows
 var _status_label: Label = null
+var _profile_label: Label = null
 var _name_edit: LineEdit = null
 var _ip_edit: LineEdit = null
 var _port_edit: LineEdit = null
@@ -50,6 +51,11 @@ func _build_rows() -> void:
 	_status_label.add_theme_color_override("font_color", Color("#cfe3c2"))
 	_rows.add_child(_status_label)
 
+	_profile_label = Label.new()
+	_profile_label.add_theme_font_size_override("font_size", 12)
+	_profile_label.add_theme_color_override("font_color", Color(0.87, 0.79, 0.68, 0.8))
+	_rows.add_child(_profile_label)
+
 	_name_edit = _add_field("Display Name", "Villager")
 	_ip_edit = _add_field("Server IP", "127.0.0.1")
 	_port_edit = _add_field("Port", str(ServerConfig.DEFAULT_PORT))
@@ -75,7 +81,11 @@ func _build_rows() -> void:
 	buttons.add_child(close_button)
 
 	var hint: Label = Label.new()
-	hint.text = "Run a server first: see docs/run_local_server.md"
+	hint.text = (
+		"Run a server first (tools/run_server_local.ps1).\n"
+		+ "Same PC: 127.0.0.1 · LAN: host's LAN IP (ipconfig)\n"
+		+ "Internet: host's public IP, UDP port forwarded"
+	)
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.add_theme_color_override("font_color", Color(0.87, 0.79, 0.68, 0.8))
 	_rows.add_child(hint)
@@ -101,6 +111,10 @@ func _refresh_from_profile() -> void:
 	_name_edit.text = String(profile.get("display_name", "Villager"))
 	_ip_edit.text = String(profile.get("last_server_ip", "127.0.0.1"))
 	_port_edit.text = str(int(profile.get("last_server_port", ServerConfig.DEFAULT_PORT)))
+	if _profile_label != null:
+		# Your profile id IS your server identity (auto-registered on first
+		# join; no password). Shown so playtesters know who they are.
+		_profile_label.text = "Profile id: %s" % String(profile.get("profile_id", "?"))
 
 func _on_connect_pressed() -> void:
 	if _session == null or String(_session.call("get_mode")) != NetworkMode.OFFLINE:

@@ -1,0 +1,8 @@
+{
+	"bind_address": "0.0.0.0",
+	"port": 8910,
+	"world": "default_world",
+	"max_players": 8,
+	"save_on_change": true,
+	"log_connections": true
+}

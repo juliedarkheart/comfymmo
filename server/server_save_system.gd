@@ -39,9 +39,10 @@ func save_world(world: Dictionary) -> void:
 	world["updated_at"] = Time.get_datetime_string_from_system(true)
 	var file: FileAccess = FileAccess.open(world_path(), FileAccess.WRITE)
 	if file == null:
-		push_warning("Unable to write server world file: %s" % world_path())
+		push_warning("[server] SAVE FAILED — unable to write world file: %s" % world_path())
 		return
 	file.store_string(JSON.stringify(world, "\t"))
+	print("[server] World saved (%d placed objects)" % (world.get("placed_objects", []) as Array).size())
 
 static func create_default_world(target_world_name: String) -> Dictionary:
 	var now: String = Time.get_datetime_string_from_system(true)
