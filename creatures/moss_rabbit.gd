@@ -92,6 +92,15 @@ func _build_visual() -> void:
 		eye.color = Color("#3e2c1e")
 		root.add_child(eye)
 
+	for bx: int in [-8, 8]:
+		var blush: Polygon2D = Polygon2D.new()
+		blush.position = Vector2(bx, -4)
+		blush.polygon = PackedVector2Array([
+			Vector2(0, -1.5), Vector2(2, 0), Vector2(0, 1.5), Vector2(-2, 0),
+		])
+		blush.color = Color(0.93, 0.66, 0.62, 0.8)
+		root.add_child(blush)
+
 	var nose: Polygon2D = Polygon2D.new()
 	nose.position = Vector2(0, -1)
 	nose.polygon = PackedVector2Array([

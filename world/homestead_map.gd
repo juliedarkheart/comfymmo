@@ -20,7 +20,7 @@ const FENCE_START_TILE := Vector2i(3, 5)
 const FENCE_LENGTH := 8
 const PATH_ROW_RANGE := [8, 9, 10]
 const GROUND_APRON := 8
-const BACKDROP_COLOR := Color("#6a9760")
+const BACKDROP_COLOR := Color("#709c5d")
 const BACKDROP_MARGIN := 200.0
 const WILDERNESS_RADIUS := 14
 const WILDERNESS_SEED := 20240611
@@ -69,7 +69,7 @@ func _build_apron() -> void:
 			filler.position = grid_to_world(tile)
 			filler.polygon = _tile_diamond()
 			if _apron_is_road(tile):
-				filler.color = Color("#b59872")
+				filler.color = Color("#c2a071")
 			else:
 				filler.color = _apron_color(tile)
 			ground_layer.add_child(filler)
@@ -80,8 +80,8 @@ func _apron_is_road(tile: Vector2i) -> bool:
 
 func _apron_color(tile: Vector2i) -> Color:
 	if (tile.x + tile.y) % 2 == 0:
-		return Color("#6c9962")
-	return Color("#659158")
+		return Color("#74a25e")
+	return Color("#6c9954")
 
 func _build_topology() -> void:
 	# Gentle world-shape cues: a road curving toward the village exit, a shallow
@@ -91,7 +91,7 @@ func _build_topology() -> void:
 	TerrainShapes.add_ribbon(
 		ground_layer,
 		PackedVector2Array([Vector2(20, 352), Vector2(180, 398), Vector2(340, 436), Vector2(540, 470)]),
-		22.0, 34.0, Color("#b89a72")
+		22.0, 34.0, Color("#c2a071")
 	)
 	TerrainShapes.add_ribbon(
 		ground_layer,
@@ -159,9 +159,11 @@ func _place_wilderness_prop(rng: RandomNumberGenerator, tile: Vector2i) -> void:
 		_add_tree_cluster(rng, ground_layer, pos)
 	elif roll < 0.40:
 		_add_shrub(ground_layer, pos)
-	elif roll < 0.52:
+	elif roll < 0.48:
 		_add_rock(ground_layer, pos)
-	elif roll < 0.72:
+	elif roll < 0.56:
+		_add_mushroom(ground_layer, pos)
+	elif roll < 0.74:
 		_add_flowers(rng, ground_layer, pos)
 	elif roll < 0.92:
 		_add_grass_tuft(rng, ground_layer, pos)
@@ -175,28 +177,28 @@ func _add_tree_cluster(rng: RandomNumberGenerator, parent: Node2D, world_pos: Ve
 		_add_decor_tree(parent, world_pos + offset)
 
 func _add_decor_tree(parent: Node2D, world_pos: Vector2) -> void:
+	# Round toy tree: tapered trunk under three overlapping leaf blobs.
 	var tree := Node2D.new()
 	tree.position = world_pos
 	parent.add_child(tree)
 	var trunk := Polygon2D.new()
 	trunk.polygon = PackedVector2Array([
-		Vector2(-4, 0), Vector2(4, 0), Vector2(5, -22), Vector2(-5, -22),
+		Vector2(-3.5, 0), Vector2(3.5, 0), Vector2(4.5, -20), Vector2(-4.5, -20),
 	])
-	trunk.color = Color("#7a5536")
+	trunk.color = Color("#8a5e3c")
 	tree.add_child(trunk)
-	var canopy := Polygon2D.new()
-	canopy.position = Vector2(0, -32)
-	canopy.polygon = PackedVector2Array([
-		Vector2(0, -22), Vector2(20, -6), Vector2(14, 14), Vector2(0, 20), Vector2(-14, 14), Vector2(-20, -6),
-	])
-	canopy.color = Color("#5f8c56")
-	tree.add_child(canopy)
+	for blob in [
+		[Vector2(-11, -28), 10.0, 8.5],
+		[Vector2(11, -28), 10.0, 8.5],
+		[Vector2(0, -34), 17.0, 14.0],
+	]:
+		var leaf := Polygon2D.new()
+		leaf.polygon = TerrainShapes.ellipse(blob[0], blob[1], blob[2])
+		leaf.color = Color("#6f9c5f")
+		tree.add_child(leaf)
 	var canopy_hi := Polygon2D.new()
-	canopy_hi.position = Vector2(-3, -36)
-	canopy_hi.polygon = PackedVector2Array([
-		Vector2(0, -12), Vector2(11, -2), Vector2(6, 9), Vector2(-8, 6), Vector2(-11, -3),
-	])
-	canopy_hi.color = Color("#82b26e")
+	canopy_hi.polygon = TerrainShapes.ellipse(Vector2(-4, -39), 9.0, 6.5)
+	canopy_hi.color = Color("#8cba74")
 	tree.add_child(canopy_hi)
 
 func _add_shrub(parent: Node2D, world_pos: Vector2) -> void:
@@ -204,29 +206,54 @@ func _add_shrub(parent: Node2D, world_pos: Vector2) -> void:
 	shrub.position = world_pos
 	parent.add_child(shrub)
 	var blob := Polygon2D.new()
-	blob.polygon = PackedVector2Array([
-		Vector2(0, -14), Vector2(13, -6), Vector2(11, 6), Vector2(0, 11), Vector2(-11, 6), Vector2(-13, -6),
-	])
-	blob.color = Color("#5f8c56")
+	blob.polygon = TerrainShapes.ellipse(Vector2(0, -5), 13.0, 9.5)
+	blob.color = Color("#6f9c5f")
 	shrub.add_child(blob)
 	var hi := Polygon2D.new()
-	hi.position = Vector2(-2, -4)
-	hi.polygon = PackedVector2Array([
-		Vector2(0, -7), Vector2(7, -2), Vector2(4, 5), Vector2(-5, 4), Vector2(-7, -2),
-	])
-	hi.color = Color("#7aa86a")
+	hi.polygon = TerrainShapes.ellipse(Vector2(-3, -8), 7.0, 4.5)
+	hi.color = Color("#8cba74")
 	shrub.add_child(hi)
+	for berry_pos in [Vector2(5, -7), Vector2(8, -2)]:
+		var berry := Polygon2D.new()
+		berry.polygon = TerrainShapes.ellipse(berry_pos, 1.8, 1.8, 8)
+		berry.color = Color("#d87fa0")
+		shrub.add_child(berry)
 
 func _add_rock(parent: Node2D, world_pos: Vector2) -> void:
 	var rock := Node2D.new()
 	rock.position = world_pos
 	parent.add_child(rock)
 	var body := Polygon2D.new()
-	body.polygon = PackedVector2Array([
-		Vector2(0, -10), Vector2(12, -2), Vector2(9, 9), Vector2(-9, 9), Vector2(-12, -2),
-	])
-	body.color = Color("#9a968f")
+	body.polygon = TerrainShapes.ellipse(Vector2(0, -2), 12.0, 8.0)
+	body.color = Color("#a8a49c")
 	rock.add_child(body)
+	var hi := Polygon2D.new()
+	hi.polygon = TerrainShapes.ellipse(Vector2(-3, -5), 5.0, 3.0, 10)
+	hi.color = Color("#c2beb4")
+	rock.add_child(hi)
+	var moss := Polygon2D.new()
+	moss.polygon = TerrainShapes.ellipse(Vector2(4, -8), 5.0, 2.5, 10)
+	moss.color = Color("#7da964")
+	rock.add_child(moss)
+
+func _add_mushroom(parent: Node2D, world_pos: Vector2) -> void:
+	# Chunky friendly toadstool: cream stem, terracotta cap, cream speckles.
+	var mushroom := Node2D.new()
+	mushroom.position = world_pos
+	parent.add_child(mushroom)
+	var stem := Polygon2D.new()
+	stem.polygon = TerrainShapes.ellipse(Vector2(0, -4), 3.5, 4.5, 10)
+	stem.color = Color("#f2e4c8")
+	mushroom.add_child(stem)
+	var cap := Polygon2D.new()
+	cap.polygon = TerrainShapes.dome(Vector2(0, -6), 8.0, 7.0, 10)
+	cap.color = Color("#c87858")
+	mushroom.add_child(cap)
+	for dot_pos in [Vector2(-3.5, -9), Vector2(2, -11), Vector2(4.5, -8)]:
+		var dot := Polygon2D.new()
+		dot.polygon = TerrainShapes.ellipse(dot_pos, 1.4, 1.4, 8)
+		dot.color = Color("#f2e4c8")
+		mushroom.add_child(dot)
 
 func _add_flowers(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
 	var patch := Node2D.new()
@@ -425,106 +452,146 @@ func _build_homestead_colliders() -> void:
 		_add_tree(tree_tile)
 	_add_fence_line(FENCE_START_TILE, FENCE_LENGTH)
 
-func _add_building(origin: Vector2i, footprint: Vector2i, color: Color, label: String) -> void:
+func _add_building(origin: Vector2i, footprint: Vector2i, _color: Color, label: String) -> void:
+	# A front-facing toy cottage: domed rosy roof with an overhang, cream walls,
+	# round windows with flower boxes, an arched door, and a smoking chimney.
+	# Drawn billboard-style on an iso ground pad so it reads instantly as "home"
+	# at gameplay zoom. The StaticBody2D root, node name, and collision rect are
+	# unchanged from the old block version.
 	var building := StaticBody2D.new()
 	building.name = label
 	building.position = grid_to_world(origin)
 	gameplay_layer.add_child(building)
 
-	var porch := Polygon2D.new()
-	porch.name = "Porch"
-	porch.position = Vector2(0, 30)
-	porch.polygon = PackedVector2Array([
-		Vector2(-44, 0),
-		Vector2(0, -18),
-		Vector2(44, 0),
-		Vector2(0, 18),
+	var pad := Polygon2D.new()
+	pad.name = "GroundPad"
+	pad.position = Vector2(0, 30)
+	pad.polygon = PackedVector2Array([
+		Vector2(-68, 0), Vector2(0, -26), Vector2(68, 0), Vector2(0, 26),
 	])
-	porch.color = Color("#c9a073")
-	building.add_child(porch)
+	pad.color = Color("#d8b58a")
+	building.add_child(pad)
 
-	var base := Polygon2D.new()
-	base.name = "Base"
-	base.polygon = PackedVector2Array([
-		Vector2(0, -30),
-		Vector2(62, 0),
-		Vector2(0, 34),
-		Vector2(-62, 0),
+	var wall := Polygon2D.new()
+	wall.name = "Wall"
+	wall.polygon = PackedVector2Array([
+		Vector2(-46, -26), Vector2(46, -26), Vector2(54, -18), Vector2(54, 22),
+		Vector2(46, 30), Vector2(-46, 30), Vector2(-54, 22), Vector2(-54, -18),
 	])
-	base.color = Color("#d7b184")
-	building.add_child(base)
+	wall.color = Color("#f2dfb8")
+	building.add_child(wall)
 
-	var wall_shadow := Polygon2D.new()
-	wall_shadow.name = "WallShadow"
-	wall_shadow.position = Vector2(16, 6)
-	wall_shadow.polygon = PackedVector2Array([
-		Vector2(0, -18),
-		Vector2(34, 0),
-		Vector2(0, 18),
-		Vector2(-34, 0),
+	var wall_base := Polygon2D.new()
+	wall_base.name = "WallBase"
+	wall_base.polygon = PackedVector2Array([
+		Vector2(-52, 24), Vector2(52, 24), Vector2(46, 30), Vector2(-46, 30),
 	])
-	wall_shadow.color = Color("#bb8b62")
-	building.add_child(wall_shadow)
+	wall_base.color = Color("#d9c39a")
+	building.add_child(wall_base)
 
-	var roof := Polygon2D.new()
-	roof.name = "Roof"
-	roof.position = Vector2(0, -42)
-	roof.polygon = PackedVector2Array([
-		Vector2(0, -38),
-		Vector2(84, 0),
-		Vector2(0, 38),
-		Vector2(-84, 0),
-	])
-	roof.color = Color("#8c5142")
-	building.add_child(roof)
+	# Round windows with warm glass and flower boxes.
+	for wx: float in [-32.0, 32.0]:
+		var frame := Polygon2D.new()
+		frame.polygon = TerrainShapes.ellipse(Vector2(wx, -2), 10.5, 10.5)
+		frame.color = Color("#d2ab7e")
+		building.add_child(frame)
+		var glass := Polygon2D.new()
+		glass.polygon = TerrainShapes.ellipse(Vector2(wx, -2), 7.5, 7.5)
+		glass.color = Color("#f7dfa0")
+		building.add_child(glass)
+		var mullion := Polygon2D.new()
+		mullion.polygon = PackedVector2Array([
+			Vector2(wx - 7.5, -3), Vector2(wx + 7.5, -3), Vector2(wx + 7.5, -1), Vector2(wx - 7.5, -1),
+		])
+		mullion.color = Color("#d2ab7e")
+		building.add_child(mullion)
+		var box := Polygon2D.new()
+		box.polygon = PackedVector2Array([
+			Vector2(wx - 9, 9), Vector2(wx + 9, 9), Vector2(wx + 8, 15), Vector2(wx - 8, 15),
+		])
+		box.color = Color("#a87848")
+		building.add_child(box)
+		var bloom_colors: Array = [Color("#e8a0b4"), Color("#f2e4c8"), Color("#b49ad0")]
+		for b in range(3):
+			var bloom := Polygon2D.new()
+			bloom.polygon = TerrainShapes.ellipse(Vector2(wx - 5 + b * 5, 7), 2.4, 2.4, 8)
+			bloom.color = bloom_colors[b]
+			building.add_child(bloom)
 
-	var roof_cap := Polygon2D.new()
-	roof_cap.name = "RoofCap"
-	roof_cap.position = Vector2(0, -54)
-	roof_cap.polygon = PackedVector2Array([
-		Vector2(0, -14),
-		Vector2(36, 0),
-		Vector2(0, 14),
-		Vector2(-36, 0),
-	])
-	roof_cap.color = Color("#a76554")
-	building.add_child(roof_cap)
+	# Arched door with a peek window and a brass knob.
+	var door_frame := Polygon2D.new()
+	door_frame.name = "DoorFrame"
+	var door_frame_points: PackedVector2Array = TerrainShapes.dome(Vector2(0, 6), 13.0, 14.0)
+	door_frame_points.append(Vector2(13, 30))
+	door_frame_points.append(Vector2(-13, 30))
+	door_frame.polygon = door_frame_points
+	door_frame.color = Color("#d2ab7e")
+	building.add_child(door_frame)
 
 	var door := Polygon2D.new()
 	door.name = "Door"
-	door.position = Vector2(0, 8)
-	door.polygon = PackedVector2Array([
-		Vector2(-8, -14),
-		Vector2(8, -14),
-		Vector2(8, 12),
-		Vector2(-8, 12),
-	])
-	door.color = Color("#6e4b30")
+	var door_points: PackedVector2Array = TerrainShapes.dome(Vector2(0, 6), 10.0, 11.0)
+	door_points.append(Vector2(10, 30))
+	door_points.append(Vector2(-10, 30))
+	door.polygon = door_points
+	door.color = Color("#8a5a3a")
 	building.add_child(door)
 
-	var window_left := Polygon2D.new()
-	window_left.name = "WindowLeft"
-	window_left.position = Vector2(-22, -2)
-	window_left.polygon = PackedVector2Array([
-		Vector2(-7, -7),
-		Vector2(7, -7),
-		Vector2(7, 7),
-		Vector2(-7, 7),
-	])
-	window_left.color = Color("#f3dfa7")
-	building.add_child(window_left)
+	var door_window := Polygon2D.new()
+	door_window.polygon = TerrainShapes.ellipse(Vector2(0, 2), 3.2, 3.2, 10)
+	door_window.color = Color("#f7dfa0")
+	building.add_child(door_window)
 
-	var window_right := Polygon2D.new()
-	window_right.name = "WindowRight"
-	window_right.position = Vector2(22, -2)
-	window_right.polygon = PackedVector2Array([
-		Vector2(-7, -7),
-		Vector2(7, -7),
-		Vector2(7, 7),
-		Vector2(-7, 7),
+	var knob := Polygon2D.new()
+	knob.polygon = TerrainShapes.ellipse(Vector2(5.5, 16), 1.6, 1.6, 8)
+	knob.color = Color("#d4a84a")
+	building.add_child(knob)
+
+	# Big domed roof with overhang, highlight, and a cream eave trim.
+	var roof := Polygon2D.new()
+	roof.name = "Roof"
+	roof.polygon = TerrainShapes.dome(Vector2(0, -26), 70.0, 56.0, 16)
+	roof.color = Color("#c97a6a")
+	building.add_child(roof)
+
+	var roof_highlight := Polygon2D.new()
+	roof_highlight.name = "RoofHighlight"
+	roof_highlight.polygon = TerrainShapes.dome(Vector2(-6, -30), 48.0, 40.0, 14)
+	roof_highlight.color = Color("#d68d7c")
+	building.add_child(roof_highlight)
+
+	var eave := Polygon2D.new()
+	eave.name = "EaveTrim"
+	eave.polygon = PackedVector2Array([
+		Vector2(-72, -28), Vector2(72, -28), Vector2(68, -21), Vector2(-68, -21),
 	])
-	window_right.color = Color("#f3dfa7")
-	building.add_child(window_right)
+	eave.color = Color("#e8cfa8")
+	building.add_child(eave)
+
+	# Chimney with a soft smoke trail.
+	var chimney := Polygon2D.new()
+	chimney.name = "Chimney"
+	chimney.polygon = PackedVector2Array([
+		Vector2(30, -90), Vector2(44, -90), Vector2(44, -60), Vector2(30, -64),
+	])
+	chimney.color = Color("#c99181")
+	building.add_child(chimney)
+
+	var chimney_cap := Polygon2D.new()
+	chimney_cap.name = "ChimneyCap"
+	chimney_cap.polygon = TerrainShapes.ellipse(Vector2(37, -91), 9.0, 3.5, 10)
+	chimney_cap.color = Color("#dfae9d")
+	building.add_child(chimney_cap)
+
+	var smoke_small := Polygon2D.new()
+	smoke_small.polygon = TerrainShapes.ellipse(Vector2(41, -102), 4.5, 3.5, 10)
+	smoke_small.color = Color(0.95, 0.95, 0.97, 0.5)
+	building.add_child(smoke_small)
+
+	var smoke_big := Polygon2D.new()
+	smoke_big.polygon = TerrainShapes.ellipse(Vector2(47, -113), 6.5, 5.0, 10)
+	smoke_big.color = Color(0.95, 0.95, 0.97, 0.32)
+	building.add_child(smoke_big)
 
 	var collision := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
@@ -564,52 +631,37 @@ func _add_tree(tile: Vector2i) -> void:
 		Vector2(-4, -42),
 		Vector2(-10, -34),
 	])
-	trunk.color = Color("#7a5536")
+	trunk.color = Color("#8a5e3c")
 	tree.add_child(trunk)
 
+	# Round overlapping leaf blobs instead of faceted diamonds.
 	var canopy_back := Polygon2D.new()
 	canopy_back.name = "CanopyBack"
-	canopy_back.position = Vector2(0, -54)
-	canopy_back.polygon = PackedVector2Array([
-		Vector2(0, -30),
-		Vector2(24, -18),
-		Vector2(34, 0),
-		Vector2(26, 18),
-		Vector2(0, 28),
-		Vector2(-26, 18),
-		Vector2(-34, 0),
-		Vector2(-24, -18),
-	])
+	canopy_back.polygon = TerrainShapes.ellipse(Vector2(0, -58), 32.0, 26.0, 20)
 	canopy_back.color = Color("#5f8c56")
 	tree.add_child(canopy_back)
 
-	var canopy_front := Polygon2D.new()
-	canopy_front.name = "CanopyFront"
-	canopy_front.position = Vector2(0, -46)
-	canopy_front.polygon = PackedVector2Array([
-		Vector2(0, -24),
-		Vector2(18, -16),
-		Vector2(28, -2),
-		Vector2(24, 14),
-		Vector2(0, 24),
-		Vector2(-24, 14),
-		Vector2(-28, -2),
-		Vector2(-18, -16),
-	])
-	canopy_front.color = Color("#82b26e")
-	tree.add_child(canopy_front)
+	for blob in [
+		[Vector2(-19, -48), 15.0, 12.0],
+		[Vector2(19, -48), 15.0, 12.0],
+		[Vector2(0, -62), 22.0, 17.0],
+	]:
+		var leaf := Polygon2D.new()
+		leaf.polygon = TerrainShapes.ellipse(blob[0], blob[1], blob[2])
+		leaf.color = Color("#6f9c5f")
+		tree.add_child(leaf)
 
-	var berry := Polygon2D.new()
-	berry.name = "Berry"
-	berry.position = Vector2(10, -42)
-	berry.polygon = PackedVector2Array([
-		Vector2(0, -4),
-		Vector2(4, 0),
-		Vector2(0, 4),
-		Vector2(-4, 0),
-	])
-	berry.color = Color("#d28c6d")
-	tree.add_child(berry)
+	var canopy_hi := Polygon2D.new()
+	canopy_hi.name = "CanopyHighlight"
+	canopy_hi.polygon = TerrainShapes.ellipse(Vector2(-7, -67), 12.0, 8.0)
+	canopy_hi.color = Color("#8cba74")
+	tree.add_child(canopy_hi)
+
+	for berry_data in [Vector2(12, -52), Vector2(-14, -46), Vector2(4, -44)]:
+		var berry := Polygon2D.new()
+		berry.polygon = TerrainShapes.ellipse(berry_data, 2.4, 2.4, 8)
+		berry.color = Color("#d87fa0")
+		tree.add_child(berry)
 
 	var collision := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
@@ -701,30 +753,32 @@ func _add_boundary(label: String, boundary_position: Vector2, size: Vector2) -> 
 
 func _tile_color(tile: Vector2i) -> Color:
 	if tile.x >= 12 and tile.y in PATH_ROW_RANGE:
-		return Color("#b59872")
+		return Color("#c2a071")
 	if tile in get_static_blocked_tiles():
-		return Color("#88a56b")
+		return Color("#8cab66")
 	if (tile.x + tile.y) % 2 == 0:
-		return Color("#79aa70")
-	return Color("#739f67")
+		return Color("#80ad68")
+	return Color("#78a35e")
 
 func _tile_highlight_color(tile: Vector2i) -> Color:
 	if tile.x >= 12 and tile.y in PATH_ROW_RANGE:
-		return Color("#d1b38a")
+		return Color("#dcc193")
 	if tile in get_static_blocked_tiles():
-		return Color("#9abc7f")
+		return Color("#9fc27c")
 	if (tile.x + tile.y) % 2 == 0:
-		return Color("#a3c78c")
-	return Color("#94be82")
+		return Color("#a9cd87")
+	return Color("#9cc479")
 
 func _tile_patch_color(tile: Vector2i) -> Color:
+	# Quiet straw/green variations only — saturated warm accents on every tile read
+	# as clutter at overworld zoom, so accents are left to flowers and props.
 	if tile.x >= 12 and tile.y in PATH_ROW_RANGE:
-		return Color("#8d6b52")
+		return Color("#96754f")
 	if (tile.x + tile.y) % 3 == 0:
-		return Color("#ba9c5e")
+		return Color("#aaa763")
 	if (tile.x + tile.y) % 3 == 1:
-		return Color("#8ab57a")
-	return Color("#c78868")
+		return Color("#8cba78")
+	return Color("#94b66d")
 
 func _tile_diamond() -> PackedVector2Array:
 	return IsoMapHelpers.tile_diamond(TILE_WIDTH, TILE_HEIGHT)

@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cozy woven basket with rounded handle -->
+  <path d="M20 26 C20 14 44 14 44 26" fill="none" stroke="#a87848" stroke-width="5" stroke-linecap="round"/>
+  <path d="M10 28 L54 28 L49 52 C48.5 55 46 56 43 56 L21 56 C18 56 15.5 55 15 52 Z"
+        fill="#d9a86a" stroke="#a87848" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="8" y="25" width="48" height="8" rx="4" fill="#c08a50" stroke="#a87848" stroke-width="3"/>
+  <line x1="24" y1="36" x2="25" y2="50" stroke="#b88c54" stroke-width="3" stroke-linecap="round"/>
+  <line x1="32" y1="36" x2="32" y2="50" stroke="#b88c54" stroke-width="3" stroke-linecap="round"/>
+  <line x1="40" y1="36" x2="39" y2="50" stroke="#b88c54" stroke-width="3" stroke-linecap="round"/>
+</svg>

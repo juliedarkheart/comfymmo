@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cute rounded mailbox on a post, little flag up -->
+  <rect x="28" y="38" width="8" height="20" rx="3" fill="#a87848" stroke="#7e5530" stroke-width="3"/>
+  <path d="M12 22 C12 14 18 10 24 10 L44 10 C51 10 56 16 56 24 L56 36 C56 38 54 40 52 40 L16 40 C14 40 12 38 12 36 Z"
+        fill="#9fc4e8" stroke="#5d83a8" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M16 24 C16 18 20 15 24 15 L30 15 C26 15 24 19 24 24 L24 40 L16 40 Z" fill="#c3dcf2"/>
+  <rect x="32" y="22" width="14" height="5" rx="2.5" fill="#f7e2a0" stroke="#d9b86a" stroke-width="2"/>
+  <line x1="14" y1="6" x2="14" y2="22" stroke="#c25448" stroke-width="4" stroke-linecap="round"/>
+  <path d="M14 6 L26 9.5 L14 13 Z" fill="#e8705f" stroke="#c25448" stroke-width="2" stroke-linejoin="round"/>
+</svg>

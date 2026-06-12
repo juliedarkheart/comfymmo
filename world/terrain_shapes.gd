@@ -60,3 +60,27 @@ static func add_ribbon(parent: Node2D, points: PackedVector2Array, half_width_st
 
 static func add_disc(parent: Node2D, center: Vector2, radius: float, sides: int, color: Color, y_scale: float = 0.6) -> Polygon2D:
 	return add_polygon(parent, disc(center, radius, sides, y_scale), color)
+
+## Smooth ellipse polygon for organic, toy-like prop shapes (canopies, rocks,
+## mushroom caps, character parts). Higher segment count than disc() so curves
+## read as round rather than faceted at gameplay zoom.
+static func ellipse(center: Vector2, rx: float, ry: float, segments: int = 16) -> PackedVector2Array:
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i in range(segments):
+		var a: float = TAU * float(i) / float(segments)
+		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
+
+static func add_ellipse(parent: Node2D, center: Vector2, rx: float, ry: float, color: Color, segments: int = 16) -> Polygon2D:
+	return add_polygon(parent, ellipse(center, rx, ry, segments), color)
+
+## Top half of an ellipse closed along its base — cute domed roofs and caps.
+static func dome(center: Vector2, rx: float, ry: float, segments: int = 12) -> PackedVector2Array:
+	var pts: PackedVector2Array = PackedVector2Array()
+	for i in range(segments + 1):
+		var a: float = PI + PI * float(i) / float(segments)
+		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
+
+static func add_dome(parent: Node2D, center: Vector2, rx: float, ry: float, color: Color, segments: int = 12) -> Polygon2D:
+	return add_polygon(parent, dome(center, rx, ry, segments), color)

@@ -12,14 +12,19 @@ script = ExtResource("1_placeable")
 color = Color(0.164706, 0.121569, 0.0862745, 0.2)
 polygon = PackedVector2Array(-14, 0, -9, -3, 0, -5, 9, -3, 14, 0, 9, 3, 0, 5, -9, 3)
 
+[node name="GlowHalo" type="Polygon2D" parent="."]
+position = Vector2(0, -12)
+color = Color(0.984314, 0.890196, 0.572549, 0.22)
+polygon = PackedVector2Array(0, -18, 13, -10, 16, 0, 12, 10, 0, 15, -12, 10, -16, 0, -13, -10)
+
 [node name="Base" type="Polygon2D" parent="."]
 position = Vector2(0, -4)
-color = Color(0.458824, 0.313726, 0.184314, 1)
+color = Color(0.541176, 0.380392, 0.235294, 1)
 polygon = PackedVector2Array(-8, 0, -4, -10, 4, -10, 8, 0, 4, 12, -4, 12)
 
 [node name="Glow" type="Polygon2D" parent="."]
 position = Vector2(0, -12)
-color = Color(0.972549, 0.870588, 0.545098, 0.85)
+color = Color(0.988235, 0.901961, 0.611765, 0.92)
 polygon = PackedVector2Array(0, -10, 8, -2, 6, 8, -6, 8, -8, -2)
 
 [node name="Handle" type="Polygon2D" parent="."]

@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cozy comfort heart: soft rose with cream highlight -->
+  <path d="M32 54 C18 44 8 35 8 24 C8 15 14 10 21 10 C26 10 30 13 32 17 C34 13 38 10 43 10 C50 10 56 15 56 24 C56 35 46 44 32 54 Z"
+        fill="#e88aa0" stroke="#b85a74" stroke-width="3" stroke-linejoin="round"/>
+  <ellipse cx="22" cy="21" rx="6" ry="4.5" fill="#f7c2cf" transform="rotate(-24 22 21)"/>
+</svg>

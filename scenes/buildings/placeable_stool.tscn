@@ -14,17 +14,22 @@ polygon = PackedVector2Array(-16, 0, -10, -4, 0, -6, 10, -4, 16, 0, 10, 4, 0, 6,
 
 [node name="Seat" type="Polygon2D" parent="."]
 position = Vector2(0, -12)
-color = Color(0.768627, 0.611765, 0.384314, 1)
+color = Color(0.866667, 0.717647, 0.494118, 1)
 polygon = PackedVector2Array(-16, 0, -6, -7, 6, -7, 16, 0, 6, 7, -6, 7)
+
+[node name="SeatCushion" type="Polygon2D" parent="."]
+position = Vector2(0, -14)
+color = Color(0.890196, 0.560784, 0.560784, 1)
+polygon = PackedVector2Array(-9, 0, -4, -4, 4, -4, 9, 0, 4, 4, -4, 4)
 
 [node name="LegLeftFront" type="Polygon2D" parent="."]
 position = Vector2(-8, -2)
-color = Color(0.556863, 0.372549, 0.223529, 1)
+color = Color(0.65098, 0.466667, 0.290196, 1)
 polygon = PackedVector2Array(-2, -8, 2, -8, 2, 12, -2, 12)
 
 [node name="LegRightFront" type="Polygon2D" parent="."]
 position = Vector2(8, -2)
-color = Color(0.556863, 0.372549, 0.223529, 1)
+color = Color(0.65098, 0.466667, 0.290196, 1)
 polygon = PackedVector2Array(-2, -8, 2, -8, 2, 12, -2, 12)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

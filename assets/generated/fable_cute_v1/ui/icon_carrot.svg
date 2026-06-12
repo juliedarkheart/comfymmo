@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Chunky friendly carrot pointing down-left, leafy top-right -->
+  <path d="M42 24 C48 26 50 32 47 37 C40 48 28 56 18 59 C14 60 11 57 12 53 C15 43 23 31 34 24 C37 22 40 23 42 24 Z"
+        fill="#f0945a" stroke="#c66a34" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M44 6 C40 9 38 14 39 19 C44 18 47 13 47 8 Z" fill="#7cb866" stroke="#558c44" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M58 16 C53 15 48 17 45 21 C49 24 55 23 58 20 Z" fill="#8fc878" stroke="#558c44" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M52 28 C48 26 44 26 41 28 C43 31 48 32 52 31 Z" fill="#7cb866" stroke="#558c44" stroke-width="2.5" stroke-linejoin="round"/>
+  <line x1="30" y1="36" x2="36" y2="40" stroke="#c66a34" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="22" y1="46" x2="28" y2="50" stroke="#c66a34" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

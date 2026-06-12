@@ -192,44 +192,76 @@ func _maribel_passage_line(day_count: int, mood_id: String) -> String:
 			return "A gentle afternoon. I tidy the notices and let the hours wander."
 
 func _build_notice_marker(world_pos: Vector2) -> Node2D:
+	# Cozy village notice board: warm frame, little domed roof cap, and a few
+	# colorful pinned notes.
 	var marker: Node2D = Node2D.new()
 	marker.position = world_pos
 	gameplay_layer.add_child(marker)
-	for px in [-16, 16]:
+	for px in [-18, 18]:
 		var post: Polygon2D = Polygon2D.new()
 		post.position = Vector2(px, 0)
 		post.color = Color("#a8754a")
-		post.polygon = PackedVector2Array([Vector2(-4, -36), Vector2(4, -36), Vector2(4, 10), Vector2(-4, 10)])
+		post.polygon = PackedVector2Array([Vector2(-3.5, -40), Vector2(3.5, -40), Vector2(3.5, 10), Vector2(-3.5, 10)])
 		marker.add_child(post)
+	var frame: Polygon2D = Polygon2D.new()
+	frame.position = Vector2(0, -28)
+	frame.color = Color("#a8754a")
+	frame.polygon = PackedVector2Array([Vector2(-30, -20), Vector2(30, -20), Vector2(30, 20), Vector2(-30, 20)])
+	marker.add_child(frame)
 	var board: Polygon2D = Polygon2D.new()
-	board.position = Vector2(0, -26)
-	board.color = Color("#d8b572")
-	board.polygon = PackedVector2Array([Vector2(-28, -18), Vector2(28, -18), Vector2(28, 18), Vector2(-28, 18)])
+	board.position = Vector2(0, -28)
+	board.color = Color("#e0bf8a")
+	board.polygon = PackedVector2Array([Vector2(-26, -16), Vector2(26, -16), Vector2(26, 16), Vector2(-26, 16)])
 	marker.add_child(board)
-	var paper: Polygon2D = Polygon2D.new()
-	paper.position = Vector2(0, -26)
-	paper.color = Color("#faeecd")
-	paper.polygon = PackedVector2Array([Vector2(-14, -10), Vector2(14, -10), Vector2(14, 10), Vector2(-14, 10)])
-	marker.add_child(paper)
+	var roof: Polygon2D = Polygon2D.new()
+	roof.polygon = TerrainShapes.dome(Vector2(0, -48), 34.0, 12.0, 12)
+	roof.color = Color("#c97a6a")
+	marker.add_child(roof)
+	for note_data in [
+		[Vector2(-14, -32), Color("#faeecd")],
+		[Vector2(2, -26), Color("#e8a0b4")],
+		[Vector2(15, -33), Color("#9fc4e8")],
+	]:
+		var note: Polygon2D = Polygon2D.new()
+		note.position = note_data[0]
+		note.color = note_data[1]
+		note.polygon = PackedVector2Array([Vector2(-6, -7), Vector2(6, -7), Vector2(6, 7), Vector2(-6, 7)])
+		marker.add_child(note)
+		var pin: Polygon2D = Polygon2D.new()
+		pin.position = note_data[0] + Vector2(0, -6)
+		pin.color = Color("#c25448")
+		pin.polygon = PackedVector2Array([Vector2(0, -1.5), Vector2(1.5, 0), Vector2(0, 1.5), Vector2(-1.5, 0)])
+		marker.add_child(pin)
 	return marker
 
 func _build_shrine_marker(world_pos: Vector2) -> Node2D:
+	# Gentle old shrine: mossy mound, rounded weathered stone, and a soft warm
+	# glow with a halo — mysterious but friendly.
 	var marker: Node2D = Node2D.new()
 	marker.position = world_pos
 	gameplay_layer.add_child(marker)
+	var mound: Polygon2D = Polygon2D.new()
+	mound.color = Color("#7da964")
+	mound.polygon = TerrainShapes.ellipse(Vector2(0, 10), 28.0, 10.0, 16)
+	marker.add_child(mound)
 	var stone: Polygon2D = Polygon2D.new()
-	stone.position = Vector2(0, 4)
 	stone.color = Color("#8b8f88")
-	stone.polygon = PackedVector2Array([Vector2(-26, 0), Vector2(-14, -10), Vector2(0, -14), Vector2(14, -10), Vector2(26, 0), Vector2(14, 12), Vector2(0, 16), Vector2(-14, 12)])
+	stone.polygon = TerrainShapes.ellipse(Vector2(0, 2), 24.0, 12.0, 16)
 	marker.add_child(stone)
 	var body: Polygon2D = Polygon2D.new()
-	body.position = Vector2(0, -20)
 	body.color = Color("#aab0a3")
-	body.polygon = PackedVector2Array([Vector2(-18, 10), Vector2(-18, -8), Vector2(-8, -22), Vector2(8, -22), Vector2(18, -8), Vector2(18, 10), Vector2(8, 18), Vector2(-8, 18)])
+	body.polygon = TerrainShapes.ellipse(Vector2(0, -20), 17.0, 21.0, 16)
 	marker.add_child(body)
+	var moss_cap: Polygon2D = Polygon2D.new()
+	moss_cap.color = Color("#7da964")
+	moss_cap.polygon = TerrainShapes.dome(Vector2(0, -36), 12.0, 6.0, 10)
+	marker.add_child(moss_cap)
+	var halo: Polygon2D = Polygon2D.new()
+	halo.color = Color(0.95, 0.89, 0.62, 0.25)
+	halo.polygon = TerrainShapes.ellipse(Vector2(0, -24), 13.0, 13.0, 16)
+	marker.add_child(halo)
 	var glow: Polygon2D = Polygon2D.new()
-	glow.position = Vector2(0, -28)
-	glow.color = Color(0.93, 0.87, 0.59, 0.85)
-	glow.polygon = PackedVector2Array([Vector2(0, -8), Vector2(7, 0), Vector2(0, 8), Vector2(-7, 0)])
+	glow.color = Color(0.95, 0.89, 0.62, 0.9)
+	glow.polygon = TerrainShapes.ellipse(Vector2(0, -24), 6.5, 7.5, 12)
 	marker.add_child(glow)
 	return marker

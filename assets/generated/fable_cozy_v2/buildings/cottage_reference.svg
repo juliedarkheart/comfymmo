@@ -1,0 +1,42 @@
+<svg width="160" height="140" viewBox="0 0 160 140" xmlns="http://www.w3.org/2000/svg">
+  <!-- Canonical design reference for the homestead cottage. The in-game
+       version is built procedurally in world/homestead_map.gd::_add_building;
+       this SVG is the style spec, not a wired asset. -->
+  <ellipse cx="80" cy="126" rx="70" ry="12" fill="#d8b58a"/>
+  <!-- walls -->
+  <path d="M28 70 L132 70 L138 78 L138 116 L130 124 L30 124 L22 116 L22 78 Z" fill="#f2dfb8"/>
+  <rect x="24" y="116" width="112" height="8" fill="#d9c39a"/>
+  <!-- windows -->
+  <g>
+    <circle cx="48" cy="92" r="12" fill="#d2ab7e"/>
+    <circle cx="48" cy="92" r="8.5" fill="#f7dfa0"/>
+    <rect x="39.5" y="90.5" width="17" height="2.5" fill="#d2ab7e"/>
+    <rect x="38" y="104" width="20" height="7" rx="2" fill="#a87848"/>
+    <circle cx="42" cy="103" r="2.6" fill="#e8a0b4"/>
+    <circle cx="48" cy="102" r="2.6" fill="#f2e4c8"/>
+    <circle cx="54" cy="103" r="2.6" fill="#b49ad0"/>
+  </g>
+  <g>
+    <circle cx="112" cy="92" r="12" fill="#d2ab7e"/>
+    <circle cx="112" cy="92" r="8.5" fill="#f7dfa0"/>
+    <rect x="103.5" y="90.5" width="17" height="2.5" fill="#d2ab7e"/>
+    <rect x="102" y="104" width="20" height="7" rx="2" fill="#a87848"/>
+    <circle cx="106" cy="103" r="2.6" fill="#e8a0b4"/>
+    <circle cx="112" cy="102" r="2.6" fill="#f2e4c8"/>
+    <circle cx="118" cy="103" r="2.6" fill="#b49ad0"/>
+  </g>
+  <!-- door -->
+  <path d="M66 124 L66 96 C66 86 73 82 80 82 C87 82 94 86 94 96 L94 124 Z" fill="#d2ab7e"/>
+  <path d="M69 124 L69 97 C69 89 74 86 80 86 C86 86 91 89 91 97 L91 124 Z" fill="#8a5a3a"/>
+  <circle cx="80" cy="96" r="3.4" fill="#f7dfa0"/>
+  <circle cx="86" cy="108" r="1.8" fill="#d4a84a"/>
+  <!-- roof -->
+  <path d="M10 72 C10 36 40 16 80 16 C120 16 150 36 150 72 Z" fill="#c97a6a"/>
+  <path d="M22 68 C24 42 48 26 76 24 C56 30 36 44 30 68 Z" fill="#d68d7c"/>
+  <rect x="8" y="66" width="144" height="8" rx="4" fill="#e8cfa8"/>
+  <!-- chimney + smoke -->
+  <path d="M110 38 L124 38 L124 14 L110 18 Z" fill="#c99181" transform="translate(0 4)"/>
+  <ellipse cx="117" cy="19" rx="9" ry="3.5" fill="#dfae9d"/>
+  <ellipse cx="121" cy="10" rx="4.5" ry="3.5" fill="#f2f2f7" opacity="0.55"/>
+  <ellipse cx="127" cy="4" rx="6" ry="4.5" fill="#f2f2f7" opacity="0.35"/>
+</svg>

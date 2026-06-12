@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Plump berry cluster with a leaf -->
+  <circle cx="24" cy="38" r="13" fill="#c86a8e" stroke="#9a4868" stroke-width="3"/>
+  <circle cx="42" cy="42" r="11" fill="#d87fa0" stroke="#9a4868" stroke-width="3"/>
+  <circle cx="36" cy="24" r="11" fill="#e093b0" stroke="#9a4868" stroke-width="3"/>
+  <circle cx="20" cy="33" r="3.5" fill="#eab8c9"/>
+  <circle cx="33" cy="20" r="3" fill="#f2cfdc"/>
+  <path d="M40 10 C36 12 34 15 34 19 C39 19 43 16 44 12 Z" fill="#8fc878" stroke="#558c44" stroke-width="2.5" stroke-linejoin="round"/>
+  <line x1="38" y1="14" x2="36" y2="20" stroke="#558c44" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

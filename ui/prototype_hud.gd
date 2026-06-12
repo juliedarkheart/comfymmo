@@ -1,6 +1,13 @@
 extends CanvasLayer
 
-var _title_text: String = "Hearthvale Prototype"
+@onready var _day_label: Label = $Panel/Rows/DayRow/DayLabel
+@onready var _comfort_label: Label = $Panel/Rows/ComfortRow/ComfortLabel
+@onready var _carrot_label: Label = $Panel/Rows/InvRow/CarrotLabel
+@onready var _turnip_label: Label = $Panel/Rows/InvRow/TurnipLabel
+@onready var _berry_label: Label = $Panel/Rows/InvRow/BerryLabel
+@onready var _mode_label: Label = $Panel/Rows/ModeLabel
+@onready var _controls_label: Label = $Panel/Rows/ControlsLabel
+
 var _controls_text: String = "Move: WASD/Arrows | Eat: C | Inv: I | Time: T | Zoom: PgUp/PgDn (R reset) | Dev: F10"
 var _mood_display: String = "Morning"
 var _day_number: int = 1
@@ -126,16 +133,18 @@ func is_mailbox_open() -> bool:
 	return _mailbox_open
 
 func _refresh_text() -> void:
-	$Panel/Label.text = "%s\n%s\nTime: %s\nDay: %d\n%s\n%s\nMode: %s\n%s" % [
-		_title_text,
-		_controls_text,
-		_mood_display,
-		_day_number,
-		_survival_text,
-		_inventory_text,
-		_current_mode_name,
-		_current_help_text,
-	]
+	# The status panel is icon rows now: day/time, comfort, and per-crop counts
+	# each have their own labeled row, then the active mode + help, then the
+	# dimmer global controls reference at the bottom.
+	if _day_label == null:
+		return
+	_day_label.text = "Day %d  ·  %s" % [_day_number, _mood_display]
+	_comfort_label.text = _survival_text
+	_carrot_label.text = str(int(_inventory_counts.get("carrot", 0)))
+	_turnip_label.text = str(int(_inventory_counts.get("turnip", 0)))
+	_berry_label.text = str(int(_inventory_counts.get("berry", 0)))
+	_mode_label.text = "Mode: %s — %s" % [_current_mode_name, _current_help_text]
+	_controls_label.text = _controls_text
 
 func _hide_interaction_prompt() -> void:
 	$InteractionPrompt.visible = false

@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Round happy turnip: cream bulb, lavender blush, leafy top -->
+  <path d="M32 22 C44 22 52 30 52 40 C52 50 44 58 36 58 C34 58 33 57 32 56 C31 57 30 58 28 58 C20 58 12 50 12 40 C12 30 20 22 32 22 Z"
+        fill="#f3eadb" stroke="#b9a4c8" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M32 50 C32 54 32 56 31 58" fill="none" stroke="#b9a4c8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M12 40 C12 31 20 24 30 23 C38 23 45 26 48 31 C40 28 22 28 14 44 C12.8 43 12 41.5 12 40 Z" fill="#cdb4dd"/>
+  <path d="M28 8 C26 13 27 18 30 22 C33 18 33 12 31 8 Z" fill="#7cb866" stroke="#558c44" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M42 10 C37 12 34 17 34 22 C39 21 43 17 44 12 Z" fill="#8fc878" stroke="#558c44" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M20 12 C24 14 28 18 29 22 C24 22 19 18 18 14 Z" fill="#8fc878" stroke="#558c44" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

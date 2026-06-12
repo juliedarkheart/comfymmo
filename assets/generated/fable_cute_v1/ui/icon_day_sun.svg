@@ -1,0 +1,15 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Friendly day/time sun: warm butter yellow, chunky rounded rays -->
+  <g stroke="#e8b23e" stroke-width="6" stroke-linecap="round">
+    <line x1="32" y1="4"  x2="32" y2="11"/>
+    <line x1="32" y1="53" x2="32" y2="60"/>
+    <line x1="4"  y1="32" x2="11" y2="32"/>
+    <line x1="53" y1="32" x2="60" y2="32"/>
+    <line x1="12" y1="12" x2="17" y2="17"/>
+    <line x1="47" y1="47" x2="52" y2="52"/>
+    <line x1="12" y1="52" x2="17" y2="47"/>
+    <line x1="47" y1="17" x2="52" y2="12"/>
+  </g>
+  <circle cx="32" cy="32" r="15" fill="#f7d469" stroke="#e8b23e" stroke-width="3"/>
+  <circle cx="26" cy="27" r="4" fill="#fbe9a8"/>
+</svg>
