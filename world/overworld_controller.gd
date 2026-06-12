@@ -17,6 +17,7 @@ class_name OverworldController
 const MARIBEL_SCENE := preload("res://scenes/villagers/maribel_tock.tscn")
 const BRAM_SCENE := preload("res://scenes/villagers/bram_nettle.tscn")
 const DEV_CHARACTER_CREATOR_SCENE := preload("res://ui/dev_character_creator_panel.tscn")
+const NETWORK_CONNECT_PANEL_SCENE := preload("res://ui/network_connect_panel.tscn")
 # Constant names kept; values now come from ContentIds (stable, save-compatible).
 const VILLAGE_REGION_ID := ContentIds.AREA_VILLAGE_SQUARE
 const FOREST_REGION_ID := ContentIds.AREA_FOREST_EDGE
@@ -28,14 +29,26 @@ const NOTICE_SEEN_FLAG := ContentIds.FLAG_NOTICE_BOARD_SEEN
 const SHRINE_SEEN_FLAG := ContentIds.FLAG_ADVENTURE_MARKER_SEEN
 
 var _villager_data: Dictionary = {}
+var _profile_manager: LocalProfileManager = LocalProfileManager.new()
+var _creator_panel: CanvasLayer = null
+var _network_player: AvatarController = null
+var _resource_nodes: Dictionary = {}
+var _gather_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _ready() -> void:
 	super._ready()
+	_profile_manager.load_profiles()
+	_gather_rng.randomize()
 	var player: AvatarController = _find_player()
+	_network_player = player
 	_apply_overworld_camera(player)
 	_spawn_village_content(player)
 	_spawn_forest_content(player)
+	_setup_resource_nodes()
 	_setup_dev_overlay(player)
+	_setup_wardrobe()
+	_setup_network(player)
+	_show_welcome_if_first_boot.call_deferred()
 
 func _setup_dev_overlay(player: AvatarController) -> void:
 	var camera: AvatarCamera = get_camera(player)
@@ -52,19 +65,27 @@ func _setup_dev_overlay(player: AvatarController) -> void:
 	add_child(editor)
 	editor.setup(player, camera, marker_layer)
 
-	# Saved appearance + the dev character creator (F9). The avatar built its
-	# default look in _ready; rebuild with the persisted appearance (old saves
-	# without the key resolve to the same default, so this is a no-op for them).
+	# Appearance precedence (docs/character_customization.md): an explicit
+	# player.appearance in the save wins; otherwise the active local profile
+	# seeds the look. The wardrobe/F9 panel writes both from then on.
 	var avatar_visual: Node = null
 	if player != null:
 		avatar_visual = player.get_node_or_null("Body")
 	if avatar_visual != null and avatar_visual.has_method("rebuild"):
-		avatar_visual.call("rebuild", save_system.get_player_appearance())
+		avatar_visual.call("rebuild", _resolve_boot_appearance())
 
-	var creator_panel: CanvasLayer = DEV_CHARACTER_CREATOR_SCENE.instantiate() as CanvasLayer
-	creator_panel.name = "DevCharacterCreatorPanel"
-	add_child(creator_panel)
-	creator_panel.call("setup", avatar_visual, save_system)
+	_creator_panel = DEV_CHARACTER_CREATOR_SCENE.instantiate() as CanvasLayer
+	_creator_panel.name = "DevCharacterCreatorPanel"
+	add_child(_creator_panel)
+	_creator_panel.call("setup", avatar_visual, save_system, _profile_manager)
+
+func _resolve_boot_appearance() -> Dictionary:
+	var player_section: Dictionary = save_system.load_save_data().get("player", {}) as Dictionary
+	if player_section.has("appearance"):
+		return save_system.get_player_appearance()
+	return CharacterAppearance.normalized(
+		_profile_manager.get_active_profile().get("appearance", {}) as Dictionary
+	)
 
 func _find_player() -> AvatarController:
 	# Player lookup is now a shared OutdoorAreaController helper (phase-1 seam).
@@ -205,6 +226,157 @@ func _maribel_passage_line(day_count: int, mood_id: String) -> String:
 			return "Dusk again. We have kept the small things %d days now, you and I." % day_count
 		_:
 			return "A gentle afternoon. I tidy the notices and let the hours wander."
+
+# --- Gathering (survival-lite materials) -------------------------------------
+
+func _setup_resource_nodes() -> void:
+	# Gather spots in every area: homestead corners (clear of the cottage,
+	# trees, fence, path, and spawn tiles), plus village/forest extras. Nodes
+	# are visual-only Node2Ds; the interaction adds materials to the inventory,
+	# which auto-saves via the existing inventory_changed handler.
+	var spots: Array = [
+		["gather_home_wood", ResourceNode.TYPE_WOOD, map.grid_to_world(Vector2i(3, 14))],
+		["gather_home_stone", ResourceNode.TYPE_STONE, map.grid_to_world(Vector2i(17, 13))],
+		["gather_home_fiber", ResourceNode.TYPE_FIBER, map.grid_to_world(Vector2i(12, 3))],
+		["gather_home_clay", ResourceNode.TYPE_CLAY, map.grid_to_world(Vector2i(16, 2))],
+		["gather_village_fiber", ResourceNode.TYPE_FIBER, OverworldMap.VILLAGE_OFFSET + Vector2(-160, 320)],
+		["gather_forest_wood", ResourceNode.TYPE_WOOD, OverworldMap.FOREST_OFFSET + Vector2(-220, 390)],
+		["gather_forest_stone", ResourceNode.TYPE_STONE, OverworldMap.FOREST_OFFSET + Vector2(70, 430)],
+		["gather_forest_clay", ResourceNode.TYPE_CLAY, OverworldMap.FOREST_OFFSET + Vector2(300, 250)],
+	]
+	for spot in spots:
+		var node: ResourceNode = ResourceNode.new()
+		node.position = spot[2]
+		gameplay_layer.add_child(node)
+		node.configure(String(spot[1]))
+		var node_id: String = String(spot[0])
+		_resource_nodes[node_id] = node
+		register_world_interactable(
+			node_id, node, ContentIds.INTERACTION_GENERIC, node.get_prompt(),
+			_handle_gather.bind(node_id)
+		)
+
+func _handle_gather(node_id: String) -> void:
+	var node: ResourceNode = _resource_nodes.get(node_id) as ResourceNode
+	if node == null:
+		return
+	var result: Dictionary = node.roll_yield(_gather_rng)
+	var material_id: String = String(result.get("material_id", ""))
+	var amount: int = int(result.get("amount", 1))
+	inventory_system.add_item(material_id, amount)
+	_open_observe_panel(
+		ResourceIds.display_name(material_id),
+		"You %s %d %s. You now have %d." % [
+			String(result.get("verb", "gather")), amount,
+			ResourceIds.display_name(material_id).to_lower(),
+			inventory_system.get_quantity(material_id),
+		]
+	)
+
+# --- Wardrobe mirror -----------------------------------------------------------
+
+func _setup_wardrobe() -> void:
+	# A standing mirror beside the cottage that opens the same registry-driven
+	# customization panel as F9, in player-facing "Wardrobe" dress.
+	var mirror: Node2D = Node2D.new()
+	mirror.position = map.grid_to_world(Vector2i(9, 6))
+	gameplay_layer.add_child(mirror)
+	var shadow: Polygon2D = Polygon2D.new()
+	shadow.polygon = TerrainShapes.ellipse(Vector2(0, 1), 12.0, 5.0)
+	shadow.color = Color(0.16, 0.12, 0.08, 0.2)
+	mirror.add_child(shadow)
+	for leg_x: float in [-6.0, 6.0]:
+		var leg: Polygon2D = Polygon2D.new()
+		leg.polygon = PackedVector2Array([
+			Vector2(leg_x - 1.5, 0), Vector2(leg_x + 1.5, 0), Vector2(leg_x * 0.5 + 1.5, -10), Vector2(leg_x * 0.5 - 1.5, -10),
+		])
+		leg.color = Color("#8a5e3c")
+		mirror.add_child(leg)
+	var frame: Polygon2D = Polygon2D.new()
+	frame.polygon = TerrainShapes.ellipse(Vector2(0, -26), 11.0, 17.0)
+	frame.color = Color("#c89a64")
+	mirror.add_child(frame)
+	var glass: Polygon2D = Polygon2D.new()
+	glass.polygon = TerrainShapes.ellipse(Vector2(0, -26), 8.0, 14.0)
+	glass.color = Color("#bcd8e8")
+	mirror.add_child(glass)
+	var glint: Polygon2D = Polygon2D.new()
+	glint.polygon = TerrainShapes.ellipse(Vector2(-3, -31), 2.5, 5.0, 10)
+	glint.color = Color(1, 1, 1, 0.55)
+	mirror.add_child(glint)
+
+	register_world_interactable(
+		"wardrobe_mirror", mirror, ContentIds.INTERACTION_GENERIC,
+		"Press F to open wardrobe", _open_wardrobe
+	)
+
+func _open_wardrobe() -> void:
+	if _creator_panel != null and _creator_panel.has_method("open_panel"):
+		_creator_panel.call("open_panel", true)
+
+# --- Network bridge (client side) ------------------------------------------------
+
+func _setup_network(_player: AvatarController) -> void:
+	# Runtime autoload lookup (direct identifier breaks --script validation).
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session == null:
+		return
+	session.call("register_world", self)
+	session.connect("place_denied_received", _on_network_place_denied)
+	session.connect("server_materials_changed", _on_server_materials_changed)
+	var network_panel: CanvasLayer = NETWORK_CONNECT_PANEL_SCENE.instantiate() as CanvasLayer
+	network_panel.name = "NetworkConnectPanel"
+	add_child(network_panel)
+	network_panel.call("setup", _profile_manager)
+
+## NetworkSession bridge: own avatar position for the sync loop.
+func get_player_position() -> Vector2:
+	if _network_player != null and is_instance_valid(_network_player):
+		return _network_player.global_position
+	return Vector2.ZERO
+
+## NetworkSession bridge: where remote player avatars live (y-sorted layer).
+func get_network_player_layer() -> Node:
+	return gameplay_layer
+
+## NetworkSession bridge: spawn a server-committed placed object. These are
+## display-only on the client — not in the local save, not edit/movable.
+func spawn_network_placed_object(record: Dictionary) -> Node:
+	var content_id: String = String(record.get("content_id", ""))
+	if object_registry == null or not object_registry.has_placeable(content_id):
+		return null
+	var data: PlaceableObjectData = object_registry.get_placeable_data(content_id)
+	var node: PlaceableCrate = data.scene.instantiate() as PlaceableCrate
+	var tile: Vector2i = Vector2i(int(record.get("tile_x", 0)), int(record.get("tile_y", 0)))
+	gameplay_layer.add_child(node)
+	node.set_tile_position(tile, map.grid_to_world(tile))
+	node.set_placed_visual()
+	return node
+
+func _on_network_place_denied(reason: String) -> void:
+	_open_observe_panel("Town Builder", "%s." % reason)
+
+func _on_server_materials_changed(materials: Dictionary) -> void:
+	if hud.has_method("set_materials_text"):
+		var parts: Array[String] = []
+		for material_id in ResourceIds.ALL_MATERIALS:
+			parts.append("%s %d" % [ResourceIds.display_name(material_id), int(materials.get(material_id, 0))])
+		hud.call("set_materials_text", "Server: %s" % " · ".join(parts))
+
+# --- Onboarding -------------------------------------------------------------------
+
+func _show_welcome_if_first_boot() -> void:
+	if bool(save_system.get_overworld_flag("welcome_seen", false)):
+		return
+	save_system.set_overworld_flag("welcome_seen", true)
+	_open_observe_panel(
+		"Welcome to Hearthvale",
+		"Gather wood, stone, fiber, and clay from the piles around your homestead (walk up, press F). "
+		+ "Build with B — Tab switches items and shows their cost — and edit with E. "
+		+ "Tend the farm plots, check the mailbox, and rest at the cottage door at dusk. "
+		+ "The mirror by the cottage opens your wardrobe (F9 works too). "
+		+ "F8 opens multiplayer, F10 opens dev tools."
+	)
 
 func _build_notice_marker(world_pos: Vector2) -> Node2D:
 	# Cozy village notice board: warm frame, little domed roof cap, and a few

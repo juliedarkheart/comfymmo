@@ -8,6 +8,7 @@ extends CanvasLayer
 ## no gameplay state, modes, or interactions are touched while it is open.
 
 const PANEL_TITLE := "Character (dev)  —  F9 to close"
+const WARDROBE_TITLE := "Wardrobe  —  F9 to close"
 
 ## Slot order and labels for the generated rows. Option ids come from the
 ## registry at build time so new options appear here automatically.
@@ -22,16 +23,26 @@ const SLOTS: Array = [
 
 var _avatar_visual: Node = null
 var _save_system: LocalSaveSystem = null
+var _profile_manager: LocalProfileManager = null
 var _appearance: Dictionary = CharacterAppearance.default_appearance()
 var _value_labels: Dictionary = {}
+var _title_label: Label = null
 
 @onready var _rows: VBoxContainer = $Panel/Rows
 
-func setup(avatar_visual: Node, save_system: LocalSaveSystem) -> void:
+func setup(avatar_visual: Node, save_system: LocalSaveSystem, profile_manager: LocalProfileManager = null) -> void:
 	_avatar_visual = avatar_visual
 	_save_system = save_system
+	_profile_manager = profile_manager
 	if _save_system != null:
 		_appearance = _save_system.get_player_appearance()
+	_refresh_labels()
+
+## Player-facing entry point (wardrobe mirror). Same panel, friendlier title.
+func open_panel(as_wardrobe: bool = false) -> void:
+	if _title_label != null:
+		_title_label.text = WARDROBE_TITLE if as_wardrobe else PANEL_TITLE
+	visible = true
 	_refresh_labels()
 
 func _ready() -> void:
@@ -61,11 +72,11 @@ func _toggle_panel() -> void:
 	print("Character creator panel %s" % ("opened" if visible else "closed"))
 
 func _build_rows() -> void:
-	var title: Label = Label.new()
-	title.text = PANEL_TITLE
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color("#f8de9a"))
-	_rows.add_child(title)
+	_title_label = Label.new()
+	_title_label.text = PANEL_TITLE
+	_title_label.add_theme_font_size_override("font_size", 18)
+	_title_label.add_theme_color_override("font_color", Color("#f8de9a"))
+	_rows.add_child(_title_label)
 
 	for slot in SLOTS:
 		var key: String = String(slot["key"])
@@ -144,6 +155,10 @@ func _apply_appearance() -> void:
 		_avatar_visual.call("rebuild", _appearance)
 	if _save_system != null:
 		_save_system.set_player_appearance(_appearance)
+	# Keep the active profile in step with the save (documented precedence:
+	# the wardrobe writes both so they never fight).
+	if _profile_manager != null:
+		_profile_manager.set_active_appearance(_appearance)
 	_refresh_labels()
 
 func _refresh_labels() -> void:

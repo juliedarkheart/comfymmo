@@ -95,6 +95,15 @@ if (Test-Path $bundlePath) {
 }
 
 New-Item -ItemType Directory -Path $bundlePath -Force | Out-Null
+
+if ($Stage -ne "published") {
+  # Pipeline staging folders hold raw/empty placeholders; .gdignore keeps the
+  # Godot importer from trying (and failing) to import them.
+  $gdignorePath = Join-Path $bundleRoot ".gdignore"
+  if (-not (Test-Path $gdignorePath)) {
+    New-Item -ItemType File -Path $gdignorePath | Out-Null
+  }
+}
 New-Item -ItemType File -Path (Join-Path $bundlePath "preview.png") -Force | Out-Null
 New-Item -ItemType File -Path (Join-Path $bundlePath "output.png") -Force | Out-Null
 New-Item -ItemType File -Path (Join-Path $bundlePath "workflow.json") -Force | Out-Null

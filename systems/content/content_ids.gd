@@ -33,6 +33,31 @@ const PLACEABLE_MAILBOX := "mailbox"
 const PLACEABLE_STOOL := "stool"
 const PLACEABLE_LANTERN := "lantern"
 const PLACEABLE_PLANTER := "planter"
+# Cozy decor set (persistent-world pass). All share the PlaceableDecor scene
+# family; ids are written to placed_objects records and must never change.
+const PLACEABLE_ROUND_TABLE := "round_table"
+const PLACEABLE_COZY_CHAIR := "cozy_chair"
+const PLACEABLE_GARDEN_ARCH := "garden_arch"
+const PLACEABLE_PICNIC_BLANKET := "picnic_blanket"
+const PLACEABLE_BIRDHOUSE := "birdhouse"
+const PLACEABLE_FENCE_SEGMENT := "fence_segment"
+const PLACEABLE_PATH_LANTERN := "path_lantern"
+const PLACEABLE_BERRY_BASKET := "berry_basket"
+const PLACEABLE_WOOD_PILE := "wood_pile"
+const PLACEABLE_SIGNPOST := "signpost"
+const PLACEABLE_DECOR_SHRUB := "decor_shrub"
+const PLACEABLE_TEA_TABLE := "tea_table"
+const PLACEABLE_BENCH := "bench"
+const PLACEABLE_FLOWER_BED := "flower_bed"
+const PLACEABLE_TINY_POND := "tiny_pond"
+
+const DECOR_PLACEABLE_IDS: Array[String] = [
+	PLACEABLE_ROUND_TABLE, PLACEABLE_COZY_CHAIR, PLACEABLE_GARDEN_ARCH,
+	PLACEABLE_PICNIC_BLANKET, PLACEABLE_BIRDHOUSE, PLACEABLE_FENCE_SEGMENT,
+	PLACEABLE_PATH_LANTERN, PLACEABLE_BERRY_BASKET, PLACEABLE_WOOD_PILE,
+	PLACEABLE_SIGNPOST, PLACEABLE_DECOR_SHRUB, PLACEABLE_TEA_TABLE,
+	PLACEABLE_BENCH, PLACEABLE_FLOWER_BED, PLACEABLE_TINY_POND,
+]
 
 # --- Creatures (conceptual ids; creatures are currently spawned by class, not
 # persisted by id, so these are forward-looking definition keys) ----------------

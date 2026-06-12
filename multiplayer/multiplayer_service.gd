@@ -1,19 +1,21 @@
 extends Node
 
-## Placeholder boundary for sessions, authority, and replication.
+## Legacy placeholder boundary for sessions, authority, and replication.
+## Superseded by the NetworkSession autoload (systems/network/network_session.gd)
+## but kept so game_bootstrap's service wiring is unchanged. The enum is named
+## ServiceMode to avoid clashing with the global NetworkMode class.
 
-enum NetworkMode {
+enum ServiceMode {
 	OFFLINE,
 	HOST,
 	CLIENT,
 	DEDICATED_SERVER,
 }
 
-var mode: NetworkMode = NetworkMode.OFFLINE
+var mode: ServiceMode = ServiceMode.OFFLINE
 
 func configure_offline() -> void:
-	mode = NetworkMode.OFFLINE
+	mode = ServiceMode.OFFLINE
 
 func is_authoritative() -> bool:
-	return mode == NetworkMode.HOST or mode == NetworkMode.DEDICATED_SERVER
-
+	return mode == ServiceMode.HOST or mode == ServiceMode.DEDICATED_SERVER

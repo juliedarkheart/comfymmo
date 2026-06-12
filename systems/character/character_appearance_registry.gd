@@ -19,6 +19,12 @@ static func palette() -> Dictionary:
 		"lavender": Color("#b49ad0"),
 		"cream": Color("#f2e4c8"),
 		"terracotta": Color("#c87858"),
+		"butter_yellow": Color("#f2d469"),
+		"berry_red": Color("#c94f55"),
+		"pond_blue": Color("#6aa8c0"),
+		"lilac": Color("#c9aee0"),
+		"soft_black": Color("#4a4248"),
+		"warm_white": Color("#f5f0e6"),
 	}
 
 static func skin_tones() -> Dictionary:
@@ -38,6 +44,9 @@ static func hair_styles() -> Dictionary:
 		"round_bob": {"display_name": "Round Bob"},
 		"fluffy_short": {"display_name": "Fluffy Short"},
 		"soft_curls": {"display_name": "Soft Curls"},
+		"leafy_pigtails": {"display_name": "Leafy Pigtails"},
+		"cozy_bun": {"display_name": "Cozy Bun"},
+		"wavy_shag": {"display_name": "Wavy Shag"},
 	}
 
 static func outfit_styles() -> Dictionary:
@@ -45,6 +54,9 @@ static func outfit_styles() -> Dictionary:
 		"starter_overalls": {"display_name": "Starter Overalls"},
 		"cozy_tunic": {"display_name": "Cozy Tunic"},
 		"forest_apron": {"display_name": "Forest Apron"},
+		"village_dress": {"display_name": "Village Dress"},
+		"mushroom_sweater": {"display_name": "Mushroom Sweater"},
+		"gardener_jacket": {"display_name": "Gardener Jacket"},
 	}
 
 static func accessories() -> Dictionary:
@@ -52,6 +64,9 @@ static func accessories() -> Dictionary:
 		"none": {"display_name": "None"},
 		"leaf_clip": {"display_name": "Leaf Clip"},
 		"tiny_hat": {"display_name": "Tiny Hat"},
+		"flower_pin": {"display_name": "Flower Pin"},
+		"round_glasses": {"display_name": "Round Glasses"},
+		"acorn_cap": {"display_name": "Acorn Cap"},
 	}
 
 static func face_styles() -> Dictionary:

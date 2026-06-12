@@ -33,6 +33,30 @@ static func placeables() -> Dictionary:
 		ContentIds.PLACEABLE_STOOL: {"id": ContentIds.PLACEABLE_STOOL, "display_name": "Small Stool", "scene_path": "res://scenes/buildings/placeable_stool.tscn", "footprint": Vector2i.ONE, "category": "decor"},
 		ContentIds.PLACEABLE_LANTERN: {"id": ContentIds.PLACEABLE_LANTERN, "display_name": "Porch Lantern", "scene_path": "res://scenes/buildings/placeable_lantern.tscn", "footprint": Vector2i.ONE, "category": "decor"},
 		ContentIds.PLACEABLE_PLANTER: {"id": ContentIds.PLACEABLE_PLANTER, "display_name": "Cozy Planter", "scene_path": "res://scenes/buildings/placeable_planter.tscn", "footprint": Vector2i.ONE, "category": "decor"},
+		ContentIds.PLACEABLE_ROUND_TABLE: _decor_entry(ContentIds.PLACEABLE_ROUND_TABLE, "Round Table", "furniture"),
+		ContentIds.PLACEABLE_COZY_CHAIR: _decor_entry(ContentIds.PLACEABLE_COZY_CHAIR, "Cozy Chair", "furniture"),
+		ContentIds.PLACEABLE_GARDEN_ARCH: _decor_entry(ContentIds.PLACEABLE_GARDEN_ARCH, "Garden Arch", "garden"),
+		ContentIds.PLACEABLE_PICNIC_BLANKET: _decor_entry(ContentIds.PLACEABLE_PICNIC_BLANKET, "Picnic Blanket", "garden"),
+		ContentIds.PLACEABLE_BIRDHOUSE: _decor_entry(ContentIds.PLACEABLE_BIRDHOUSE, "Birdhouse", "garden"),
+		ContentIds.PLACEABLE_FENCE_SEGMENT: _decor_entry(ContentIds.PLACEABLE_FENCE_SEGMENT, "Fence Segment", "structure"),
+		ContentIds.PLACEABLE_PATH_LANTERN: _decor_entry(ContentIds.PLACEABLE_PATH_LANTERN, "Path Lantern", "decor"),
+		ContentIds.PLACEABLE_BERRY_BASKET: _decor_entry(ContentIds.PLACEABLE_BERRY_BASKET, "Berry Basket", "decor"),
+		ContentIds.PLACEABLE_WOOD_PILE: _decor_entry(ContentIds.PLACEABLE_WOOD_PILE, "Wood Pile", "decor"),
+		ContentIds.PLACEABLE_SIGNPOST: _decor_entry(ContentIds.PLACEABLE_SIGNPOST, "Signpost", "decor"),
+		ContentIds.PLACEABLE_DECOR_SHRUB: _decor_entry(ContentIds.PLACEABLE_DECOR_SHRUB, "Trimmed Shrub", "garden"),
+		ContentIds.PLACEABLE_TEA_TABLE: _decor_entry(ContentIds.PLACEABLE_TEA_TABLE, "Tea Table", "furniture"),
+		ContentIds.PLACEABLE_BENCH: _decor_entry(ContentIds.PLACEABLE_BENCH, "Garden Bench", "furniture"),
+		ContentIds.PLACEABLE_FLOWER_BED: _decor_entry(ContentIds.PLACEABLE_FLOWER_BED, "Flower Bed", "garden"),
+		ContentIds.PLACEABLE_TINY_POND: _decor_entry(ContentIds.PLACEABLE_TINY_POND, "Tiny Pond", "garden"),
+	}
+
+static func _decor_entry(placeable_id: String, display_name: String, category: String) -> Dictionary:
+	return {
+		"id": placeable_id,
+		"display_name": display_name,
+		"scene_path": "res://scenes/buildings/decor/placeable_%s.tscn" % placeable_id,
+		"footprint": Vector2i.ONE,
+		"category": category,
 	}
 
 # --- Creatures -----------------------------------------------------------------

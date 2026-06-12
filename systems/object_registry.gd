@@ -51,6 +51,19 @@ func _register_defaults() -> void:
 	_register_placeable(ContentIds.PLACEABLE_LANTERN, "Porch Lantern", Vector2i.ONE, PLACEABLE_LANTERN_SCENE)
 	_register_placeable(ContentIds.PLACEABLE_PLANTER, "Cozy Planter", Vector2i.ONE, PLACEABLE_PLANTER_SCENE)
 
+	# Cozy decor set: scene paths + display names come from ContentRegistry so
+	# the catalog, registry metadata, and build costs stay in lockstep.
+	for decor_id in ContentIds.DECOR_PLACEABLE_IDS:
+		var entry: Dictionary = ContentRegistry.placeables().get(decor_id, {}) as Dictionary
+		if entry.is_empty():
+			push_warning("Decor placeable missing from ContentRegistry: %s" % decor_id)
+			continue
+		var scene: PackedScene = load(String(entry.get("scene_path", ""))) as PackedScene
+		if scene == null:
+			push_warning("Decor placeable scene failed to load: %s" % decor_id)
+			continue
+		_register_placeable(decor_id, String(entry.get("display_name", decor_id)), Vector2i.ONE, scene)
+
 	_item_definitions[ContentIds.ITEM_PLACEHOLDER_SEED_PACKET] = {
 		"id": ContentIds.ITEM_PLACEHOLDER_SEED_PACKET,
 		"display_name": "Placeholder Seed Packet",

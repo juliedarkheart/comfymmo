@@ -1,8 +1,21 @@
 # Character customization — foundation (v1)
 
-Status: **data + visual builder + dev panel + save integration.** A dev-only
-appearance panel (F9 in-game) cycles every registry option, applies it live to
-the player, and persists it under `player.appearance`.
+Status: **data + visual builder + wardrobe + dev panel + save integration +
+profile integration + network sync.** The F9 panel doubles as the player-facing
+Wardrobe (mirror beside the cottage, "Press F to open wardrobe"); appearance
+persists in `player.appearance` AND the active local profile, and is sent to
+the server in the multiplayer join payload so other players see your look.
+
+Option set (this pass): 6 hair styles (round_bob, fluffy_short, soft_curls,
+leafy_pigtails, cozy_bun, wavy_shag), 6 outfits (starter_overalls, cozy_tunic,
+forest_apron, village_dress, mushroom_sweater, gardener_jacket), 6 accessories
+(none, leaf_clip, tiny_hat, flower_pin, round_glasses, acorn_cap), 13 palette
+colors (original 7 + butter_yellow, berry_red, pond_blue, lilac, soft_black,
+warm_white), 3 skin tones.
+
+Appearance precedence (see also docs/profile_and_accounts.md): explicit
+save `player.appearance` wins at boot; otherwise the active profile seeds it;
+the wardrobe/F9 panel writes both thereafter.
 
 ## Pieces
 

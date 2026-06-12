@@ -5,6 +5,7 @@ extends CanvasLayer
 @onready var _carrot_label: Label = $Panel/Rows/InvRow/CarrotLabel
 @onready var _turnip_label: Label = $Panel/Rows/InvRow/TurnipLabel
 @onready var _berry_label: Label = $Panel/Rows/InvRow/BerryLabel
+@onready var _materials_label: Label = $Panel/Rows/MaterialsLabel
 @onready var _mode_label: Label = $Panel/Rows/ModeLabel
 @onready var _controls_label: Label = $Panel/Rows/ControlsLabel
 
@@ -77,6 +78,12 @@ func set_inventory_counts(counts: Dictionary) -> void:
 func set_survival_text(survival_text: String) -> void:
 	_survival_text = survival_text
 	_refresh_text()
+
+## Building materials line (wood/stone/fiber/clay). Additive HUD API — callers
+## guard with has_method, so older controllers keep working unchanged.
+func set_materials_text(materials_text: String) -> void:
+	if _materials_label != null:
+		_materials_label.text = materials_text
 
 func toggle_inventory_panel() -> void:
 	if _inventory_panel_open:

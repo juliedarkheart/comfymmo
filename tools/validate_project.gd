@@ -28,6 +28,27 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/character/character_visual_builder.gd",
 	"res://avatar/avatar_visual.gd",
 	"res://ui/dev_character_creator_panel.tscn",
+	# Persistent-world pass: resources, building, profiles, network, server.
+	"res://systems/resources/resource_ids.gd",
+	"res://systems/resources/material_inventory.gd",
+	"res://systems/resources/resource_node.gd",
+	"res://systems/building/build_costs.gd",
+	"res://buildings/decor_visuals.gd",
+	"res://buildings/placeable_decor.gd",
+	"res://systems/profile/local_profile.gd",
+	"res://systems/profile/local_profile_manager.gd",
+	"res://systems/network/network_mode.gd",
+	"res://systems/network/network_messages.gd",
+	"res://systems/network/player_identity.gd",
+	"res://systems/network/remote_player.gd",
+	"res://systems/network/network_session.gd",
+	"res://server/server_config.gd",
+	"res://server/server_save_system.gd",
+	"res://server/server_world_state.gd",
+	"res://server/server_player_state.gd",
+	"res://server/hearthvale_server.gd",
+	"res://server/server_main.tscn",
+	"res://ui/network_connect_panel.tscn",
 	"res://scenes/world/homestead.tscn",
 	"res://scenes/world/regions/homestead/homestead_region.tscn",
 	"res://scenes/world/regions/village_square/village_square_region.tscn",
@@ -257,6 +278,119 @@ func _initialize() -> void:
 		quit(1)
 		return
 	appearance_save_system.free()
+
+	# --- Persistent-world pass: materials, costs, placeables -------------------
+	var material_inventory: MaterialInventory = MaterialInventory.from_dictionary({"wood": 3, "bogus": 5})
+	material_inventory.add(ResourceIds.MATERIAL_STONE, 2)
+	if material_inventory.get_count("wood") != 3 or material_inventory.get_count("bogus") != 0:
+		push_error("MaterialInventory failed to filter/load material counts")
+		quit(1)
+		return
+	if material_inventory.spend({"wood": 5}):
+		push_error("MaterialInventory allowed overspending")
+		quit(1)
+		return
+	if not material_inventory.spend({"wood": 2, "stone": 1}) or material_inventory.get_count("wood") != 1:
+		push_error("MaterialInventory spend math is wrong")
+		quit(1)
+		return
+
+	var all_placeables: Dictionary = ContentRegistry.placeables()
+	var cost_table: Dictionary = BuildCosts.costs()
+	for placeable_id in all_placeables.keys():
+		var entry: Dictionary = all_placeables[placeable_id] as Dictionary
+		for required_field in ["id", "display_name", "scene_path", "footprint", "category"]:
+			if not entry.has(required_field):
+				push_error("Placeable '%s' registry entry missing field '%s'" % [placeable_id, required_field])
+				quit(1)
+				return
+		if not cost_table.has(placeable_id):
+			push_error("Placeable '%s' has no BuildCosts entry" % placeable_id)
+			quit(1)
+			return
+		for material_id in (cost_table[placeable_id] as Dictionary).keys():
+			if not ResourceIds.is_material(String(material_id)):
+				push_error("Placeable '%s' cost uses unknown material '%s'" % [placeable_id, material_id])
+				quit(1)
+				return
+		var placeable_scene: PackedScene = load(String(entry["scene_path"])) as PackedScene
+		if placeable_scene == null:
+			push_error("Placeable '%s' scene failed to load" % placeable_id)
+			quit(1)
+			return
+		var placeable_instance: Node = placeable_scene.instantiate()
+		if not (placeable_instance is PlaceableCrate):
+			push_error("Placeable '%s' root does not extend PlaceableCrate" % placeable_id)
+			placeable_instance.free()
+			quit(1)
+			return
+		placeable_instance.free()
+	for decor_id in ContentIds.DECOR_PLACEABLE_IDS:
+		if not all_placeables.has(decor_id):
+			push_error("Decor id '%s' missing from ContentRegistry.placeables()" % decor_id)
+			quit(1)
+			return
+
+	# --- Persistent-world pass: profiles ---------------------------------------
+	var default_profile: Dictionary = LocalProfile.create_default()
+	var renormalized_profile: Dictionary = LocalProfile.normalized(default_profile)
+	if String(renormalized_profile.get("profile_id", "")).is_empty():
+		push_error("Default profile lost its profile_id through normalization")
+		quit(1)
+		return
+	if CharacterAppearance.normalized(renormalized_profile["appearance"] as Dictionary) != renormalized_profile["appearance"]:
+		push_error("Default profile appearance is not normalized")
+		quit(1)
+		return
+
+	# New customization ids must all survive normalization (registry + builder).
+	var expanded_appearance: Dictionary = CharacterAppearance.normalized({
+		"hair_style": "leafy_pigtails", "hair_color": "berry_red", "skin_tone": "umber",
+		"outfit_style": "mushroom_sweater", "outfit_color": "pond_blue", "accessory": "acorn_cap",
+	})
+	if String(expanded_appearance["hair_style"]) != "leafy_pigtails" or String(expanded_appearance["accessory"]) != "acorn_cap":
+		push_error("Expanded customization ids did not survive normalization")
+		quit(1)
+		return
+
+	# --- Persistent-world pass: server + network --------------------------------
+	var default_world: Dictionary = ServerSaveSystem.create_default_world("validation_world")
+	for world_field in ["world_id", "created_at", "updated_at", "placed_objects", "world_flags", "known_profiles"]:
+		if not default_world.has(world_field):
+			push_error("Server world default missing field '%s'" % world_field)
+			quit(1)
+			return
+	var world_state: ServerWorldState = ServerWorldState.from_world(default_world)
+	var committed: Dictionary = world_state.add_placed_object("crate", 4, 4, "profile_test", "Tester")
+	if committed.is_empty() or not NetworkMessages.is_valid_placed_object(committed):
+		push_error("ServerWorldState failed to commit a valid placed object")
+		quit(1)
+		return
+	if not world_state.add_placed_object("crate", 4, 4, "profile_test", "Tester").is_empty():
+		push_error("ServerWorldState allowed double placement on one tile")
+		quit(1)
+		return
+	var roundtrip_world: Dictionary = ServerSaveSystem.normalize_world(default_world)
+	if (roundtrip_world["placed_objects"] as Array).size() != 1:
+		push_error("Server world normalize dropped a valid placed object")
+		quit(1)
+		return
+
+	var identity: Dictionary = PlayerIdentity.normalized({"display_name": "  ", "appearance": {"hair_style": "junk"}})
+	if String(identity["display_name"]).is_empty():
+		push_error("PlayerIdentity allowed an empty display name")
+		quit(1)
+		return
+
+	if NetworkMode.OFFLINE != "offline":
+		push_error("NetworkMode.OFFLINE changed; offline-default contract broken")
+		quit(1)
+		return
+
+	if not InputMap.has_action("toggle_network_panel"):
+		push_error("InputMap action 'toggle_network_panel' is missing from project.godot")
+		quit(1)
+		return
 
 	print("Project smoke test passed.")
 	quit(0)

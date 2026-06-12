@@ -66,6 +66,8 @@ func _ready() -> void:
 		interactable_system,
 		REGION_ID
 	)
+	# Survival-lite: building consumes materials from the player inventory.
+	building_placement_system.set_inventory_system(inventory_system)
 	_refresh_mailbox_world_state()
 	building_placement_system.decorating_mode_changed.connect(_on_decorating_mode_changed.bind(player))
 	building_placement_system.decorating_mode_label_changed.connect(_on_decorating_mode_label_changed)
@@ -270,6 +272,14 @@ func _refresh_all_farm_plot_visuals(active_plot_id: String) -> void:
 func _refresh_inventory_hud() -> void:
 	if hud.has_method("set_inventory_counts"):
 		hud.call("set_inventory_counts", _get_inventory_counts())
+	if hud.has_method("set_materials_text"):
+		hud.call("set_materials_text", _format_materials_text())
+
+func _format_materials_text() -> String:
+	var parts: Array[String] = []
+	for material_id in ResourceIds.ALL_MATERIALS:
+		parts.append("%s %d" % [ResourceIds.display_name(material_id), inventory_system.get_quantity(material_id)])
+	return " · ".join(parts)
 
 func _refresh_survival_hud() -> void:
 	if hud.has_method("set_survival_text"):

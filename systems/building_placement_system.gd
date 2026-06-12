@@ -19,6 +19,9 @@ var gameplay_layer: Node2D
 var save_system: LocalSaveSystem
 var object_registry: ObjectRegistry
 var interactable_system: InteractableSystem
+# Optional: when wired (homestead/overworld), building consumes materials via
+# BuildCosts. Legacy region controllers never wire it, so they stay free.
+var inventory_system: InventorySystem = null
 var _placeable_ids: Array[String] = []
 var _preview_object: PlaceableCrate
 var _active_placeable_id: String = "crate"
@@ -232,14 +235,56 @@ func _is_valid_placement(tile: Vector2i) -> bool:
 	var placement_result: Dictionary = _get_active_place_result(tile)
 	return bool(placement_result.get("valid", false))
 
+func set_inventory_system(target_inventory_system: InventorySystem) -> void:
+	inventory_system = target_inventory_system
+
+## Runtime lookup instead of the autoload identifier: scripts referencing the
+## autoload name directly fail to compile under `--script` (validation) where
+## autoload globals are not registered. Null means "behave offline".
+func _network_session() -> Node:
+	return get_node_or_null("/root/NetworkSession")
+
+func _is_network_client() -> bool:
+	var session: Node = _network_session()
+	return session != null and bool(session.call("is_client_connected"))
+
 func _get_active_place_result(tile: Vector2i) -> Dictionary:
 	var placeable_data: PlaceableObjectData = _get_active_placeable_data()
-	return map.get_place_footprint_result(tile, placeable_data.footprint, _get_occupied_tiles())
+	var result: Dictionary = map.get_place_footprint_result(tile, placeable_data.footprint, _get_occupied_tiles())
+	if not bool(result.get("valid", false)):
+		return result
+	# Survival-lite material gate. Connected clients skip the local check — the
+	# server owns their materials and validates the request authoritatively.
+	if inventory_system != null and not _is_network_client():
+		var cost: Dictionary = BuildCosts.cost_of(_active_placeable_id)
+		for material_id in cost.keys():
+			if inventory_system.get_quantity(String(material_id)) < int(cost[material_id]):
+				return {
+					"valid": false,
+					"reason": "Needs %s" % BuildCosts.cost_text(_active_placeable_id),
+				}
+	return result
 
 func _try_place_active_object() -> void:
 	if not _is_valid_placement(_current_tile):
 		_update_preview_state()
 		return
+
+	# Connected to a server: placement is server-authoritative. Send a request;
+	# the committed object arrives back via the world snapshot/broadcast path and
+	# is spawned as a network object (not part of the local save).
+	if _is_network_client():
+		_network_session().call("request_place", _active_placeable_id, _current_tile)
+		_update_preview_state()
+		return
+
+	# Offline: spend materials (when an inventory is wired), then place locally.
+	if inventory_system != null:
+		var cost: Dictionary = BuildCosts.cost_of(_active_placeable_id)
+		for material_id in cost.keys():
+			if not inventory_system.remove_item(String(material_id), int(cost[material_id])):
+				_update_preview_state()
+				return
 
 	var record: Dictionary = {
 		"record_id": _generate_record_id(),
@@ -603,9 +648,11 @@ func _emit_mode_label_changed() -> void:
 	match _interaction_mode:
 		InteractionMode.PLACEMENT:
 			var placeable_data: PlaceableObjectData = _get_active_placeable_data()
+			var cost_text: String = BuildCosts.cost_text(_active_placeable_id)
+			var cost_suffix: String = "" if cost_text.is_empty() else " (Cost: %s)" % cost_text
 			decorating_mode_label_changed.emit(
 				"Placement Mode",
-				"%s selected. Tab to switch. Click or Enter to place. Esc to cancel." % placeable_data.display_name
+				"%s selected%s. Tab to switch. Click or Enter to place. Esc to cancel." % [placeable_data.display_name, cost_suffix]
 			)
 		InteractionMode.EDIT:
 			decorating_mode_label_changed.emit(

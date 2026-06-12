@@ -1,0 +1,41 @@
+[gd_scene load_steps=3 format=3 uid="uid://hearthvale_network_panel"]
+
+[ext_resource type="Script" path="res://ui/network_connect_panel.gd" id="1_network"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_network_panel"]
+content_margin_left = 16.0
+content_margin_top = 12.0
+content_margin_right = 16.0
+content_margin_bottom = 14.0
+bg_color = Color(0.243137, 0.180392, 0.137255, 0.92)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.85098, 0.690196, 0.478431, 0.8)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(0.14902, 0.0980392, 0.0666667, 0.3)
+shadow_size = 8
+shadow_offset = Vector2(0, 3)
+
+[node name="NetworkConnectPanel" type="CanvasLayer"]
+layer = 81
+script = ExtResource("1_network")
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -420.0
+offset_top = 420.0
+offset_right = -16.0
+offset_bottom = 460.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_network_panel")
+
+[node name="Rows" type="VBoxContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/separation = 8

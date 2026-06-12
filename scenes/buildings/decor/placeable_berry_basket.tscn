@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://hv_placeable_berry_basket"]
+
+[ext_resource type="Script" path="res://buildings/placeable_decor.gd" id="1_decor"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_berry_basket"]
+size = Vector2(26, 16)
+
+[node name="PlaceableBerryBasket" type="StaticBody2D"]
+script = ExtResource("1_decor")
+decor_id = "berry_basket"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -5)
+shape = SubResource("RectangleShape2D_berry_basket")
