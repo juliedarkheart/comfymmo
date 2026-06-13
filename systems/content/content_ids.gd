@@ -50,6 +50,9 @@ const PLACEABLE_TEA_TABLE := "tea_table"
 const PLACEABLE_BENCH := "bench"
 const PLACEABLE_FLOWER_BED := "flower_bed"
 const PLACEABLE_TINY_POND := "tiny_pond"
+# Crafting stations (outdoor placeables; interacting opens the crafting panel).
+const PLACEABLE_WORKBENCH := "workbench"
+const PLACEABLE_GARDEN_TABLE := "garden_table"
 
 const DECOR_PLACEABLE_IDS: Array[String] = [
 	PLACEABLE_ROUND_TABLE, PLACEABLE_COZY_CHAIR, PLACEABLE_GARDEN_ARCH,
@@ -57,6 +60,7 @@ const DECOR_PLACEABLE_IDS: Array[String] = [
 	PLACEABLE_PATH_LANTERN, PLACEABLE_BERRY_BASKET, PLACEABLE_WOOD_PILE,
 	PLACEABLE_SIGNPOST, PLACEABLE_DECOR_SHRUB, PLACEABLE_TEA_TABLE,
 	PLACEABLE_BENCH, PLACEABLE_FLOWER_BED, PLACEABLE_TINY_POND,
+	PLACEABLE_WORKBENCH, PLACEABLE_GARDEN_TABLE,
 ]
 
 # --- Creatures (conceptual ids; creatures are currently spawned by class, not
@@ -79,6 +83,7 @@ const INTERACTION_SHRINE_MARKER := "shrine_marker"
 const INTERACTION_REST := "rest"
 const INTERACTION_REGION_TRANSITION := "region_transition"
 const INTERACTION_TASK_BOARD := "task_board"
+const INTERACTION_CRAFTING_STATION := "crafting_station"
 const INTERACTION_GENERIC := "generic"
 
 # --- Action ids (what the player can DO with an interactable; the values returned

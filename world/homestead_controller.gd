@@ -39,8 +39,18 @@ const LEGACY_FARM_PLOT_ID: String = ContentIds.FARM_PLOT_LEGACY_MAIN
 const FARM_PLOT_CARROT_ID: String = ContentIds.FARM_PLOT_CARROT
 const FARM_PLOT_TURNIP_ID: String = ContentIds.FARM_PLOT_TURNIP
 const FARM_PLOT_BERRY_ID: String = ContentIds.FARM_PLOT_BERRY
+const CRAFTING_PANEL_SCENE := preload("res://ui/crafting_panel.tscn")
+const STATION_RADIUS := 110.0
 
 var _farm_plots: Dictionary = {}
+var _crafting_panel: CanvasLayer = null
+var _progression_panel: CanvasLayer = null
+# Session-once XP marks (e.g. "talk_ow_maribel") so social/exploration XP
+# can't be farmed by spamming one villager/creature. Resets each boot.
+var _session_xp_marks: Dictionary = {}
+# Network-committed station positions (content_id, world position) so the
+# panel's preview matches the server's station check while connected.
+var _network_stations: Array = []
 
 func _ready() -> void:
 	game_state_manager.configure(save_system, object_registry)
@@ -68,6 +78,9 @@ func _ready() -> void:
 	)
 	# Survival-lite: building consumes materials from the player inventory.
 	building_placement_system.set_inventory_system(inventory_system)
+	building_placement_system.object_placed.connect(_on_object_placed_for_xp)
+	_setup_crafting_panel()
+	_setup_progression_panel()
 	_refresh_mailbox_world_state()
 	building_placement_system.decorating_mode_changed.connect(_on_decorating_mode_changed.bind(player))
 	building_placement_system.decorating_mode_label_changed.connect(_on_decorating_mode_label_changed)
@@ -124,6 +137,31 @@ func _unhandled_input(event: InputEvent) -> void:
 		_mark_input_handled()
 		return
 
+	if (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.keycode == KEY_K
+		and not _is_mailbox_open()
+		and not _decorating_mode_active
+	):
+		_toggle_crafting_panel()
+		_mark_input_handled()
+		return
+
+	if (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.keycode == KEY_P
+		and not _is_mailbox_open()
+		and not _decorating_mode_active
+	):
+		if _progression_panel != null:
+			_progression_panel.call("toggle_panel")
+		_mark_input_handled()
+		return
+
 	if not _is_mailbox_open():
 		if (
 			event is InputEventKey
@@ -164,6 +202,9 @@ func _on_interaction_requested(interactable_id: String, interaction_type: String
 			# Mailboxes are registered by BuildingPlacementSystem (no callback), so
 			# they stay on the explicit match, like the farming-owned plots below.
 			_open_mailbox()
+		ContentIds.INTERACTION_CRAFTING_STATION:
+			# Stations are placed objects registered by BuildingPlacementSystem.
+			_open_crafting_panel()
 		ContentIds.INTERACTION_FARM_PLOT:
 			_handle_farm_plot_interaction(interactable_id)
 		_:
@@ -175,6 +216,158 @@ func _on_interaction_requested(interactable_id: String, interaction_type: String
 func _on_inventory_changed() -> void:
 	_save_inventory_state()
 	_refresh_inventory_hud()
+	if _crafting_panel != null and bool(_crafting_panel.call("is_open")):
+		_crafting_panel.call("refresh")
+
+# --- Crafting -------------------------------------------------------------------
+
+func _setup_crafting_panel() -> void:
+	_crafting_panel = CRAFTING_PANEL_SCENE.instantiate() as CanvasLayer
+	_crafting_panel.name = "CraftingPanel"
+	add_child(_crafting_panel)
+	_crafting_panel.call(
+		"setup",
+		Callable(self, "_crafting_get_count"),
+		Callable(self, "_crafting_get_level"),
+		Callable(self, "_nearby_station_ids"),
+		Callable(self, "_attempt_craft"),
+		Callable(self, "_crafting_get_skills")
+	)
+
+func _toggle_crafting_panel() -> void:
+	if _crafting_panel == null:
+		return
+	if bool(_crafting_panel.call("is_open")):
+		_crafting_panel.call("close_panel")
+	else:
+		_open_crafting_panel()
+
+func _open_crafting_panel() -> void:
+	if _crafting_panel != null:
+		_crafting_panel.call("open_panel")
+
+func _is_crafting_connected() -> bool:
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	return session != null and bool(session.call("is_client_connected"))
+
+func _crafting_get_count(item_id: String) -> int:
+	if _is_crafting_connected():
+		var session: Node = get_node_or_null("/root/NetworkSession")
+		return int((session.call("get_server_materials") as Dictionary).get(item_id, 0))
+	return inventory_system.get_quantity(item_id)
+
+func _crafting_get_level() -> int:
+	if _is_crafting_connected():
+		var session: Node = get_node_or_null("/root/NetworkSession")
+		return PlayerProgression.level_for_xp(int(session.call("get_server_xp")))
+	return PlayerProgression.level_for_xp(save_system.get_player_xp())
+
+## Station ids within reach of the player. Offline: locally placed stations.
+## Connected: server-committed station objects only, mirroring what the server
+## itself will check, so the panel preview never lies about authority.
+func _nearby_station_ids() -> Array:
+	var player: AvatarController = get_player_avatar(gameplay_layer)
+	if player == null:
+		return []
+	var stations: Array = []
+	for station_id in CraftingRegistry.station_ids():
+		if _is_crafting_connected():
+			for entry_variant in _network_stations:
+				var entry: Dictionary = entry_variant as Dictionary
+				if String(entry.get("content_id", "")) == String(station_id) \
+						and (entry.get("position", Vector2.ZERO) as Vector2).distance_to(player.global_position) <= STATION_RADIUS:
+					stations.append(station_id)
+					break
+		elif building_placement_system.has_placed_object_near(String(station_id), player.global_position, STATION_RADIUS):
+			stations.append(station_id)
+	return stations
+
+func _crafting_get_skills() -> Dictionary:
+	if _is_crafting_connected():
+		var session: Node = get_node_or_null("/root/NetworkSession")
+		return SkillProgression.skill_levels(session.call("get_server_progression") as Dictionary)
+	return SkillProgression.skill_levels(save_system.get_player_progression())
+
+func _attempt_craft(recipe_id: String) -> void:
+	if _is_crafting_connected():
+		var session: Node = get_node_or_null("/root/NetworkSession")
+		session.call("request_craft", recipe_id)
+		_set_crafting_status("Crafting...")
+		return
+
+	var result: Dictionary = CraftingSystem.craft_with_inventory(
+		recipe_id, inventory_system, _crafting_get_level(), _nearby_station_ids(), _crafting_get_skills()
+	)
+	if not bool(result["ok"]):
+		_set_crafting_status(String(result["reason"]))
+		return
+	# Crafting trains the crafting skill by the recipe's reward; overall XP is
+	# roughly half (basic +2/+1, advanced +5/+2 — docs/progression.md).
+	var crafting_xp: int = int(result["xp_reward"])
+	_grant_xp(ProgressionRegistry.SKILL_CRAFTING, crafting_xp, maxi(1, crafting_xp / 2))
+	var crafted_text: String = "Crafted %d %s (+%d Crafting XP)" % [
+		int(result["output_amount"]), String(result["display_name"]), crafting_xp,
+	]
+	_set_crafting_status(crafted_text)
+	_announce(crafted_text)
+
+# --- Progression (offline grants; the server grants its own when connected) ----
+
+func _grant_xp(skill_id: String, skill_xp: int, total_xp: int) -> void:
+	var grant_result: Dictionary = save_system.grant_player_xp(skill_id, skill_xp, total_xp)
+	if bool(grant_result["player_levelled"]):
+		_announce("Level %d reached! New recipes and builds unlocked." % int(grant_result["new_player_level"]))
+	if bool(grant_result["skill_levelled"]) and not skill_id.is_empty():
+		_announce("%s skill is now Level %d!" % [
+			ProgressionRegistry.skill_display_name(skill_id), int(grant_result["new_skill_level"]),
+		])
+	if _progression_panel != null and bool(_progression_panel.call("is_open")):
+		_progression_panel.call("refresh")
+
+## Session-once grant (per villager/creature/landmark) so cozy interactions
+## give a little XP without being spam-farmable.
+func _grant_xp_once(mark: String, skill_id: String, skill_xp: int, total_xp: int) -> void:
+	if _session_xp_marks.has(mark):
+		return
+	_session_xp_marks[mark] = true
+	_grant_xp(skill_id, skill_xp, total_xp)
+
+func _on_object_placed_for_xp(object_id: String) -> void:
+	_grant_xp(
+		ProgressionRegistry.SKILL_BUILDING,
+		ProgressionRegistry.building_xp_for_cost(BuildCosts.cost_of(object_id)), 0
+	)
+
+func _setup_progression_panel() -> void:
+	_progression_panel = preload("res://ui/progression_panel.tscn").instantiate() as CanvasLayer
+	_progression_panel.name = "ProgressionPanel"
+	add_child(_progression_panel)
+	_progression_panel.call("setup", Callable(self, "_get_progression_snapshot"))
+
+## Whichever progression applies right now: the server's when connected
+## (matching authority), else the local save's.
+func _get_progression_snapshot() -> Dictionary:
+	if _is_crafting_connected():
+		var session: Node = get_node_or_null("/root/NetworkSession")
+		return SkillProgression.normalized(session.call("get_server_progression") as Dictionary)
+	return save_system.get_player_progression()
+
+func _set_crafting_status(text: String) -> void:
+	if _crafting_panel != null:
+		_crafting_panel.call("set_status", text)
+		_crafting_panel.call("refresh")
+
+## Toast into the chat/event log when it exists (overworld), no-op otherwise.
+func _announce(text: String) -> void:
+	if has_method("_chat_toast"):
+		call("_chat_toast", text)
+
+## Reward hook for mailbox/task completions: a small material bundle + XP.
+func _grant_task_reward(task_label: String) -> void:
+	inventory_system.add_item(ResourceIds.MATERIAL_WOOD, 2)
+	inventory_system.add_item(ResourceIds.MATERIAL_FIBER, 2)
+	_grant_xp(ProgressionRegistry.SKILL_STEWARDSHIP, 10, 5)
+	_announce("Task complete: %s  (+2 Wood, +2 Fiber, +10 Stewardship XP)" % task_label)
 
 func _on_survival_changed() -> void:
 	_save_survival_state()
@@ -222,6 +415,13 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 		return
 
 	var interaction_result: Dictionary = farming_system.interact_with_plot(interactable_id)
+	match String(interaction_result.get("action", "")):
+		"plant":
+			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
+		"water":
+			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
+		"harvest":
+			_grant_xp(ProgressionRegistry.SKILL_FARMING, 5, 2)
 	if not bool(interaction_result.get("changed", false)):
 		return
 
@@ -237,12 +437,14 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 		):
 			_save_task_integration_state()
 			_refresh_mailbox_world_state()
+			_grant_task_reward("Harvest a carrot")
 	elif String(interaction_result.get("action", "")) == "water":
 		if task_integration_system.mark_message_completed(
 			TaskIntegrationSystem.WATER_GARDEN_TASK_ID
 		):
 			_save_task_integration_state()
 			_refresh_mailbox_world_state()
+			_grant_task_reward("Water the garden")
 
 	_save_farming_state()
 	interactable_system.update_interactable_prompt(
@@ -390,6 +592,7 @@ func _handle_creature_observe(interactable_id: String) -> void:
 	if creature == null:
 		return
 	_open_observe_panel(creature.get_display_name(), creature.get_observe_text())
+	_grant_xp_once("observe_%s" % interactable_id, ProgressionRegistry.SKILL_EXPLORATION, 2, 1)
 
 # Observe-panel hooks for OutdoorAreaController's generic lifecycle: the homestead
 # area also suspends building placement input and keeps interactions disabled while a

@@ -38,6 +38,9 @@
   unauthenticated, so impersonation is possible on a hostile LAN.
 - house interiors are deliberately absent (docs/interiors_plan.md); the
   cottage door sign says so in-game and never teleports.
+- progression: session-once social/exploration XP is client-trusted and
+  resets per boot; server validates gather/craft/build XP only. Admin XP
+  commands are offline-only.
 - wardrobe mirror tile is not placement-blocked; you can build a crate under
   the mirror. Cosmetic.
 - profiles file is per-machine: two instances on one PC share it.

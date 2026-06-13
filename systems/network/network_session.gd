@@ -18,6 +18,8 @@ signal chat_received(display_name: String, text: String)
 signal chat_system_received(text: String)
 signal gather_result_received(node_id: String, material_id: String, amount: int)
 signal gather_denied_received(node_id: String, reason: String)
+signal craft_result_received(message: String)
+signal craft_denied_received(reason: String)
 
 const POSITION_SYNC_INTERVAL := 0.12
 const REMOTE_PLAYER_SCRIPT := preload("res://systems/network/remote_player.gd")
@@ -41,6 +43,7 @@ var _remote_avatars: Dictionary = {}
 var _network_objects: Dictionary = {}
 var _pending_records: Array = []
 var _server_materials: Dictionary = {}
+var _server_progression: Dictionary = {}
 
 var _sync_accumulator: float = 0.0
 
@@ -55,6 +58,12 @@ func is_server() -> bool:
 
 func get_server_materials() -> Dictionary:
 	return _server_materials.duplicate()
+
+func get_server_xp() -> int:
+	return int(SkillProgression.normalized(_server_progression)["total_xp"])
+
+func get_server_progression() -> Dictionary:
+	return SkillProgression.normalized(_server_progression)
 
 ## The overworld controller registers itself so snapshots/placements can spawn
 ## into the live world. Safe to call multiple times; cleared on scene change.
@@ -209,6 +218,11 @@ func _rpc_join_request(payload: Dictionary) -> void:
 		materials = MaterialInventory.starter_pack()
 
 	var player: ServerPlayerState = ServerPlayerState.create(peer_id, identity, materials)
+	# Old world files stored a flat profile-level "xp"; SkillProgression
+	# normalizes both that and the new {total_xp, skills} shape.
+	player.progression = SkillProgression.normalized(
+		known.get("progression", {"xp": int(known.get("xp", 0))}) as Dictionary
+	)
 	player.position = Vector2(224, 368)  # homestead default spawn area
 	_players[peer_id] = player
 	_server_world.remember_profile(player)
@@ -232,6 +246,7 @@ func _rpc_join_request(payload: Dictionary) -> void:
 		"placed_objects": _server_world.placed_objects(),
 		"players": others,
 		"materials": player.materials.to_dictionary(),
+		"progression": player.progression,
 	})
 	for other_peer_id in _players.keys():
 		if other_peer_id != peer_id:
@@ -241,6 +256,7 @@ func _rpc_join_request(payload: Dictionary) -> void:
 func _rpc_world_snapshot(snapshot: Dictionary) -> void:
 	connection_state_changed.emit("Joined world '%s'" % String(snapshot.get("world_id", "?")))
 	_server_materials = snapshot.get("materials", {}) as Dictionary
+	_server_progression = snapshot.get("progression", {}) as Dictionary
 	server_materials_changed.emit(get_server_materials())
 	for record in (snapshot.get("placed_objects", []) as Array):
 		if typeof(record) == TYPE_DICTIONARY:
@@ -292,6 +308,14 @@ func _rpc_request_place(content_id: String, tile_x: int, tile_y: int) -> void:
 	if not _server_world.is_tile_free(tile_x, tile_y):
 		_deny_place(peer_id, player.display_name, content_id, "That spot is taken")
 		return
+	var lock_reason: String = ProgressionRegistry.lock_reason(
+		ProgressionRegistry.placeable_locks().get(content_id, {}) as Dictionary,
+		SkillProgression.player_level(player.progression),
+		SkillProgression.skill_levels(player.progression)
+	)
+	if not lock_reason.is_empty():
+		_deny_place(peer_id, player.display_name, content_id, lock_reason)
+		return
 	var cost: Dictionary = BuildCosts.cost_of(content_id)
 	if not player.materials.spend(cost):
 		_deny_place(peer_id, player.display_name, content_id, "Needs %s" % BuildCosts.cost_text(content_id))
@@ -301,6 +325,10 @@ func _rpc_request_place(content_id: String, tile_x: int, tile_y: int) -> void:
 	if record.is_empty():
 		_deny_place(peer_id, player.display_name, content_id, "That spot is taken")
 		return
+	_grant_server_progression(
+		player, ProgressionRegistry.SKILL_BUILDING,
+		ProgressionRegistry.building_xp_for_cost(cost), 0
+	)
 	_server_world.remember_profile(player)
 	_server_save.save_world(_server_world.world)
 	print("[server] %s placed %s at (%d, %d)." % [player.display_name, content_id, tile_x, tile_y])
@@ -377,6 +405,7 @@ func _rpc_request_gather(node_id: String) -> void:
 	var amount: int = _server_rng.randi_range(int(yields.get("min", 1)), int(yields.get("max", 2)))
 	player.materials.add(material_id, amount)
 	_gather_ready_at[node_id] = now + int(ResourceSpawnRegistry.COOLDOWN_SECONDS * 1000.0)
+	_grant_server_progression(player, ProgressionRegistry.skill_for_material(material_id), 2, 1)
 	_server_world.remember_profile(player)
 	_server_save.save_world(_server_world.world)
 	print("[server] %s gathered %d %s at %s." % [player.display_name, amount, material_id, node_id])
@@ -390,6 +419,74 @@ func _rpc_gather_result(node_id: String, material_id: String, amount: int) -> vo
 @rpc("authority", "reliable")
 func _rpc_gather_denied(node_id: String, reason: String) -> void:
 	gather_denied_received.emit(node_id, reason)
+
+# --- Crafting (server-authoritative) -----------------------------------------
+
+func request_craft(recipe_id: String) -> void:
+	if is_client_connected():
+		_rpc_request_craft.rpc_id(1, recipe_id)
+
+@rpc("any_peer", "reliable")
+func _rpc_request_craft(recipe_id: String) -> void:
+	if not is_server():
+		return
+	var peer_id: int = multiplayer.get_remote_sender_id()
+	var player: ServerPlayerState = _players.get(peer_id)
+	if player == null:
+		return
+	var level: int = SkillProgression.player_level(player.progression)
+	var nearby_stations: Array = []
+	for station_id in CraftingRegistry.station_ids():
+		if _server_world.has_station_near(String(station_id), player.position, 110.0):
+			nearby_stations.append(station_id)
+
+	var result: Dictionary = CraftingSystem.craft_with_pouch(
+		recipe_id, player.materials, level, nearby_stations,
+		SkillProgression.skill_levels(player.progression)
+	)
+	if not bool(result["ok"]):
+		print("[server] Denied craft '%s' by %s: %s" % [recipe_id, player.display_name, result["reason"]])
+		_rpc_craft_denied.rpc_id(peer_id, String(result["reason"]))
+		return
+
+	# Crafting trains the crafting skill by the recipe's reward; overall XP is
+	# roughly half (basic +2/+1, advanced +5/+2 — docs/progression.md).
+	var crafting_xp: int = int(result["xp_reward"])
+	_grant_server_progression(player, ProgressionRegistry.SKILL_CRAFTING, crafting_xp, maxi(1, crafting_xp / 2))
+	_server_world.remember_profile(player)
+	_server_save.save_world(_server_world.world)
+	var message: String = "Crafted %d %s (+%d Crafting XP)" % [
+		int(result["output_amount"]), String(result["display_name"]), crafting_xp,
+	]
+	print("[server] %s crafted %d %s." % [player.display_name, int(result["output_amount"]), String(result["display_name"])])
+	_rpc_materials_update.rpc_id(peer_id, player.materials.to_dictionary())
+	_rpc_craft_result.rpc_id(peer_id, message)
+
+@rpc("authority", "reliable")
+func _rpc_craft_result(message: String) -> void:
+	craft_result_received.emit(message)
+
+@rpc("authority", "reliable")
+func _rpc_craft_denied(reason: String) -> void:
+	craft_denied_received.emit(reason)
+
+@rpc("authority", "reliable")
+func _rpc_progression_update(progression: Dictionary) -> void:
+	_server_progression = progression
+
+## Server-side XP grant: updates the player's progression, pushes it to the
+## client, and broadcasts level-ups in chat. Persistence rides on the caller's
+## save (every grant site already saves the world right after).
+func _grant_server_progression(player: ServerPlayerState, skill_id: String, skill_xp: int, total_xp: int) -> void:
+	var grant_result: Dictionary = SkillProgression.grant(player.progression, skill_id, skill_xp, total_xp)
+	player.progression = grant_result["progression"]
+	_rpc_progression_update.rpc_id(player.peer_id, player.progression)
+	if bool(grant_result["player_levelled"]):
+		_rpc_chat_system.rpc("%s reached Level %d!" % [player.display_name, int(grant_result["new_player_level"])])
+	if bool(grant_result["skill_levelled"]) and not skill_id.is_empty():
+		_rpc_chat_system.rpc_id(player.peer_id, "%s skill is now Level %d!" % [
+			ProgressionRegistry.skill_display_name(skill_id), int(grant_result["new_skill_level"]),
+		])
 
 func _deny_place(peer_id: int, display_name: String, content_id: String, reason: String) -> void:
 	print("[server] Denied placement of '%s' by %s (peer %d): %s" % [content_id, display_name, peer_id, reason])

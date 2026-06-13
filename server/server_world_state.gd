@@ -58,9 +58,23 @@ func remember_profile(player: ServerPlayerState) -> void:
 	profiles[player.profile_id] = {
 		"display_name": player.display_name,
 		"materials": player.materials.to_dictionary(),
+		"progression": player.progression,
 		"last_seen_at": Time.get_datetime_string_from_system(true),
 	}
 	world["known_profiles"] = profiles
+
+## True when a placed object with this content id sits within `radius_px` of
+## the world position. Tiles are on the homestead grid; the iso transform is
+## headless-safe via IsoMapHelpers (used for crafting-station checks).
+func has_station_near(content_id: String, world_pos: Vector2, radius_px: float) -> bool:
+	for record_variant in placed_objects():
+		var record: Dictionary = record_variant as Dictionary
+		if String(record.get("content_id", "")) != content_id:
+			continue
+		var tile: Vector2i = Vector2i(int(record.get("tile_x", 0)), int(record.get("tile_y", 0)))
+		if IsoMapHelpers.grid_to_world(tile, 64, 32).distance_to(world_pos) <= radius_px:
+			return true
+	return false
 
 func _tile_key(tile_x: int, tile_y: int) -> String:
 	return "%d,%d" % [tile_x, tile_y]

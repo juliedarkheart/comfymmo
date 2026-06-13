@@ -1,10 +1,10 @@
-extends RefCounted
+﻿extends RefCounted
 class_name MaterialInventory
 
 ## A plain material pouch: id -> count. Two users:
 ## - The SERVER keeps one per connected player (server-authoritative costs).
 ## - Validation/tests use it standalone.
-## The OFFLINE client does NOT use this class — offline materials are ordinary
+## The OFFLINE client does NOT use this class -- offline materials are ordinary
 ## items in InventorySystem so they persist through the existing player save.
 
 var _counts: Dictionary = {}
@@ -13,7 +13,7 @@ static func from_dictionary(data: Dictionary) -> MaterialInventory:
 	var inventory: MaterialInventory = MaterialInventory.new()
 	for key in data.keys():
 		var amount: int = int(data[key])
-		if amount > 0 and ResourceIds.is_material(String(key)):
+		if amount > 0 and ResourceIds.is_storable(String(key)):
 			inventory._counts[String(key)] = amount
 	return inventory
 
@@ -34,7 +34,7 @@ func get_count(material_id: String) -> int:
 	return int(_counts.get(material_id, 0))
 
 func add(material_id: String, amount: int) -> void:
-	if amount <= 0 or not ResourceIds.is_material(material_id):
+	if amount <= 0 or not ResourceIds.is_storable(material_id):
 		return
 	_counts[material_id] = get_count(material_id) + amount
 

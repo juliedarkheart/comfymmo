@@ -48,6 +48,8 @@ static func placeables() -> Dictionary:
 		ContentIds.PLACEABLE_BENCH: _decor_entry(ContentIds.PLACEABLE_BENCH, "Garden Bench", "furniture"),
 		ContentIds.PLACEABLE_FLOWER_BED: _decor_entry(ContentIds.PLACEABLE_FLOWER_BED, "Flower Bed", "garden"),
 		ContentIds.PLACEABLE_TINY_POND: _decor_entry(ContentIds.PLACEABLE_TINY_POND, "Tiny Pond", "garden"),
+		ContentIds.PLACEABLE_WORKBENCH: _decor_entry(ContentIds.PLACEABLE_WORKBENCH, "Workbench", "station"),
+		ContentIds.PLACEABLE_GARDEN_TABLE: _decor_entry(ContentIds.PLACEABLE_GARDEN_TABLE, "Garden Table", "station"),
 	}
 
 static func _decor_entry(placeable_id: String, display_name: String, category: String) -> Dictionary:

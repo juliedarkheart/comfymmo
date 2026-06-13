@@ -129,6 +129,39 @@ func set_player_appearance(appearance: Dictionary) -> void:
 	save_data["player"] = player_data
 	save_save_data(save_data)
 
+# --- Player progression (additive, backward-compatible) ------------------------
+# Shape at `player.progression`: {total_xp, skills: {skill_id: xp}} — see
+# SkillProgression. Reads normalize any stored shape, including the earlier
+# flat `{xp: N}` (migrates into total_xp) and missing keys (level 1, all
+# skills 0). No version bump; migration passes `player` through untouched.
+
+func get_player_progression() -> Dictionary:
+	var save_data: Dictionary = load_save_data()
+	var player_data: Dictionary = _get_dictionary_section(save_data, "player")
+	return SkillProgression.normalized(_get_dictionary_section(player_data, "progression"))
+
+func get_player_xp() -> int:
+	return int(get_player_progression()["total_xp"])
+
+## Grants skill + total XP in one write. Returns SkillProgression.grant's
+## result (level-up flags included) so callers can toast level-ups.
+func grant_player_xp(skill_id: String, skill_xp: int, total_xp: int) -> Dictionary:
+	var save_data: Dictionary = load_save_data()
+	var player_data: Dictionary = _get_dictionary_section(save_data, "player")
+	var grant_result: Dictionary = SkillProgression.grant(
+		_get_dictionary_section(player_data, "progression"), skill_id, skill_xp, total_xp
+	)
+	player_data["progression"] = grant_result["progression"]
+	save_data["player"] = player_data
+	save_save_data(save_data)
+	return grant_result
+
+## Legacy helper kept for compatibility: plain total XP, no skill.
+func add_player_xp(amount: int) -> int:
+	if amount > 0:
+		grant_player_xp("", 0, amount)
+	return get_player_xp()
+
 # --- Future instanced scenes (dungeons / caves / interiors) -------------------
 # Reserved for when WorldRegionManager loads non-outdoor instances. Outdoor play is
 # one continuous overworld and never scene-swaps, so this stays empty for now.

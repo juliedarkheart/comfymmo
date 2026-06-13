@@ -6,6 +6,9 @@ const WORLD_SPACE_HINT_SCENE := preload("res://ui/world_space_hint.tscn")
 
 signal decorating_mode_changed(active: bool)
 signal decorating_mode_label_changed(mode_name: String, help_text: String)
+## Emitted after a successful LOCAL placement (offline); controllers grant
+## building XP from it. Connected placements are granted XP server-side.
+signal object_placed(object_id: String)
 
 enum InteractionMode {
 	NONE,
@@ -248,11 +251,36 @@ func _is_network_client() -> bool:
 	var session: Node = _network_session()
 	return session != null and bool(session.call("is_client_connected"))
 
+## Player-level/skill lock check against whichever progression store applies:
+## the server's (connected, so preview matches authority) or the local save.
+func _progression_lock_reason(object_id: String) -> String:
+	var lock: Dictionary = ProgressionRegistry.placeable_locks().get(object_id, {}) as Dictionary
+	if lock.is_empty():
+		return ""
+	var progression: Dictionary
+	if _is_network_client():
+		progression = SkillProgression.normalized(
+			_network_session().call("get_server_progression") as Dictionary
+		)
+	elif save_system != null:
+		progression = save_system.get_player_progression()
+	else:
+		return ""
+	return ProgressionRegistry.lock_reason(
+		lock,
+		SkillProgression.player_level(progression),
+		SkillProgression.skill_levels(progression)
+	)
+
 func _get_active_place_result(tile: Vector2i) -> Dictionary:
 	var placeable_data: PlaceableObjectData = _get_active_placeable_data()
 	var result: Dictionary = map.get_place_footprint_result(tile, placeable_data.footprint, _get_occupied_tiles())
 	if not bool(result.get("valid", false)):
 		return result
+	# Progression locks (player level / skill level) on the demonstration set.
+	var lock_reason: String = _progression_lock_reason(_active_placeable_id)
+	if not lock_reason.is_empty():
+		return {"valid": false, "reason": lock_reason}
 	# Survival-lite material gate. Connected clients skip the local check — the
 	# server owns their materials and validates the request authoritatively.
 	if inventory_system != null and not _is_network_client():
@@ -294,6 +322,7 @@ func _try_place_active_object() -> void:
 	}
 	_place_record(record, true)
 	save_system.set_region_placed_objects(_region_id, _placed_objects)
+	object_placed.emit(_active_placeable_id)
 	_update_preview_state()
 	_hide_world_space_hint()
 
@@ -716,24 +745,48 @@ func _register_interactable_for_object(record_id: String, object_id: String, pla
 	if interactable_system == null:
 		return
 
-	if object_id != ContentIds.PLACEABLE_MAILBOX:
+	if object_id == ContentIds.PLACEABLE_MAILBOX:
+		interactable_system.register_interactable(
+			record_id,
+			placed_object,
+			ContentIds.INTERACTION_MAILBOX,
+			"Press F to check mailbox"
+		)
 		return
 
-	interactable_system.register_interactable(
-		record_id,
-		placed_object,
-		ContentIds.INTERACTION_MAILBOX,
-		"Press F to check mailbox"
-	)
+	if object_id == ContentIds.PLACEABLE_WORKBENCH or object_id == ContentIds.PLACEABLE_GARDEN_TABLE:
+		interactable_system.register_interactable(
+			record_id,
+			placed_object,
+			ContentIds.INTERACTION_CRAFTING_STATION,
+			"Press F to craft"
+		)
 
 func _unregister_interactable_for_object(record_id: String, object_id: String) -> void:
 	if interactable_system == null:
 		return
 
-	if object_id != ContentIds.PLACEABLE_MAILBOX:
-		return
+	if (
+		object_id == ContentIds.PLACEABLE_MAILBOX
+		or object_id == ContentIds.PLACEABLE_WORKBENCH
+		or object_id == ContentIds.PLACEABLE_GARDEN_TABLE
+	):
+		interactable_system.unregister_interactable(record_id)
 
-	interactable_system.unregister_interactable(record_id)
+## True when a placed object with this content id sits within `radius` world
+## units of `world_pos`. Used for "requires a station nearby" crafting checks.
+func has_placed_object_near(object_id: String, world_pos: Vector2, radius: float) -> bool:
+	for record in _placed_objects:
+		if String(record.get("object_id", "")) != object_id:
+			continue
+		var tile: Vector2i = Vector2i(int(record.get("tile_x", 0)), int(record.get("tile_y", 0)))
+		if map.grid_to_world(tile).distance_to(world_pos) <= radius:
+			return true
+	return false
+
+## Content id of a placed record (for station interactions keyed by record id).
+func get_placed_object_id(record_id: String) -> String:
+	return String(_find_record_by_id(record_id).get("object_id", ""))
 
 func _apply_mailbox_state_to_node(placed_object: PlaceableCrate) -> void:
 	if placed_object == null:

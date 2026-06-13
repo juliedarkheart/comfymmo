@@ -14,14 +14,16 @@ const MAX_LINES := 10
 
 var _player: AvatarController = null
 var _can_open: Callable = Callable()
+var _command_handler: Callable = Callable()
 var _session: Node = null
 
 @onready var _log_box: VBoxContainer = $Panel/Rows/LogBox
 @onready var _input: LineEdit = $Panel/Rows/Input
 
-func setup(player: AvatarController, can_open: Callable) -> void:
+func setup(player: AvatarController, can_open: Callable, command_handler: Callable = Callable()) -> void:
 	_player = player
 	_can_open = can_open
+	_command_handler = command_handler
 
 func _ready() -> void:
 	_input.visible = false
@@ -63,7 +65,9 @@ func _close_input() -> void:
 func _on_text_submitted(text: String) -> void:
 	var clean: String = ChatMessage.sanitize(text)
 	if not clean.is_empty():
-		if _session != null and bool(_session.call("is_client_connected")):
+		if clean.begins_with("/") and _command_handler.is_valid():
+			_command_handler.call(clean)
+		elif _session != null and bool(_session.call("is_client_connected")):
 			_session.call("send_chat", clean)
 		else:
 			add_system_line("Offline — connect to a server (F8) to chat.")

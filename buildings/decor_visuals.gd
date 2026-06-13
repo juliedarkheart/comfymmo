@@ -109,6 +109,24 @@ static func build(parent: Node2D, decor_id: String) -> void:
 			_ellipse(parent, Vector2(0, 0), 15.0, 8.0, Color("#7db5cf"))
 			_ellipse(parent, Vector2(-4, -2), 4.0, 1.8, Color(0.92, 0.97, 1.0, 0.7), 8)
 			_ellipse(parent, Vector2(7, 2), 3.0, 2.2, LEAF_LIGHT, 8)
+		ContentIds.PLACEABLE_WORKBENCH:
+			# Sturdy work table with a saw cut, a hammer, and a vice block.
+			for px: float in [-13.0, 13.0]:
+				_poly(parent, PackedVector2Array([Vector2(px - 2, -4), Vector2(px + 2, -4), Vector2(px + 2, 2), Vector2(px - 2, 2)]), WOOD_DARK)
+			_poly(parent, PackedVector2Array([Vector2(-17, -16), Vector2(17, -16), Vector2(18, -10), Vector2(-18, -10)]), WOOD)
+			_poly(parent, PackedVector2Array([Vector2(-17, -17), Vector2(17, -17), Vector2(17, -15), Vector2(-17, -15)]), WOOD_LIGHT)
+			_poly(parent, PackedVector2Array([Vector2(-8, -19), Vector2(-5, -19), Vector2(-5, -16), Vector2(-8, -16)]), STONE)
+			_poly(parent, PackedVector2Array([Vector2(4, -22), Vector2(6, -22), Vector2(6, -16), Vector2(4, -16)]), WOOD_DARK)
+			_ellipse(parent, Vector2(5, -23), 3.0, 2.0, STONE, 8)
+		ContentIds.PLACEABLE_GARDEN_TABLE:
+			# Potting table: soil tray, a little pot, and a hanging towel.
+			for px: float in [-12.0, 12.0]:
+				_poly(parent, PackedVector2Array([Vector2(px - 2, -4), Vector2(px + 2, -4), Vector2(px + 2, 2), Vector2(px - 2, 2)]), WOOD_DARK)
+			_poly(parent, PackedVector2Array([Vector2(-16, -15), Vector2(16, -15), Vector2(17, -9), Vector2(-17, -9)]), WOOD_LIGHT)
+			_poly(parent, PackedVector2Array([Vector2(-13, -18), Vector2(-2, -18), Vector2(-2, -14), Vector2(-13, -14)]), Color("#8a5e3c"))
+			_ellipse(parent, Vector2(8, -18), 4.0, 3.0, Color("#c87858"), 10)
+			_ellipse(parent, Vector2(8, -21), 3.0, 2.2, LEAF, 8)
+			_poly(parent, PackedVector2Array([Vector2(12, -14), Vector2(16, -14), Vector2(16, -6), Vector2(12, -6)]), PINK)
 		_:
 			# Unknown id: visible placeholder so a registry mistake is obvious.
 			_ellipse(parent, Vector2(0, -8), 10.0, 10.0, Color("#c25448"))

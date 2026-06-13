@@ -199,11 +199,13 @@ func _talk_villager(interactable_id: String) -> void:
 		line = passage.call(save_system.get_day_count(), save_system.get_current_mood())
 	_open_observe_panel(villager.villager_name, line)
 	save_system.set_region_flag(VILLAGE_REGION_ID, data["count"], visit_count + 1)
+	_grant_xp_once("talk_%s" % interactable_id, ProgressionRegistry.SKILL_SOCIAL, 2, 1)
 
 func _open_notice_board() -> void:
 	_open_observe_panel("Village Notice Board", "Welcome to the village square. Plans, errands, and little celebrations get pinned here.")
 	if not bool(save_system.get_region_flags(VILLAGE_REGION_ID).get(NOTICE_SEEN_FLAG, false)):
 		save_system.set_region_flag(VILLAGE_REGION_ID, NOTICE_SEEN_FLAG, true)
+	_grant_xp_once("visit_notice_board", ProgressionRegistry.SKILL_STEWARDSHIP, 1, 0)
 
 func _open_shrine() -> void:
 	var seen: bool = bool(save_system.get_region_flags(FOREST_REGION_ID).get(SHRINE_SEEN_FLAG, false))
@@ -211,6 +213,7 @@ func _open_shrine() -> void:
 	_open_observe_panel("Old Shrine", body)
 	if not seen:
 		save_system.set_region_flag(FOREST_REGION_ID, SHRINE_SEEN_FLAG, true)
+	_grant_xp_once("visit_shrine", ProgressionRegistry.SKILL_EXPLORATION, 1, 0)
 
 func _bram_passage_line(day_count: int, mood_id: String) -> String:
 	match WorldMood.normalize(mood_id):
@@ -282,6 +285,7 @@ func _handle_gather(node_id: String) -> void:
 	var amount: int = int(result.get("amount", 1))
 	inventory_system.add_item(material_id, amount)
 	node.start_cooldown()
+	_grant_xp(ProgressionRegistry.skill_for_material(material_id), 2, 1)
 	_chat_toast("+%d %s (now %d)" % [amount, ResourceIds.display_name(material_id), inventory_system.get_quantity(material_id)])
 
 func _chat_toast(text: String) -> void:
@@ -297,6 +301,13 @@ func _on_network_gather_result(node_id: String, material_id: String, amount: int
 
 func _on_network_gather_denied(_node_id: String, reason: String) -> void:
 	_chat_toast("%s." % reason)
+
+func _on_network_craft_result(message: String) -> void:
+	_set_crafting_status(message)
+	_chat_toast(message)
+
+func _on_network_craft_denied(reason: String) -> void:
+	_set_crafting_status(reason)
 
 # --- Wardrobe mirror -----------------------------------------------------------
 
@@ -385,7 +396,7 @@ func _setup_network(player: AvatarController) -> void:
 	_chat_panel = CHAT_PANEL_SCENE.instantiate() as CanvasLayer
 	_chat_panel.name = "ChatPanel"
 	add_child(_chat_panel)
-	_chat_panel.call("setup", player, Callable(self, "_chat_can_open"))
+	_chat_panel.call("setup", player, Callable(self, "_chat_can_open"), Callable(self, "_handle_chat_command"))
 
 	# Runtime autoload lookup (direct identifier breaks --script validation).
 	var session: Node = get_node_or_null("/root/NetworkSession")
@@ -396,6 +407,8 @@ func _setup_network(player: AvatarController) -> void:
 	session.connect("server_materials_changed", _on_server_materials_changed)
 	session.connect("gather_result_received", _on_network_gather_result)
 	session.connect("gather_denied_received", _on_network_gather_denied)
+	session.connect("craft_result_received", _on_network_craft_result)
+	session.connect("craft_denied_received", _on_network_craft_denied)
 	var network_panel: CanvasLayer = NETWORK_CONNECT_PANEL_SCENE.instantiate() as CanvasLayer
 	network_panel.name = "NetworkConnectPanel"
 	add_child(network_panel)
@@ -433,7 +446,69 @@ func spawn_network_placed_object(record: Dictionary) -> Node:
 	gameplay_layer.add_child(node)
 	node.set_tile_position(tile, map.grid_to_world(tile))
 	node.set_placed_visual()
+	# Track network-committed crafting stations so the crafting panel's
+	# "station nearby" preview matches the server's own check.
+	if CraftingRegistry.station_ids().has(content_id):
+		_network_stations.append({"content_id": content_id, "position": map.grid_to_world(tile)})
 	return node
+
+## Prototype admin/world-builder command (trust-based, like F10 dev tools —
+## documented in docs/crafting.md). Offline-only: the server ignores commands.
+##   /give <material_or_component_id> [amount]
+func _handle_chat_command(text: String) -> void:
+	var parts: PackedStringArray = text.split(" ", false)
+	if parts.is_empty():
+		return
+	match String(parts[0]).to_lower():
+		"/give":
+			var session: Node = get_node_or_null("/root/NetworkSession")
+			if session != null and bool(session.call("is_client_connected")):
+				_chat_toast("Admin commands are offline-only for now.")
+				return
+			if parts.size() < 2:
+				_chat_toast("Usage: /give <id> [amount] — e.g. /give plank 10")
+				return
+			var item_id: String = String(parts[1]).to_lower()
+			var amount: int = clampi(int(parts[2]) if parts.size() > 2 else 1, 1, 999)
+			if not ResourceIds.is_storable(item_id) and ContentRegistry.items().get(item_id, {}).is_empty():
+				_chat_toast("Unknown id '%s'. Try wood, stone, fiber, clay, plank, fiber_rope..." % item_id)
+				return
+			inventory_system.add_item(item_id, amount)
+			_chat_toast("(admin) +%d %s" % [amount, ResourceIds.display_name(item_id)])
+		"/xp":
+			if _admin_commands_blocked():
+				return
+			var xp_amount: int = clampi(int(parts[1]) if parts.size() > 1 else 10, 1, 9999)
+			_grant_xp("", 0, xp_amount)
+			_chat_toast("(admin) +%d player XP — %s" % [xp_amount, PlayerProgression.progress_text(save_system.get_player_xp())])
+		"/skillxp":
+			if _admin_commands_blocked():
+				return
+			if parts.size() < 2 or not ProgressionRegistry.SKILL_IDS.has(String(parts[1]).to_lower()):
+				_chat_toast("Usage: /skillxp <skill> [amount] — skills: %s" % ", ".join(ProgressionRegistry.SKILL_IDS))
+				return
+			var skill_id: String = String(parts[1]).to_lower()
+			var skill_amount: int = clampi(int(parts[2]) if parts.size() > 2 else 10, 1, 9999)
+			_grant_xp(skill_id, skill_amount, 0)
+			_chat_toast("(admin) +%d %s XP" % [skill_amount, ProgressionRegistry.skill_display_name(skill_id)])
+		"/skills", "/progression":
+			var progression: Dictionary = _get_progression_snapshot()
+			var lines: Array[String] = [PlayerProgression.progress_text(int(progression["total_xp"]))]
+			for listed_skill_id in ProgressionRegistry.SKILL_IDS:
+				lines.append("%s %d" % [
+					ProgressionRegistry.skill_display_name(listed_skill_id),
+					SkillProgression.skill_level(progression, listed_skill_id),
+				])
+			_chat_toast(" · ".join(lines))
+		_:
+			_chat_toast("Commands: /give /xp /skillxp /skills /progression (admin, offline)")
+
+func _admin_commands_blocked() -> bool:
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null and bool(session.call("is_client_connected")):
+		_chat_toast("Admin commands are offline-only for now.")
+		return true
+	return false
 
 func _on_network_place_denied(reason: String) -> void:
 	# Non-modal: a chat-log line instead of a panel, so building flow continues.

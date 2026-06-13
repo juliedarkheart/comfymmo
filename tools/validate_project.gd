@@ -52,6 +52,14 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/network/chat_message.gd",
 	"res://systems/resources/resource_spawn_registry.gd",
 	"res://ui/chat_panel.tscn",
+	"res://systems/crafting/crafting_recipe.gd",
+	"res://systems/crafting/crafting_registry.gd",
+	"res://systems/crafting/crafting_system.gd",
+	"res://systems/progression/player_progression.gd",
+	"res://systems/progression/skill_progression.gd",
+	"res://systems/progression/progression_registry.gd",
+	"res://ui/crafting_panel.tscn",
+	"res://ui/progression_panel.tscn",
 	"res://scenes/world/homestead.tscn",
 	"res://scenes/world/regions/homestead/homestead_region.tscn",
 	"res://scenes/world/regions/village_square/village_square_region.tscn",
@@ -312,8 +320,8 @@ func _initialize() -> void:
 			quit(1)
 			return
 		for material_id in (cost_table[placeable_id] as Dictionary).keys():
-			if not ResourceIds.is_material(String(material_id)):
-				push_error("Placeable '%s' cost uses unknown material '%s'" % [placeable_id, material_id])
+			if not ResourceIds.is_storable(String(material_id)):
+				push_error("Placeable '%s' cost uses unknown material/component '%s'" % [placeable_id, material_id])
 				quit(1)
 				return
 		var placeable_scene: PackedScene = load(String(entry["scene_path"])) as PackedScene
@@ -493,6 +501,148 @@ func _initialize() -> void:
 		push_error("ChatMessage failed to collapse whitespace/newlines")
 		quit(1)
 		return
+
+	# --- Crafting pass --------------------------------------------------------------
+	var recipe_table: Dictionary = CraftingRegistry.recipes()
+	if recipe_table.is_empty():
+		push_error("CraftingRegistry has no recipes")
+		quit(1)
+		return
+	for recipe_key in recipe_table.keys():
+		var recipe: Dictionary = recipe_table[recipe_key] as Dictionary
+		if String(recipe.get("recipe_id", "")) != String(recipe_key):
+			push_error("Recipe key '%s' does not match its recipe_id" % recipe_key)
+			quit(1)
+			return
+		var problem: String = CraftingRecipe.validate(recipe)
+		if not problem.is_empty():
+			push_error("Recipe '%s' invalid: %s" % [recipe_key, problem])
+			quit(1)
+			return
+
+	# Build costs may use raw materials, components, or crop items — nothing else.
+	for cost_placeable_id in BuildCosts.costs().keys():
+		for cost_item_id in (BuildCosts.costs()[cost_placeable_id] as Dictionary).keys():
+			if not CraftingRecipe.is_valid_craft_item(String(cost_item_id)):
+				push_error("Build cost for '%s' uses unknown id '%s'" % [cost_placeable_id, cost_item_id])
+				quit(1)
+				return
+
+	# Starter loop sanity: planks must be hand-craftable at level 1 from the
+	# multiplayer starter pack, and the offline check/spend math must work.
+	var starter_pouch: MaterialInventory = MaterialInventory.starter_pack()
+	var plank_check: Dictionary = CraftingSystem.check("craft_plank", starter_pouch.get_count, 1, [])
+	if not bool(plank_check["ok"]):
+		push_error("Starter materials cannot hand-craft planks: %s" % plank_check["reason"])
+		quit(1)
+		return
+	var plank_result: Dictionary = CraftingSystem.craft_with_pouch("craft_plank", starter_pouch, 1, [])
+	if not bool(plank_result["ok"]) or starter_pouch.get_count(ResourceIds.COMPONENT_PLANK) != 2:
+		push_error("Pouch plank craft did not grant 2 planks")
+		quit(1)
+		return
+	var blocked_check: Dictionary = CraftingSystem.check("craft_stone_block", starter_pouch.get_count, 1, [])
+	if bool(blocked_check["ok"]):
+		push_error("Level-2 station recipe was craftable at level 1 with no station")
+		quit(1)
+		return
+	var station_check: Dictionary = CraftingSystem.check(
+		"craft_stone_block", starter_pouch.get_count, 2, [ContentIds.PLACEABLE_WORKBENCH]
+	)
+	if not bool(station_check["ok"]):
+		push_error("Workbench recipe denied despite level + station: %s" % station_check["reason"])
+		quit(1)
+		return
+
+	# Progression model sanity: curve monotonic, levels derive correctly.
+	if PlayerProgression.level_for_xp(0) != 1 or PlayerProgression.level_for_xp(25) != 2 or PlayerProgression.level_for_xp(99999) != PlayerProgression.MAX_LEVEL:
+		push_error("PlayerProgression level thresholds regressed")
+		quit(1)
+		return
+	for threshold_index in range(1, PlayerProgression.LEVEL_THRESHOLDS.size()):
+		if PlayerProgression.LEVEL_THRESHOLDS[threshold_index] <= PlayerProgression.LEVEL_THRESHOLDS[threshold_index - 1]:
+			push_error("PlayerProgression XP curve is not strictly increasing")
+			quit(1)
+			return
+
+	# Skills: unique ids, all defined, normalization (incl. legacy flat shape),
+	# grants, level derivation, and unlock checks.
+	var seen_skill_ids: Dictionary = {}
+	for skill_id in ProgressionRegistry.SKILL_IDS:
+		if seen_skill_ids.has(skill_id) or not ProgressionRegistry.skills().has(skill_id):
+			push_error("Skill id '%s' duplicated or missing a definition" % skill_id)
+			quit(1)
+			return
+		seen_skill_ids[skill_id] = true
+	var default_prog: Dictionary = SkillProgression.default_progression()
+	if SkillProgression.normalized({}) != default_prog:
+		push_error("Empty progression did not normalize to default")
+		quit(1)
+		return
+	var legacy_prog: Dictionary = SkillProgression.normalized({"xp": 30})
+	if int(legacy_prog["total_xp"]) != 30 or SkillProgression.player_level(legacy_prog) != 2:
+		push_error("Legacy flat-xp progression shape did not migrate")
+		quit(1)
+		return
+	var grant_check: Dictionary = SkillProgression.grant({}, ProgressionRegistry.SKILL_GATHERING, 25, 25)
+	if not bool(grant_check["skill_levelled"]) or not bool(grant_check["player_levelled"]):
+		push_error("SkillProgression.grant did not report level-ups at threshold")
+		quit(1)
+		return
+	if SkillProgression.skill_level(grant_check["progression"] as Dictionary, ProgressionRegistry.SKILL_GATHERING) != 2:
+		push_error("Skill level did not derive correctly after grant")
+		quit(1)
+		return
+	if ProgressionRegistry.skill_for_material(ResourceIds.MATERIAL_STONE) != ProgressionRegistry.SKILL_MINING \
+			or ProgressionRegistry.skill_for_material(ResourceIds.MATERIAL_WOOD) != ProgressionRegistry.SKILL_GATHERING:
+		push_error("skill_for_material mapping regressed")
+		quit(1)
+		return
+
+	# Unlock checks: locked then unlocked, and lock tables reference real ids.
+	var arch_lock: Dictionary = ProgressionRegistry.placeable_locks()[ContentIds.PLACEABLE_GARDEN_ARCH] as Dictionary
+	if ProgressionRegistry.lock_reason(arch_lock, 1, {"building": 1}).is_empty():
+		push_error("Garden arch lock did not deny at Building 1")
+		quit(1)
+		return
+	if not ProgressionRegistry.lock_reason(arch_lock, 1, {"building": 2}).is_empty():
+		push_error("Garden arch lock denied despite Building 2")
+		quit(1)
+		return
+	for locked_placeable_id in ProgressionRegistry.placeable_locks().keys():
+		if not ContentRegistry.placeables().has(String(locked_placeable_id)):
+			push_error("Placeable lock references unknown placeable '%s'" % locked_placeable_id)
+			quit(1)
+			return
+		var placeable_lock: Dictionary = ProgressionRegistry.placeable_locks()[locked_placeable_id] as Dictionary
+		var lock_skill: String = String(placeable_lock.get("required_skill", ""))
+		if not lock_skill.is_empty() and not ProgressionRegistry.SKILL_IDS.has(lock_skill):
+			push_error("Placeable lock for '%s' references unknown skill" % locked_placeable_id)
+			quit(1)
+			return
+	var skill_locked_recipe: Dictionary = CraftingSystem.check(
+		"craft_cloth_roll",
+		func(_id: String) -> int: return 99,
+		PlayerProgression.MAX_LEVEL,
+		[ContentIds.PLACEABLE_GARDEN_TABLE],
+		{"crafting": 1}
+	)
+	if bool(skill_locked_recipe["ok"]):
+		push_error("Cloth roll craftable despite Crafting 1 (skill lock missing)")
+		quit(1)
+		return
+
+	# Station placeables exist end-to-end and components are storable.
+	for station_id_variant in CraftingRegistry.station_ids():
+		if not ContentRegistry.placeables().has(String(station_id_variant)):
+			push_error("Recipe station '%s' is not a registered placeable" % station_id_variant)
+			quit(1)
+			return
+	for component_id in ResourceIds.ALL_COMPONENTS:
+		if not ResourceIds.is_storable(component_id):
+			push_error("Component '%s' is not storable" % component_id)
+			quit(1)
+			return
 
 	print("Project smoke test passed.")
 	quit(0)

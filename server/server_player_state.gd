@@ -12,6 +12,8 @@ var display_name: String = "Villager"
 var appearance: Dictionary = {}
 var position: Vector2 = Vector2.ZERO
 var materials: MaterialInventory = MaterialInventory.new()
+# Full progression dict ({total_xp, skills}); see SkillProgression.
+var progression: Dictionary = SkillProgression.default_progression()
 
 static func create(target_peer_id: int, identity: Dictionary, starting_materials: MaterialInventory) -> ServerPlayerState:
 	var state: ServerPlayerState = ServerPlayerState.new()
