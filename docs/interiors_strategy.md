@@ -1,46 +1,92 @@
-# Interiors strategy (DEFERRED — design doc, not implemented)
+# Interiors Strategy
 
-Hearthvale has **no walk-in interiors**, by deliberate decision. Buildings are
-exterior shells; the cottage/structure door signs say "Interior coming later."
-Nothing in boot, saves, or networking depends on interiors.
+Hearthvale now has a small prefab-interior prototype, but it is intentionally
+limited.
 
-## Why interiors are deferred (the real tradeoff)
+## Current state
 
-The building system is moving toward a freeform, ARK/Once Human-style **modular
-exterior kit** (foundations, walls, doors, roofs, fences, decor on a grid).
-Once players build arbitrary custom shapes, a traditional hand-authored fixed
-interior scene **cannot match the exterior** — a 3×3 shed and a 12-tile
-sprawling cottage would both open into the same canned room, which feels wrong.
-So interiors are an instancing + content problem, not a "draw a room" problem,
-and forcing them now would lock in save/network state we'd have to migrate.
+Some prefab structure shells can open an interior:
 
-## How exteriors work today
+- cottage shell
+- storage shed
+- workshop hut
+- barn shell
 
-Structure shells (cottage, shed, workshop, barn, greenhouse, well) and modular
-pieces (foundations, floors, walls, door/window walls, pillars, fences) are
-ordinary persistent placeables with component costs and a hammer requirement.
-They are decorated from the outside. Doors are visual + a "coming later" sign.
+Those mappings live in `systems/building/prefab_interiors.gd`.
 
-## Future options for player interiors (decide after the exterior loop is fun)
+What the player gets today is not a full simulated indoor lot. It is a separate
+interior scene/view, currently driven by `ui/interior_view.tscn`, opened from a
+placed prefab door interaction. The player keeps their outdoor world position;
+closing the view returns them right back outside.
 
-1. **Fixed interior templates** attached to specific shell types (a "cottage
-   shell" always opens a chosen cottage template). Simple; ignores custom
-   exterior shape.
-2. **Separate instanced interior lots** the player decorates independently
-   (the exterior is a façade; the interior is its own small plot). Most
-   flexible; clearest mental model.
-3. **Pocket-room interiors** generated from a tiny floorplan editor (player
-   stamps a room footprint, then furnishes it).
-4. **No walk-in interiors for custom modular builds** — only outdoor building
-   plus furniture/decor, with interiors reserved for a few special template
-   buildings.
+Current interior controls:
 
-The recommended path is **(2) instanced interior lots routed through
-WorldRegionManager** (already reserved for instances), because it sidesteps the
-exterior-mismatch problem entirely and reuses the plot ownership model.
+- walk up to the prefab and press `F`
+- press `F`, `Esc`, or click the Exit button to leave
 
-## Why no interiors are required for the current release
+Greenhouse and well shells do not currently expose interiors.
 
-The cozy loop — gather → craft → claim land → build an outdoor homestead →
-decorate → invite friends — is complete and fun without ever going indoors.
-Interiors are an expansion, not a dependency.
+## Why modular interiors are deferred
+
+The exterior building kit is moving toward a freeform, ARK / Once Human-style
+construction set:
+
+- foundations
+- floors
+- walls
+- door walls
+- window walls
+- pillars
+- roofs
+- fences and gates
+
+That is great for outdoor expression, but it creates a mismatch problem for
+interiors. A hand-authored room scene cannot honestly represent every custom
+exterior shape a player can assemble. If a player builds an L-shaped cottage,
+an oversized workshop yard, or a tiny fenced shed nook, a single canned room
+would feel wrong.
+
+That is why modular custom buildings are exterior-only for now.
+
+## What "separate scenes / instances" means here
+
+The current prototype uses a separate interior scene/view instead of trying to
+embed an indoor tilemap inside the overworld. The long-term instance model is
+still expected to route through `systems/world_region_manager.gd`, which is the
+reserved seam for non-outdoor spaces such as interiors, caves, and dungeons.
+
+So the direction is:
+
+- prefab exteriors can link to authored interiors
+- modular exteriors stay outdoor-only until there is a real instance strategy
+- future interior persistence should be modeled as its own scene/instance state,
+  not as a magical room stuffed into a custom exterior footprint
+
+## Recommended long-term shape
+
+The safest long-term approach is separate interior instances or interior lots
+owned by the same player/profile, not one procedural room per modular shell.
+That keeps:
+
+- exterior creativity intact
+- save data simpler
+- multiplayer authority clearer
+- authored interior content reusable
+
+## Scope boundaries for this branch
+
+Implemented:
+
+- prefab door interaction for supported shells
+- safe metadata parsing for prefab interior definitions
+- a shared interior scene/view that loads cleanly
+
+Not implemented:
+
+- interiors for modular custom buildings
+- furniture persistence inside interiors
+- multiplayer interior sync
+- generated floorplans
+- greenhouse/well interiors
+
+That is intentional. The outdoor homestead loop remains the main game.

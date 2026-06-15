@@ -90,7 +90,7 @@ func _setup_overworld_ui() -> void:
 	add_child(_minimap)
 	var landmarks: Array = [
 		{"pos": map.grid_to_world(Vector2i(3, 8)), "color": Color("#bfe6a0")},   # Rowan
-		{"pos": map.grid_to_world(Vector2i(25, 7)), "color": Color("#9fc4e8")},  # Clerk Hazel
+		{"pos": map.grid_to_world(Vector2i(29, 19)), "color": Color("#9fc4e8")},  # Clerk Hazel
 		{"pos": OverworldMap.VILLAGE_OFFSET + Vector2(96, 272), "color": Color("#f2d469")}, # town fountain
 		{"pos": OverworldMap.FOREST_OFFSET + Vector2(136, 166), "color": Color("#c0a0e0")}, # shrine
 	]
@@ -620,7 +620,7 @@ func _current_land_plots() -> Dictionary:
 
 func _setup_plot_markers() -> void:
 	# Neighborhood entrance sign + notice board where the road meets the lots.
-	var entrance: Node2D = _make_plot_sign(map.grid_to_world(Vector2i(24, 6)), "Hearthvale Neighborhood", Color("#e8c060"))
+	var entrance: Node2D = _make_plot_sign(map.grid_to_world(Vector2i(28, 19)), "Hearthvale Neighborhood", Color("#e8c060"))
 	register_world_interactable(
 		"neighborhood_entrance", entrance, ContentIds.INTERACTION_GENERIC,
 		"Press F to read the neighborhood board", _read_neighborhood_board
@@ -641,7 +641,7 @@ func _setup_plot_markers() -> void:
 	# Land clerk at the neighborhood entrance.
 	var clerk: BramVillager = BramVillager.new()
 	clerk.villager_name = "Clerk Hazel"
-	clerk.position = map.grid_to_world(Vector2i(25, 7))
+	clerk.position = map.grid_to_world(Vector2i(29, 19))
 	gameplay_layer.add_child(clerk)
 	Nameplate.attach(clerk, "Clerk Hazel", "Land Office", Color("#9fc4e8"))
 	register_world_interactable(
@@ -1147,7 +1147,7 @@ func admin_teleport(destination: String) -> void:
 	var target_tile: Vector2i
 	match destination:
 		"neighborhood":
-			target_tile = Vector2i(27, 7)
+			target_tile = Vector2i(28, 26)
 		"town":
 			_network_player.global_position = OverworldMap.VILLAGE_OFFSET + Vector2(96, 320)
 			return

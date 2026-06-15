@@ -6,8 +6,8 @@ extends CanvasLayer
 ## scaled into the map rect from a fixed world bounds, so it stays truthful to
 ## the real layout without per-frame cost beyond a queue_redraw.
 
-const WORLD_MIN := Vector2(-760, -200)
-const WORLD_MAX := Vector2(3400, 1000)
+const WORLD_MIN := Vector2(-840, -200)
+const WORLD_MAX := Vector2(3400, 1560)
 
 var _player_pos: Vector2 = Vector2.ZERO
 var _plots: Dictionary = {}            # plot_id -> {rect_center_world, owned_state}

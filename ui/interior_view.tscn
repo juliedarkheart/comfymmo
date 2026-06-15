@@ -1,0 +1,68 @@
+[gd_scene load_steps=3 format=3 uid="uid://hearthvale_interior_view"]
+
+[ext_resource type="Script" path="res://ui/interior_view.gd" id="1_interior"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_room"]
+bg_color = Color(0.18, 0.13, 0.1, 1)
+border_width_left = 4
+border_width_top = 4
+border_width_right = 4
+border_width_bottom = 4
+border_color = Color(0.7, 0.55, 0.36, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[node name="InteriorView" type="CanvasLayer"]
+layer = 90
+script = ExtResource("1_interior")
+
+[node name="Dim" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.04, 0.03, 0.72)
+
+[node name="Room" type="PanelContainer" parent="Dim"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -220.0
+offset_right = 320.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_room")
+
+[node name="Margin" type="VBoxContainer" parent="Dim/Room"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Dim/Room"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.972549, 0.870588, 0.603922, 1)
+theme_override_font_sizes/font_size = 22
+text = "Interior"
+
+[node name="Canvas" type="Control" parent="Dim/Room"]
+custom_minimum_size = Vector2(600, 320)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="TemplateLabel" type="Label" parent="Dim/Room/Canvas"]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 560.0
+offset_bottom = 40.0
+theme_override_colors/font_color = Color(0.16, 0.12, 0.08, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="ExitButton" type="Button" parent="Dim/Room"]
+layout_mode = 2
+text = "Exit to Outside (F / Esc)"

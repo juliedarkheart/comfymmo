@@ -51,6 +51,11 @@ static func costs() -> Dictionary:
 		ContentIds.PLACEABLE_FLOOR_DECK: {ResourceIds.COMPONENT_PLANK: 2},
 		ContentIds.PLACEABLE_STONE_FOUNDATION: {ResourceIds.COMPONENT_STONE_BLOCK: 2},
 		ContentIds.PLACEABLE_WOODEN_PILLAR: {ResourceIds.COMPONENT_PLANK: 1},
+		ContentIds.PLACEABLE_WOOD_WINDOW_WALL: {ResourceIds.COMPONENT_PLANK: 2},
+		ContentIds.PLACEABLE_ROOF_CAP: {ResourceIds.COMPONENT_PLANK: 2, ResourceIds.COMPONENT_FIBER_ROPE: 1},
+		ContentIds.PLACEABLE_FENCE_CORNER: {ResourceIds.MATERIAL_WOOD: 1},
+		ContentIds.PLACEABLE_FENCE_GATE: {ResourceIds.MATERIAL_WOOD: 2},
+		ContentIds.PLACEABLE_STEPS: {ResourceIds.COMPONENT_PLANK: 1},
 		# --- Terrain overlays (cheap, raw; shovel jobs) -----------------------------
 		ContentIds.PLACEABLE_DIRT_PATH: {ResourceIds.MATERIAL_CLAY: 1},
 		ContentIds.PLACEABLE_STONE_PATH: {ResourceIds.MATERIAL_STONE: 2},

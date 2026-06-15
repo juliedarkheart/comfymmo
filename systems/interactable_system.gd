@@ -168,6 +168,8 @@ func _get_prompt_text(interactable_id: String) -> String:
 			return "Press F to talk"
 		ContentIds.INTERACTION_REST:
 			return "Press F to rest"
+		ContentIds.INTERACTION_PREFAB_DOOR:
+			return "Press F to enter"
 		_:
 			return "Press F to inspect"
 

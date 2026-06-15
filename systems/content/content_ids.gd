@@ -63,10 +63,15 @@ const PLACEABLE_WELL := "well"
 # Modular construction pieces.
 const PLACEABLE_WOOD_WALL := "wood_wall"
 const PLACEABLE_WOOD_DOOR_WALL := "wood_door_wall"
+const PLACEABLE_WOOD_WINDOW_WALL := "wood_window_wall"
 const PLACEABLE_STONE_WALL := "stone_wall"
 const PLACEABLE_FLOOR_DECK := "floor_deck"
 const PLACEABLE_STONE_FOUNDATION := "stone_foundation"
 const PLACEABLE_WOODEN_PILLAR := "wooden_pillar"
+const PLACEABLE_ROOF_CAP := "roof_cap"
+const PLACEABLE_FENCE_CORNER := "fence_corner"
+const PLACEABLE_FENCE_GATE := "fence_gate"
+const PLACEABLE_STEPS := "steps"
 # Terrain/path overlays (terrain-as-placeables; shovel jobs).
 const PLACEABLE_DIRT_PATH := "dirt_path"
 const PLACEABLE_STONE_PATH := "stone_path"
@@ -88,6 +93,8 @@ const DECOR_PLACEABLE_IDS: Array[String] = [
 	PLACEABLE_FLOOR_DECK, PLACEABLE_STONE_FOUNDATION, PLACEABLE_WOODEN_PILLAR,
 	PLACEABLE_DIRT_PATH, PLACEABLE_STONE_PATH, PLACEABLE_GRASS_PATCH,
 	PLACEABLE_FLOWER_MEADOW, PLACEABLE_PLAZA_TILE, PLACEABLE_FOREST_FLOOR,
+	PLACEABLE_WOOD_WINDOW_WALL, PLACEABLE_ROOF_CAP, PLACEABLE_FENCE_CORNER,
+	PLACEABLE_FENCE_GATE, PLACEABLE_STEPS,
 ]
 
 # --- Creatures (conceptual ids; creatures are currently spawned by class, not
@@ -111,6 +118,7 @@ const INTERACTION_REST := "rest"
 const INTERACTION_REGION_TRANSITION := "region_transition"
 const INTERACTION_TASK_BOARD := "task_board"
 const INTERACTION_CRAFTING_STATION := "crafting_station"
+const INTERACTION_PREFAB_DOOR := "prefab_door"
 const INTERACTION_GENERIC := "generic"
 
 # --- Action ids (what the player can DO with an interactable; the values returned

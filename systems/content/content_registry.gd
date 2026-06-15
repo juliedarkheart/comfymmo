@@ -64,6 +64,11 @@ static func placeables() -> Dictionary:
 		ContentIds.PLACEABLE_FLOOR_DECK: _decor_entry(ContentIds.PLACEABLE_FLOOR_DECK, "Deck Floor", "modular"),
 		ContentIds.PLACEABLE_STONE_FOUNDATION: _decor_entry(ContentIds.PLACEABLE_STONE_FOUNDATION, "Stone Foundation", "modular"),
 		ContentIds.PLACEABLE_WOODEN_PILLAR: _decor_entry(ContentIds.PLACEABLE_WOODEN_PILLAR, "Wooden Pillar", "modular"),
+		ContentIds.PLACEABLE_WOOD_WINDOW_WALL: _decor_entry(ContentIds.PLACEABLE_WOOD_WINDOW_WALL, "Wood Window Wall", "modular"),
+		ContentIds.PLACEABLE_ROOF_CAP: _decor_entry(ContentIds.PLACEABLE_ROOF_CAP, "Roof Cap", "modular"),
+		ContentIds.PLACEABLE_FENCE_CORNER: _decor_entry(ContentIds.PLACEABLE_FENCE_CORNER, "Fence Corner", "modular"),
+		ContentIds.PLACEABLE_FENCE_GATE: _decor_entry(ContentIds.PLACEABLE_FENCE_GATE, "Fence Gate", "modular"),
+		ContentIds.PLACEABLE_STEPS: _decor_entry(ContentIds.PLACEABLE_STEPS, "Wooden Steps", "modular"),
 		# Terrain/path overlays (shovel jobs).
 		ContentIds.PLACEABLE_DIRT_PATH: _decor_entry(ContentIds.PLACEABLE_DIRT_PATH, "Dirt Path", "terrain"),
 		ContentIds.PLACEABLE_STONE_PATH: _decor_entry(ContentIds.PLACEABLE_STONE_PATH, "Stone Path", "terrain"),

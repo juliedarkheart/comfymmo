@@ -20,8 +20,9 @@ func _ready() -> void:
 	_build_overworld()
 
 func get_camera_limits() -> Rect2i:
-	# Broad MMO-style framing spanning the whole strip; the backdrop is sized to it.
-	return Rect2i(-760, -460, 4560, 1640)
+	# Broad MMO-style framing spanning the whole strip; the backdrop is sized to
+	# it. Extended south to show the expanded neighborhood (12x12 homestead lots).
+	return Rect2i(-840, -460, 4660, 2120)
 
 func get_camera_zoom() -> Vector2:
 	# Slightly closer than 1.0 for readable detail on high-DPI / 4K monitors. Players
@@ -46,7 +47,10 @@ func _build_overworld() -> void:
 ## treats both the core AND these rects as placeable; tiles outside both remain
 ## structurally unbuildable (so town/forest can never be built on).
 func neighborhood_rects() -> Array:
-	return [Rect2i(24, 0, 18, 15), Rect2i(11, 18, 19, 8)]
+	# One large region south-east of the core holding the 12x12 homestead lots
+	# (2x2 grid: x[22,47], y[20,45], with path gaps between lots). Sized so the
+	# far corner (x+y=92 -> world_y 1472) stays inside the expanded south wall.
+	return [Rect2i(22, 20, 26, 26)]
 
 func is_tile_in_bounds(tile: Vector2i) -> bool:
 	if tile.x >= 0 and tile.x < MAP_WIDTH and tile.y >= 0 and tile.y < MAP_HEIGHT:
@@ -70,14 +74,20 @@ func _build_neighborhood_ground() -> void:
 				ground.polygon = _tile_diamond()
 				ground.color = Color("#83b06b") if (tx + ty) % 2 == 0 else Color("#7aa663")
 				ground_layer.add_child(ground)
-	# A dirt road from the core's east edge out into the east neighborhood.
+	# A dirt road from the core south-east down into the neighborhood, plus a
+	# path along the gap between the four lots.
 	TerrainShapes.add_ribbon(
 		ground_layer,
 		PackedVector2Array([
-			grid_to_world(Vector2i(20, 4)), grid_to_world(Vector2i(24, 3)),
-			grid_to_world(Vector2i(30, 4)), grid_to_world(Vector2i(38, 5)),
+			grid_to_world(Vector2i(12, 15)), grid_to_world(Vector2i(16, 18)),
+			grid_to_world(Vector2i(22, 20)), grid_to_world(Vector2i(28, 22)),
 		]),
-		16.0, 16.0, Color("#c2a071")
+		18.0, 18.0, Color("#c2a071")
+	)
+	TerrainShapes.add_ribbon(
+		ground_layer,
+		PackedVector2Array([grid_to_world(Vector2i(34, 21)), grid_to_world(Vector2i(35, 45))]),
+		14.0, 14.0, Color("#bfa074")
 	)
 
 func _build_overworld_backdrop() -> void:
@@ -227,10 +237,12 @@ func _build_overworld_wilderness() -> void:
 			_add_decor_tree(ground_layer, p)
 
 func _build_overworld_bounds() -> void:
-	_add_boundary("OW_North", Vector2(1500, -120), Vector2(5000, 80))
-	_add_boundary("OW_South", Vector2(1500, 900), Vector2(5000, 80))
-	_add_boundary("OW_West", Vector2(-720, 390), Vector2(80, 1120))
-	_add_boundary("OW_East", Vector2(3760, 390), Vector2(80, 1120))
+	# Walls overlap at corners so the player can't slip out. South pushed down
+	# and west/east extended to enclose the expanded neighborhood.
+	_add_boundary("OW_North", Vector2(1500, -120), Vector2(5400, 80))
+	_add_boundary("OW_South", Vector2(1500, 1600), Vector2(5400, 80))
+	_add_boundary("OW_West", Vector2(-820, 560), Vector2(80, 2640))
+	_add_boundary("OW_East", Vector2(3760, 560), Vector2(80, 2640))
 
 func _add_overworld_fountain(world_pos: Vector2) -> void:
 	# Soft round stone fountain: ellipse basin, rim, water, sparkles, and a

@@ -1,77 +1,114 @@
-# Building content catalog
+# Building Content
 
-20 placeables total: the original 5 plus 15 new cozy decor items. All flow
-through the same pipeline: stable id in `ContentIds` → metadata in
-`ContentRegistry.placeables()` → live catalog in `ObjectRegistry` → cost in
-`BuildCosts` → placement/edit/move/remove via `BuildingPlacementSystem` →
-persistence in `placed_objects` (offline save) or the server world file.
+Hearthvale's current building slice is a cute 2D isometric take on the
+survival-builder grammar popularized by games like ARK and Once Human. The
+adaptation keeps the readable "foundations / walls / roofs / fences / utility"
+language, but trims away 3D stacking complexity, combat pressure, raids,
+structure decay, and freeform interior simulation.
 
-## Original five (unchanged ids, scenes, behavior — now with costs)
+The runtime pipeline is:
 
-crate · mailbox · stool · lantern · planter
+- stable ids in `systems/content/content_ids.gd`
+- metadata in `systems/content/content_registry.gd`
+- player-facing menu grouping in `systems/building/build_categories.gd`
+- costs in `systems/building/build_costs.gd`
+- live catalog in `systems/object_registry.gd`
+- placement/edit/move/remove in `systems/building_placement_system.gd`
+- optional prefab-interior mapping in `systems/building/prefab_interiors.gd`
 
-## New decor set (this pass)
+## Build menu
 
-| id | display name | cost |
-|---|---|---|
-| round_table | Round Table | 3 wood |
-| cozy_chair | Cozy Chair | 2 wood, 1 fiber |
-| garden_arch | Garden Arch | 3 wood, 2 fiber |
-| picnic_blanket | Picnic Blanket | 3 fiber |
-| birdhouse | Birdhouse | 2 wood |
-| fence_segment | Fence Segment | 1 wood |
-| path_lantern | Path Lantern | 1 stone, 1 fiber |
-| berry_basket | Berry Basket | 2 fiber |
-| wood_pile | Wood Pile | 2 wood |
-| signpost | Signpost | 2 wood |
-| decor_shrub | Trimmed Shrub | 1 fiber |
-| tea_table | Tea Table | 2 wood, 1 clay |
-| bench | Garden Bench | 3 wood |
-| flower_bed | Flower Bed | 1 fiber, 1 clay |
-| tiny_pond | Tiny Pond | 3 stone, 2 clay |
+Press `B` to enter placement mode. When placement is active, the build menu
+opens and stays non-modal: movement still works while it is visible.
 
-## How the new items are built
+Menu controls:
 
-One shared root script, `buildings/placeable_decor.gd` (extends
-`PlaceableCrate`, so every placement-system cast/preview/select call works),
-plus one tiny scene per item under `scenes/buildings/decor/` that sets
-`decor_id`. Visuals are drawn at runtime by `buildings/decor_visuals.gd` —
-soft-ellipse cozy shapes in the established palette.
+- click a category button to filter the catalog
+- click `Select` on a card to arm that piece immediately
+- click `Compact` to collapse the item text to a shorter summary
+- press `Esc` or click `Close (Esc)` to hide the panel
+- press `Tab` to cycle the active placeable even with the panel open
+- click in the world or press `Enter` to place the active piece
+- press `E` to switch to edit mode for move/remove work
 
-**Adding a new placeable** = 1 const in ContentIds + 1 list entry +
-1 ContentRegistry line + 1 BuildCosts line + 1 drawer in DecorVisuals +
-1 six-line scene. Validation fails if any piece is missing.
+Each card shows:
 
-## ARK / Once Human inspired modular construction (cozy 2D iso adaptation)
+- display name
+- cost
+- required tool
+- footprint size
+- interior status for prefab structures
+- an unavailable reason if the player lacks materials, tools, or unlocks
 
-The build kit aims at survival-builder construction — foundations, walls,
-doors/windows, roofs, fences/gates, structures, stations, storage, farming,
-paths/terrain, furniture, decor — adapted to the cute 2D iso grid. It does NOT
-attempt 3D snapping complexity, interiors, raids, PvP, or structure damage.
+## Build menu categories
 
-Categories (in `ContentRegistry.placeables()` `category` field): structure,
-modular, terrain, station, furniture, garden, decor, storage. Modular pieces
-(wooden/stone foundations, deck floor, walls, door/window walls, pillars,
-fences) and structure shells (cottage/shed/workshop/barn/greenhouse/well) are
-**exterior-only** — doors say "Interior coming later" (docs/interiors_strategy.md).
+The menu currently exposes 12 categories, in this order:
 
-Placement is **grid-aligned** (snaps to tiles), with a ghost preview, red
-invalid tint, footprint metadata (shells are 2×2), and clear denials for
-cost/tool/permission. Terrain overlays (paths, grass, plaza, flower meadow,
-forest floor) require the shovel and are walk-over. A player on a claimed lot
-can lay foundations, run walls, add a door/window wall and roof, fence a yard,
-place stations/storage, and pave paths — a tiny cozy survival-builder kit.
+1. Foundations
+2. Walls
+3. Doors & Windows
+4. Roofs
+5. Fences & Gates
+6. Structures
+7. Crafting & Utilities
+8. Storage
+9. Farming
+10. Paths & Terrain
+11. Furniture
+12. Decor
 
-## Build UX (Minecraft-like, cozy)
+These categories are a UI layer over the coarser `ContentRegistry` placeable
+metadata so the catalog reads like a survival-builder kit instead of a raw
+content dump.
 
-B opens placement with a ghost preview snapped to the grid; green/red tint +
-a world-space bubble give validity ("Needs 2 Wood", "Occupied", ...). Tab
-cycles the 20-item palette; the HUD mode line names the item and its cost.
-Click/Enter places (and spends), E edits (click select, M move, Delete
-remove), Esc exits. A visual category-palette UI is future work — the catalog
-and category metadata it needs already exist.
+## Content families
 
-## Deferred from the wishlist
+The current catalog is intentionally broad enough to build a small homestead:
 
-flower_pot (planter covers it), rug (picnic_blanket covers it), potted
-mushroom, clothesline, scarecrow — the pipeline makes each a ~20-minute add.
+- prefab structures: cottage shell, storage shed, workshop hut, barn shell,
+  greenhouse shell, well
+- modular construction: stone foundation, deck floor, wood wall, stone wall,
+  wood door wall, wood window wall, wooden pillar, roof cap, fence segment,
+  fence corner, fence gate, steps
+- terrain overlays: dirt path, stone path, grass patch, flower meadow, plaza
+  tile, forest floor patch
+- stations and utilities: workbench, garden table, mailbox
+- storage and decor: crate, wood pile, berry basket, lanterns, signpost,
+  shrub, pond, picnic blanket, birdhouse, furniture, and related yard pieces
+
+## Cute 2D isometric adaptation
+
+This branch is deliberately not trying to recreate full 3D base building.
+Instead it adapts the idea into a readable, cozy 2D grid:
+
+- every placement is tile-snapped
+- footprints stay small and legible
+- terrain and prop silhouettes stay readable at MMO camera distance
+- tools and costs gate building without making the UI heavy
+- large homestead plots provide the "yard to grow into" feeling without true
+  voxel or free-height construction
+
+The result is closer to "build a charming outdoor homestead" than "simulate a
+fortress."
+
+## Plots and scale
+
+The modular and prefab kit is sized around the new claimable lots in
+`systems/land/land_registry.gd`. There are 4 claimable neighborhood plots, and
+each one is at least `12x12` tiles. That larger footprint is important:
+
+- prefab structures need room for paths, fences, and work areas
+- modular builds need space for custom exterior shapes
+- the system wants a homestead feel, not a single-object pad
+
+## Interiors
+
+Prefab buildings can opt into interiors through
+`systems/building/prefab_interiors.gd`. The current branch uses this only for
+selected authored shells.
+
+Modular custom buildings remain exterior-only for now. A player-built shape
+made from foundations, walls, roofs, and gates does not generate or require a
+matching interior.
+
+See `docs/interiors_strategy.md` for the reasoning and the forward plan.

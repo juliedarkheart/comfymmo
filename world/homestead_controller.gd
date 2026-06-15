@@ -41,12 +41,16 @@ const FARM_PLOT_TURNIP_ID: String = ContentIds.FARM_PLOT_TURNIP
 const FARM_PLOT_BERRY_ID: String = ContentIds.FARM_PLOT_BERRY
 const CRAFTING_PANEL_SCENE := preload("res://ui/crafting_panel.tscn")
 const INVENTORY_PANEL_SCENE := preload("res://ui/inventory_panel.tscn")
+const BUILD_MENU_SCENE := preload("res://ui/build_menu_panel.tscn")
+const INTERIOR_VIEW_SCENE := preload("res://ui/interior_view.tscn")
 const STATION_RADIUS := 110.0
 
 var _farm_plots: Dictionary = {}
 var _crafting_panel: CanvasLayer = null
 var _progression_panel: CanvasLayer = null
 var _inventory_panel: CanvasLayer = null
+var _build_menu: CanvasLayer = null
+var _interior_view: CanvasLayer = null
 var _local_player: AvatarController = null
 var _local_nameplate: Node2D = null
 # Session-once XP marks (e.g. "talk_ow_maribel") so social/exploration XP
@@ -87,6 +91,7 @@ func _ready() -> void:
 	_setup_crafting_panel()
 	_setup_progression_panel()
 	_setup_inventory_panel()
+	_setup_build_menu()
 	_local_player = player
 	_local_nameplate = Nameplate.attach(player, _local_player_name(), "You", Color("#bfe0ff"))
 	_refresh_mailbox_world_state()
@@ -202,6 +207,13 @@ func _on_decorating_mode_changed(is_active: bool, player: AvatarController) -> v
 	_decorating_mode_active = is_active
 	player.set_movement_enabled(not is_active)
 	interactable_system.set_interactions_enabled(not is_active and not _is_mailbox_open())
+	# Show the build menu while placing (it drives item selection); hide it when
+	# leaving build/edit.
+	if _build_menu != null:
+		if is_active and building_placement_system.is_placement_active():
+			_build_menu.call("open_panel")
+		else:
+			_build_menu.call("close_panel")
 
 func _on_decorating_mode_label_changed(mode_name: String, help_text: String) -> void:
 	if hud.has_method("set_mode_text"):
@@ -225,6 +237,8 @@ func _on_interaction_requested(interactable_id: String, interaction_type: String
 		ContentIds.INTERACTION_CRAFTING_STATION:
 			# Stations are placed objects registered by BuildingPlacementSystem.
 			_open_crafting_panel()
+		ContentIds.INTERACTION_PREFAB_DOOR:
+			_enter_prefab_interior(interactable_id)
 		ContentIds.INTERACTION_FARM_PLOT:
 			_handle_farm_plot_interaction(interactable_id)
 		_:
@@ -384,6 +398,22 @@ func _setup_inventory_panel() -> void:
 	# Reuse the crafting count getter (offline inventory or server pouch) so the
 	# inventory panel always matches whatever store is authoritative right now.
 	_inventory_panel.call("setup", Callable(self, "_crafting_get_count"), Callable(self, "_inventory_get_identity"))
+
+func _setup_build_menu() -> void:
+	_build_menu = BUILD_MENU_SCENE.instantiate() as CanvasLayer
+	_build_menu.name = "BuildMenuPanel"
+	add_child(_build_menu)
+	_build_menu.call(
+		"setup",
+		Callable(object_registry, "get_placeable_ids"),
+		Callable(building_placement_system, "placeable_status"),
+		Callable(building_placement_system, "set_active_placeable"),
+		Callable(building_placement_system, "get_active_placeable_id")
+	)
+	_interior_view = INTERIOR_VIEW_SCENE.instantiate() as CanvasLayer
+	_interior_view.name = "InteriorView"
+	add_child(_interior_view)
+	_interior_view.connect("interior_closed", _on_interior_closed)
 
 ## Identity snapshot for the inventory panel + HUD. Base (offline homestead)
 ## has no profile/plot; OverworldController overrides this with username,
@@ -818,6 +848,25 @@ func _get_inventory_counts() -> Dictionary:
 func _toggle_inventory_panel() -> void:
 	if _inventory_panel != null:
 		_inventory_panel.call("toggle_panel")
+
+## Enter a placed prefab structure's interior (prototype room-view overlay).
+## The player keeps their world position; exiting returns them right here. Owner-
+## safe by construction offline (it's your own placed object).
+func _enter_prefab_interior(record_id: String) -> void:
+	if _interior_view == null:
+		return
+	var object_id: String = building_placement_system.get_placed_object_id(record_id)
+	if not PrefabInteriors.has_interior(object_id):
+		return
+	interactable_system.set_interactions_enabled(false)
+	if _local_player != null and is_instance_valid(_local_player):
+		_local_player.set_movement_enabled(false)
+	_interior_view.call("open_interior", PrefabInteriors.template_of(object_id), PrefabInteriors.title_of(object_id))
+
+func _on_interior_closed() -> void:
+	if _local_player != null and is_instance_valid(_local_player):
+		_local_player.set_movement_enabled(true)
+	interactable_system.set_interactions_enabled(true)
 
 func _open_help_panel() -> void:
 	_open_observe_panel(

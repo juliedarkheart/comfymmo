@@ -23,14 +23,13 @@ const AREA_WILDERNESS := "wilderness"
 
 static func definitions() -> Dictionary:
 	return {
-		# --- Neighborhood: east band (between the farm and the village road) ---
-		"meadow_lot_1": _plot("meadow_lot_1", "Meadow Lot 1", Rect2i(26, 1, 7, 6)),
-		"meadow_lot_2": _plot("meadow_lot_2", "Meadow Lot 2", Rect2i(34, 1, 7, 6)),
-		"orchard_lot_1": _plot("orchard_lot_1", "Orchard Lot 1", Rect2i(26, 8, 7, 6)),
-		"orchard_lot_2": _plot("orchard_lot_2", "Orchard Lot 2", Rect2i(34, 8, 6, 6)),
-		# --- Neighborhood: south band (below the farm) ---
-		"creekside_lot_1": _plot("creekside_lot_1", "Creekside Lot 1", Rect2i(13, 19, 7, 6)),
-		"grove_lot_1": _plot("grove_lot_1", "Grove Lot 1", Rect2i(21, 19, 7, 6)),
+		# --- Neighborhood: four true homestead-sized 12x12 lots in a 2x2 grid
+		# south-east of the farm, with path gaps (x34,35 / y32,33) between them.
+		# 144 tiles each — a full yard for a cottage, garden, shed, fences, paths.
+		"meadow_lot_1": _plot("meadow_lot_1", "Meadow Lot 1", Rect2i(22, 20, 12, 12)),
+		"meadow_lot_2": _plot("meadow_lot_2", "Meadow Lot 2", Rect2i(36, 20, 12, 12)),
+		"orchard_lot_1": _plot("orchard_lot_1", "Orchard Lot 1", Rect2i(22, 34, 12, 12)),
+		"orchard_lot_2": _plot("orchard_lot_2", "Orchard Lot 2", Rect2i(36, 34, 12, 12)),
 		# --- Farmer Rowan's training land: the cottage + farm strip in the core.
 		# NPC-owned, never claimable; building allowed (tutorial zone; pre-plot
 		# saves placed objects here). ---

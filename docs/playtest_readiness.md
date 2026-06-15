@@ -1,82 +1,75 @@
-# Playtest readiness
+# Playtest Readiness
 
-## Verified automatically (headless, tools/validate_project.gd + boots)
+## Verified automatically
 
-- project imports clean; all scripts/scenes in the validation list load
-- offline boot of scenes/main.tscn runs without errors
-- every placeable (20) has registry fields, a loadable scene, a PlaceableCrate
-  root, and a valid material cost
-- MaterialInventory math (filtering, overspend, spend)
-- profile create/normalize; expanded customization ids normalize
-- server world default shape, occupancy rules, persistence normalization
-- PlayerIdentity sanitation; offline-mode default; F8/F9 input actions
-- dedicated server boots, creates user://server_worlds/default_world.json
+The project validator and boot checks cover the following for this branch:
 
-## Needs live human verification
+- project import completes
+- offline boot of `scenes/main.tscn` succeeds
+- dedicated server boot of `server/server_main.tscn` succeeds
+- build menu scene loads and instantiates
+- build menu categories match `systems/building/build_categories.gd`
+- build menu has both a close button path and an `Esc` close path
+- build menu item sources resolve to valid content ids
+- build costs resolve to valid placeables and valid item/resource ids
+- at least 4 claimable plots are `12x12` or larger
+- large plot centers are actually buildable
+- owner / non-owner / admin-bypass land rules behave correctly
+- the 5 new modular pieces are wired through ids, registry, costs, and scenes
+- prefab interior metadata parses safely
+- at least one prefab interior mapping exists
+- the shared interior scene loads
+- invalid or missing prefab interior metadata fails closed
+- modular/custom pieces are not required to have interiors
 
-- two clients connected simultaneously (architecture supports 16; only the
-  protocol logic is machine-verified, not real concurrent input)
-- position smoothness at ~8 Hz under real movement
-- placement race: two clients targeting the same tile (server serializes —
-  second gets "That spot is taken" — but eyes-on confirmation wanted)
-- server restart persistence from a client's point of view
-- F8 panel UX on 1080p and 4K
+## Known limitations
 
-## Known rough edges (accepted for this slice)
+- prefab interiors are prototype-grade scene views, not full persistent indoor
+  lots
+- only selected prefab shells have interiors; greenhouse and well remain
+  exterior-only
+- modular custom buildings are exterior-only for now
+- dungeons are future separate instances
+- player-created dungeons or adventure plots are future work
+- connected clients still depend on a simpler server-side terrain check than the
+  richer offline map rules
+- network-placed objects are still display-oriented on clients compared with the
+  fully local edit/remove flow
+- minimap and quick tools are intentionally lightweight UI, not full builder
+  control surfaces
 
-- server validates occupancy, not full terrain rules: a connected client can
-  place on tiles the offline map would refuse (e.g. inside the cottage
-  footprint on another client's view). Top of the fix list.
-- network objects are display-only on clients: no remove/move, and they
-  overlap visually with your own offline objects in the homestead area.
-- movement is client-trusted; a hacked client could teleport. Fine for LAN.
-- gathering is server-authoritative when connected (node ids validated against
-  ResourceSpawnRegistry, per-node cooldowns), but server cooldowns are
-  in-memory and reset on restart — temporary, documented.
-- chat is prototype-grade: no moderation, filtering, admin commands, or
-  history; names are server-assigned (deduplicated) but profiles are
-  unauthenticated, so impersonation is possible on a hostile LAN.
-- house interiors are deliberately absent (docs/interiors_plan.md); the
-  cottage door sign says so in-game and never teleports.
-- progression: session-once social/exploration XP is client-trusted and
-  resets per boot; server validates gather/craft/build XP only. Admin XP
-  commands are offline-only.
-- land: claims and build permission are enforced offline and server-side, but
-  the server still validates single tiles, not full footprints, and friend
-  invites to plots are scaffolded (member arrays) without a UI yet.
-- identity: username registration is first-join binding with no password —
-  impersonation is possible by faking a profile id (docs/server_identity.md).
-- wearables are unlock tokens; the wardrobe doesn't gate on them yet.
-- shells/modular pieces are exterior-only; no interiors exist anywhere
-  (docs/interiors_strategy.md, docs/dungeon_instances.md).
-- plots are now homestead-sized lots in a neighborhood region east/south of the
-  farm; build permission uses full plot bounds (offline + server). The buildable
-  area is the homestead core + neighborhood rects — town/forest stay unbuildable
-  by construction. Admin build (`/adminbuild`, F7) bypasses everything.
-- minimap (M) is schematic (world coords scaled into a fixed bounds), not a
-  true rendered map; player marker + plot ownership update live.
-- quick tools strip shows ownership only (no active-tool selection / hotkeys yet).
-- admin tools are offline trust-based; server-side admin command routing is
-  deferred (docs/world_builder_tools.md).
-- wardrobe mirror tile is not placement-blocked; you can build a crate under
-  the mirror. Cosmetic.
-- profiles file is per-machine: two instances on one PC share it.
+## Manual test checklist
 
-## External access status
+Run this list with a real player session after major building/UI changes:
 
-Run scripts (`tools/run_server_*.ps1`, `run_client_*.ps1`), `--bind=` /
-`--config=` support, the firewall helper pair, and the LAN/internet guide
-(docs/external_server_access.md) exist and are machine-validated. Actually
-reaching a server across a real LAN / the internet (firewall rule, router
-forwarding, CGNAT check) is environment-specific and needs a live test with a
-second machine. The server prints a firewall/port-forwarding reminder whenever
-it binds non-locally.
+1. Offline boot into the overworld and confirm `B` opens placement with the
+   build menu visible.
+2. Check every build-menu category button and confirm the list changes.
+3. Toggle `Compact`, select a piece, and confirm the active piece changes.
+4. Close the build menu with both the button and `Esc`.
+5. Place at least one modular piece, one terrain piece, and one prefab shell.
+6. Claim a large neighborhood plot and confirm building works inside it.
+7. Stand inside another claimed plot and confirm normal building is denied.
+8. Toggle admin/world-builder mode and confirm the same denied tile becomes
+   placeable.
+9. Place a prefab with an interior, walk to its door, press `F`, and exit with
+   `F`, `Esc`, and the Exit button.
+10. Place a modular custom shape and confirm there is no required interior flow.
+11. Connect to a server and confirm the builder HUD, pouch counts, and placement
+   behavior still read correctly.
 
-## Suggested 15-minute playtest script
+## Readiness summary
 
-1. Offline: boot → welcome panel → gather each material → build a bench →
-   restart → bench + materials persisted.
-2. Wardrobe: mirror → change everything → restart → look persisted.
-3. Server: start it → connect → build → see "Server:" pouch drop →
-   second client → wave at yourself → both see the build →
-   kill server → restart → reconnect → still there.
+This branch is ready for focused manual playtests of:
+
+- the build menu
+- large-plot claiming and building
+- prefab-door interior entry
+- the cozy 2D isometric modular/prefab building loop
+
+It is not claiming readiness for:
+
+- dungeon gameplay
+- combat
+- player-authored adventure instances
+- full modular interior simulation

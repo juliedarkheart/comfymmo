@@ -172,6 +172,30 @@ static func build(parent: Node2D, decor_id: String) -> void:
 			_poly(parent, PackedVector2Array([Vector2(-3.5, 0), Vector2(3.5, 0), Vector2(3.5, -34), Vector2(-3.5, -34)]), WOOD)
 			_ellipse(parent, Vector2(0, -35), 6.0, 2.5, WOOD_LIGHT, 8)
 			_ellipse(parent, Vector2(0, 0), 6.5, 3.0, WOOD_DARK, 8)
+		ContentIds.PLACEABLE_WOOD_WINDOW_WALL:
+			_poly(parent, PackedVector2Array([Vector2(-16, -2), Vector2(16, -2), Vector2(16, -30), Vector2(-16, -30)]), WOOD)
+			_poly(parent, PackedVector2Array([Vector2(-9, -24), Vector2(9, -24), Vector2(9, -12), Vector2(-9, -12)]), Color("#bcd8e8"))
+			_poly(parent, PackedVector2Array([Vector2(-1, -24), Vector2(1, -24), Vector2(1, -12), Vector2(-1, -12)]), WOOD_DARK)
+			_poly(parent, PackedVector2Array([Vector2(-9, -19), Vector2(9, -19), Vector2(9, -17), Vector2(-9, -17)]), WOOD_DARK)
+		ContentIds.PLACEABLE_ROOF_CAP:
+			_poly(parent, TerrainShapes.dome(Vector2(0, -8), 26.0, 18.0, 14), Color("#c97a6a"))
+			_poly(parent, PackedVector2Array([Vector2(-28, -10), Vector2(28, -10), Vector2(26, -4), Vector2(-26, -4)]), Color("#e8cfa8"))
+			_poly(parent, TerrainShapes.dome(Vector2(-5, -11), 16.0, 12.0, 12), Color("#d68d7c"))
+		ContentIds.PLACEABLE_FENCE_CORNER:
+			for arm in [PackedVector2Array([Vector2(0, -2), Vector2(16, 6), Vector2(16, 9), Vector2(0, 1)]), PackedVector2Array([Vector2(0, -2), Vector2(-16, 6), Vector2(-16, 9), Vector2(0, 1)])]:
+				_poly(parent, arm, WOOD)
+			_poly(parent, PackedVector2Array([Vector2(-2.5, -16), Vector2(2.5, -16), Vector2(2.5, 2), Vector2(-2.5, 2)]), WOOD_DARK)
+			_ellipse(parent, Vector2(0, -16), 3.5, 2.2, WOOD_LIGHT, 8)
+		ContentIds.PLACEABLE_FENCE_GATE:
+			for px: float in [-15.0, 15.0]:
+				_poly(parent, PackedVector2Array([Vector2(px - 2, -18), Vector2(px + 2, -18), Vector2(px + 2, 2), Vector2(px - 2, 2)]), WOOD)
+			_poly(parent, PackedVector2Array([Vector2(-12, -14), Vector2(12, -14), Vector2(12, -11), Vector2(-12, -11)]), WOOD_LIGHT)
+			_poly(parent, PackedVector2Array([Vector2(-12, -5), Vector2(12, -5), Vector2(12, -2), Vector2(-12, -2)]), WOOD_LIGHT)
+			_poly(parent, PackedVector2Array([Vector2(-12, -13), Vector2(-9, -13), Vector2(12, -4), Vector2(9, -3)]), Color("#bfa074"))
+		ContentIds.PLACEABLE_STEPS:
+			for i in range(3):
+				var sy: float = -float(i) * 5.0
+				_poly(parent, PackedVector2Array([Vector2(-14 + i * 3, sy), Vector2(14 - i * 3, sy), Vector2(14 - i * 3, sy - 5), Vector2(-14 + i * 3, sy - 5)]), WOOD if i % 2 == 0 else WOOD_LIGHT)
 		# --- Terrain overlays (flat iso diamonds, drawn under props) -------------
 		ContentIds.PLACEABLE_DIRT_PATH:
 			_terrain_tile(parent, Color("#b08a5e"), Color("#9c764e"))

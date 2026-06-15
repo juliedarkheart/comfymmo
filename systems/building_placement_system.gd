@@ -164,6 +164,53 @@ func _cycle_active_placeable() -> void:
 	_spawn_preview()
 	_emit_mode_label_changed()
 
+## Select a placeable directly (from the build menu). Enters placement mode if
+## not already in it, so the ghost preview appears immediately.
+func set_active_placeable(placeable_id: String) -> void:
+	_sync_placeable_ids()
+	if not _placeable_ids.has(placeable_id):
+		return
+	_active_placeable_id = placeable_id
+	if _interaction_mode == InteractionMode.PLACEMENT:
+		_spawn_preview()
+		_emit_mode_label_changed()
+	else:
+		_exit_edit_or_move_mode()
+		_enter_placement_mode()
+
+func get_active_placeable_id() -> String:
+	return _active_placeable_id
+
+func is_placement_active() -> bool:
+	return _interaction_mode == InteractionMode.PLACEMENT
+
+## Build-menu affordability check (tool + materials only; land permission is
+## evaluated at the target tile during placement). Returns {ok, reason}.
+func placeable_status(placeable_id: String) -> Dictionary:
+	if admin_bypass:
+		return {"ok": true, "reason": "Admin"}
+	var required_tool: String = ContentRegistry.placeable_required_tool(placeable_id)
+	if not required_tool.is_empty() and _builder_item_count(required_tool) < 1:
+		return {"ok": false, "reason": "Needs %s" % ItemIds.display_name(required_tool)}
+	var lock_reason: String = ""
+	var lock: Dictionary = ProgressionRegistry.placeable_locks().get(placeable_id, {}) as Dictionary
+	if not lock.is_empty():
+		var progression: Dictionary
+		if _is_network_client():
+			progression = SkillProgression.normalized(_network_session().call("get_server_progression") as Dictionary)
+		elif save_system != null:
+			progression = save_system.get_player_progression()
+		else:
+			progression = {}
+		lock_reason = ProgressionRegistry.lock_reason(lock, SkillProgression.player_level(progression), SkillProgression.skill_levels(progression))
+	if not lock_reason.is_empty():
+		return {"ok": false, "reason": lock_reason}
+	var cost: Dictionary = BuildCosts.cost_of(placeable_id)
+	for material_id in cost.keys():
+		if _builder_item_count(String(material_id)) < int(cost[material_id]):
+			return {"ok": false, "reason": "Needs %s" % BuildCosts.cost_text(placeable_id)}
+	return {"ok": true, "reason": ""}
+
 func _exit_placement_mode() -> void:
 	if _interaction_mode == InteractionMode.PLACEMENT:
 		_interaction_mode = InteractionMode.NONE
@@ -805,6 +852,16 @@ func _register_interactable_for_object(record_id: String, object_id: String, pla
 			ContentIds.INTERACTION_CRAFTING_STATION,
 			"Press F to craft"
 		)
+		return
+
+	# Prefab structures with interiors get a door (enter via the room view).
+	if PrefabInteriors.has_interior(object_id):
+		interactable_system.register_interactable(
+			record_id,
+			placed_object,
+			ContentIds.INTERACTION_PREFAB_DOOR,
+			"Press F to enter %s" % PrefabInteriors.title_of(object_id)
+		)
 
 func _unregister_interactable_for_object(record_id: String, object_id: String) -> void:
 	if interactable_system == null:
@@ -814,6 +871,7 @@ func _unregister_interactable_for_object(record_id: String, object_id: String) -
 		object_id == ContentIds.PLACEABLE_MAILBOX
 		or object_id == ContentIds.PLACEABLE_WORKBENCH
 		or object_id == ContentIds.PLACEABLE_GARDEN_TABLE
+		or PrefabInteriors.has_interior(object_id)
 	):
 		interactable_system.unregister_interactable(record_id)
 

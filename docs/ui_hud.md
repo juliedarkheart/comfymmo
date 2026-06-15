@@ -1,44 +1,100 @@
-# UI / HUD reference
+# UI And HUD
 
-## Top-left status panel (always on)
+## Always-on HUD
 
-- Title "Hearthvale", day/time, comfort, crop counts (icon rows).
-- **Identity line**: `@username (Display) · Offline/Server · Lv N`.
-- **Area line**: `📍 <area/plot>` — updates live as you walk (throttled ~4/s).
-  Examples: "Landing", "Town Square — Public, protected", "Meadow Lot 1 —
-  Unclaimed", "Meadow Lot 1 — Your Plot", "Orchard Lot 2 — Owned by @friend",
-  "Neighborhood — Public path", "Forest Edge — Wilderness".
-- **Materials line**: `Wood N · Stone N · Fiber N · Clay N · Tokens N` (uses
-  the authoritative count — local inventory offline, server pouch connected).
-- Mode line (build/edit state) + controls hint.
+The shared HUD still carries the core status lines:
 
-## Quick tools strip (left edge)
+- identity line: `@username (Display Name) | Offline/Server | Lv N`
+- area line: current area or plot status
+- materials line: wood / stone / fiber / clay / tokens
+- comfort line
+- mode/help line for explore, placement, edit, or move state
 
-One chip per starter tool (Axe, Pick, Hoe, Can, Hammer, Shovel), bright when
-owned and dimmed when missing. Updates on gather/craft/give and server pouch
-changes. Ownership-only for now (the game checks owning a tool, not an active
-selection); number-key hotkeys are documented future work to avoid clashes.
+The minimap and quick tools continue to live as lightweight side panels rather
+than full-screen systems.
 
-## Minimap (top-right, M toggles)
+## Build menu panel
 
-Schematic world view scaled from world coordinates: region bands (town, forest),
-plot squares tinted by ownership (gold = unclaimed, green = yours, blue =
-friend, red = other's), landmark dots (Rowan, Clerk Hazel, town, shrine), and a
-yellow player marker that tracks your position. Updates after any plot claim.
-Admin debug adds plot outlines.
+The biggest UI addition in this branch is `ui/build_menu_panel.tscn`.
 
-## Panels
+How it behaves:
 
-- **I** — full inventory (identity header + Materials/Components/Tools/Tokens/
-  Weapons/Wearables; offline inventory or server pouch).
-- **Land panel** — opens from a plot sign: name, size, status, owner, members,
-  cost, your tokens, build permission, and a Claim button.
-- **K** crafting · **P** progression · **F8** multiplayer/profile · **F9**
-  wardrobe/creator · **F7** admin panel · **H** full help · **Enter** chat.
-- **F11** toggles fullscreen/windowed (never traps you).
+- pressing `B` enters placement mode and shows the build menu
+- the panel stays non-modal so walking can continue while it is open
+- `Esc` hides the panel
+- the `Close (Esc)` button hides the panel
+- `Compact` toggles a shorter item summary view
 
-## Keys (no conflicts)
+The build menu categories are:
 
-WASD move · F interact · I inventory · K craft · P skills · H help · M minimap ·
-B build · E edit · T time · C eat · F7 admin · F8 net · F9 wardrobe · F10 dev ·
-F11 fullscreen · Enter chat.
+1. Foundations
+2. Walls
+3. Doors & Windows
+4. Roofs
+5. Fences & Gates
+6. Structures
+7. Crafting & Utilities
+8. Storage
+9. Farming
+10. Paths & Terrain
+11. Furniture
+12. Decor
+
+Each item row shows:
+
+- name
+- cost
+- required tool
+- footprint size
+- interior status for prefabs
+- unavailable reason when blocked
+
+`Select` arms that piece immediately. `Tab` still cycles the active piece from
+the keyboard while placement mode is active.
+
+## Other panels
+
+- `I`: inventory
+- `K`: crafting
+- `P`: progression
+- `M`: minimap
+- `H`: controls/help
+- `F7`: admin panel
+- `F8`: multiplayer/profile
+- `F9`: wardrobe/creator
+- `Enter`: chat
+
+## Interior view
+
+Placed supported prefabs can open `ui/interior_view.tscn`.
+
+This is a separate interior scene/view, not an extension of the outdoor tilemap.
+Current exit paths:
+
+- `F`
+- `Esc`
+- Exit button
+
+## Quick tools and minimap
+
+Quick tools:
+
+- shows ownership/readiness for the starter tools
+- does not yet act as an active-tool hotbar
+
+Minimap:
+
+- schematic world readout
+- live player marker
+- plot ownership coloring
+- landmark dots
+
+## Manual UI checklist
+
+- confirm the HUD mode text changes for Explore, Placement, Edit, and Move
+- confirm the build menu opens on `B` and closes on `Esc`
+- confirm category buttons, `Compact`, and `Select` all work
+- confirm blocked pieces explain why they are unavailable
+- confirm minimap updates after a claim change
+- confirm quick tools update after gathering/crafting/inventory changes
+- confirm prefab interior view opens and closes cleanly
