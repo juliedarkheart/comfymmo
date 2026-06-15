@@ -41,6 +41,23 @@
 - progression: session-once social/exploration XP is client-trusted and
   resets per boot; server validates gather/craft/build XP only. Admin XP
   commands are offline-only.
+- land: claims and build permission are enforced offline and server-side, but
+  the server still validates single tiles, not full footprints, and friend
+  invites to plots are scaffolded (member arrays) without a UI yet.
+- identity: username registration is first-join binding with no password —
+  impersonation is possible by faking a profile id (docs/server_identity.md).
+- wearables are unlock tokens; the wardrobe doesn't gate on them yet.
+- shells/modular pieces are exterior-only; no interiors exist anywhere
+  (docs/interiors_strategy.md, docs/dungeon_instances.md).
+- plots are now homestead-sized lots in a neighborhood region east/south of the
+  farm; build permission uses full plot bounds (offline + server). The buildable
+  area is the homestead core + neighborhood rects — town/forest stay unbuildable
+  by construction. Admin build (`/adminbuild`, F7) bypasses everything.
+- minimap (M) is schematic (world coords scaled into a fixed bounds), not a
+  true rendered map; player marker + plot ownership update live.
+- quick tools strip shows ownership only (no active-tool selection / hotkeys yet).
+- admin tools are offline trust-based; server-side admin command routing is
+  deferred (docs/world_builder_tools.md).
 - wardrobe mirror tile is not placement-blocked; you can build a crate under
   the mirror. Cosmetic.
 - profiles file is per-machine: two instances on one PC share it.

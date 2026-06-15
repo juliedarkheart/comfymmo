@@ -8,10 +8,15 @@ class_name ResourceNode
 ## punishing. Offline the cooldown is local; connected, the server enforces its
 ## own per-node cooldown and this one just mirrors it visually.
 
-const TYPE_WOOD := "wood_source"
-const TYPE_STONE := "stone_source"
-const TYPE_FIBER := "fiber_source"
-const TYPE_CLAY := "clay_source"
+# Hand tier (no tool — the soft-lock-safe starter sources).
+const TYPE_WOOD := "wood_source"        # fallen branches
+const TYPE_STONE := "stone_source"      # loose pebbles
+const TYPE_FIBER := "fiber_source"      # wild fiber bush
+const TYPE_CLAY := "clay_source"        # soft clay patch
+# Tool tier (better yields, requires a starter tool).
+const TYPE_TREE := "tree_source"        # chop with axe
+const TYPE_BOULDER := "boulder_source"  # mine with pickaxe
+const TYPE_CLAY_DEPOSIT := "clay_deposit_source"  # dig with shovel
 
 var resource_type: String = TYPE_WOOD
 var cooldown_seconds: float = ResourceSpawnRegistry.COOLDOWN_SECONDS
@@ -19,11 +24,17 @@ var _ready_at_msec: int = 0
 
 static func definitions() -> Dictionary:
 	return {
-		TYPE_WOOD: {"material_id": ResourceIds.MATERIAL_WOOD, "min": 1, "max": 2, "prompt": "Press F to gather wood", "verb": "gather"},
-		TYPE_STONE: {"material_id": ResourceIds.MATERIAL_STONE, "min": 1, "max": 2, "prompt": "Press F to gather stone", "verb": "chip off"},
-		TYPE_FIBER: {"material_id": ResourceIds.MATERIAL_FIBER, "min": 1, "max": 3, "prompt": "Press F to gather fiber", "verb": "snip"},
-		TYPE_CLAY: {"material_id": ResourceIds.MATERIAL_CLAY, "min": 1, "max": 2, "prompt": "Press F to dig clay", "verb": "scoop"},
+		TYPE_WOOD: {"material_id": ResourceIds.MATERIAL_WOOD, "min": 1, "max": 2, "prompt": "Press F to gather fallen branches", "verb": "gather", "required_tool": ""},
+		TYPE_STONE: {"material_id": ResourceIds.MATERIAL_STONE, "min": 1, "max": 2, "prompt": "Press F to gather pebbles", "verb": "pick up", "required_tool": ""},
+		TYPE_FIBER: {"material_id": ResourceIds.MATERIAL_FIBER, "min": 1, "max": 3, "prompt": "Press F to gather fiber", "verb": "snip", "required_tool": ""},
+		TYPE_CLAY: {"material_id": ResourceIds.MATERIAL_CLAY, "min": 1, "max": 2, "prompt": "Press F to scoop soft clay", "verb": "scoop", "required_tool": ""},
+		TYPE_TREE: {"material_id": ResourceIds.MATERIAL_WOOD, "min": 2, "max": 4, "prompt": "Press F to chop tree", "verb": "chop", "required_tool": ItemIds.TOOL_WORN_AXE},
+		TYPE_BOULDER: {"material_id": ResourceIds.MATERIAL_STONE, "min": 2, "max": 4, "prompt": "Press F to mine boulder", "verb": "mine", "required_tool": ItemIds.TOOL_WORN_PICKAXE},
+		TYPE_CLAY_DEPOSIT: {"material_id": ResourceIds.MATERIAL_CLAY, "min": 2, "max": 3, "prompt": "Press F to dig clay deposit", "verb": "dig", "required_tool": ItemIds.TOOL_BASIC_SHOVEL},
 	}
+
+func get_required_tool() -> String:
+	return String(get_definition().get("required_tool", ""))
 
 func configure(target_type: String) -> void:
 	resource_type = target_type
@@ -82,6 +93,25 @@ func _build_visual() -> void:
 			TerrainShapes.add_ellipse(self, Vector2(0, -1), 14.0, 7.5, Color("#b07a5a"))
 			TerrainShapes.add_ellipse(self, Vector2(0, -2), 9.0, 4.5, Color("#c08a64"))
 			TerrainShapes.add_ellipse(self, Vector2(3, -3), 4.0, 2.0, Color("#9c6a4c"), 10)
+		TYPE_TREE:
+			# A sturdy chopping tree: thick trunk, full canopy, an axe notch.
+			TerrainShapes.add_polygon(self, PackedVector2Array([
+				Vector2(-6, 0), Vector2(6, 0), Vector2(8, -26), Vector2(-8, -26),
+			]), Color("#8a5e3c"))
+			TerrainShapes.add_ellipse(self, Vector2(0, -40), 22.0, 17.0, Color("#5f8c56"))
+			TerrainShapes.add_ellipse(self, Vector2(-8, -46), 11.0, 8.0, Color("#8cba74"))
+			TerrainShapes.add_polygon(self, PackedVector2Array([
+				Vector2(4, -10), Vector2(9, -13), Vector2(9, -7),
+			]), Color("#e0bf8a"))
+		TYPE_BOULDER:
+			TerrainShapes.add_ellipse(self, Vector2(0, -6), 16.0, 12.0, Color("#9a968e"))
+			TerrainShapes.add_ellipse(self, Vector2(-5, -10), 7.0, 4.5, Color("#bab6ad"))
+			TerrainShapes.add_ellipse(self, Vector2(6, -3), 5.0, 3.5, Color("#857f76"), 10)
+			TerrainShapes.add_ellipse(self, Vector2(3, -13), 4.0, 2.0, Color("#7da964"), 8)
+		TYPE_CLAY_DEPOSIT:
+			TerrainShapes.add_ellipse(self, Vector2(0, -3), 17.0, 9.0, Color("#a06a48"))
+			TerrainShapes.add_ellipse(self, Vector2(-4, -6), 8.0, 4.0, Color("#b07a5a"))
+			TerrainShapes.add_ellipse(self, Vector2(6, -2), 6.0, 3.0, Color("#8a5a3c"), 10)
 		_:
 			for log_data in [Vector2(-7, -4), Vector2(1, -4), Vector2(9, -4), Vector2(-3, -10), Vector2(5, -10)]:
 				TerrainShapes.add_ellipse(self, log_data, 5.0, 4.2, Color("#c89a64"), 10)

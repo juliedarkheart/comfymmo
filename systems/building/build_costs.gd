@@ -37,6 +37,27 @@ static func costs() -> Dictionary:
 		ContentIds.PLACEABLE_GARDEN_ARCH: {ResourceIds.COMPONENT_PLANK: 2, ResourceIds.COMPONENT_FIBER_ROPE: 1, ResourceIds.COMPONENT_FLOWER_BUNDLE: 1},
 		ContentIds.PLACEABLE_FLOWER_BED: {ResourceIds.COMPONENT_FLOWER_BUNDLE: 1, ResourceIds.MATERIAL_CLAY: 1},
 		ContentIds.PLACEABLE_TINY_POND: {ResourceIds.COMPONENT_STONE_BLOCK: 2, ResourceIds.MATERIAL_CLAY: 2},
+		# --- Structure shells (component-heavy; the construction tier) ----------
+		ContentIds.PLACEABLE_COTTAGE_SHELL: {ResourceIds.COMPONENT_PLANK: 6, ResourceIds.COMPONENT_STONE_BLOCK: 3, ResourceIds.COMPONENT_FIBER_ROPE: 2},
+		ContentIds.PLACEABLE_STORAGE_SHED: {ResourceIds.COMPONENT_PLANK: 4, ResourceIds.COMPONENT_STONE_BLOCK: 2},
+		ContentIds.PLACEABLE_WORKSHOP_HUT: {ResourceIds.COMPONENT_PLANK: 5, ResourceIds.COMPONENT_STONE_BLOCK: 2, ResourceIds.COMPONENT_FIBER_ROPE: 1},
+		ContentIds.PLACEABLE_BARN_SHELL: {ResourceIds.COMPONENT_PLANK: 6, ResourceIds.COMPONENT_FIBER_ROPE: 3},
+		ContentIds.PLACEABLE_GREENHOUSE_SHELL: {ResourceIds.COMPONENT_PLANK: 4, ResourceIds.COMPONENT_CLAY_BRICK: 3, ResourceIds.COMPONENT_FIBER_ROPE: 1},
+		ContentIds.PLACEABLE_WELL: {ResourceIds.COMPONENT_STONE_BLOCK: 3, ResourceIds.COMPONENT_PLANK: 2},
+		# --- Modular pieces -------------------------------------------------------
+		ContentIds.PLACEABLE_WOOD_WALL: {ResourceIds.COMPONENT_PLANK: 2},
+		ContentIds.PLACEABLE_WOOD_DOOR_WALL: {ResourceIds.COMPONENT_PLANK: 2, ResourceIds.COMPONENT_FIBER_ROPE: 1},
+		ContentIds.PLACEABLE_STONE_WALL: {ResourceIds.COMPONENT_STONE_BLOCK: 2},
+		ContentIds.PLACEABLE_FLOOR_DECK: {ResourceIds.COMPONENT_PLANK: 2},
+		ContentIds.PLACEABLE_STONE_FOUNDATION: {ResourceIds.COMPONENT_STONE_BLOCK: 2},
+		ContentIds.PLACEABLE_WOODEN_PILLAR: {ResourceIds.COMPONENT_PLANK: 1},
+		# --- Terrain overlays (cheap, raw; shovel jobs) -----------------------------
+		ContentIds.PLACEABLE_DIRT_PATH: {ResourceIds.MATERIAL_CLAY: 1},
+		ContentIds.PLACEABLE_STONE_PATH: {ResourceIds.MATERIAL_STONE: 2},
+		ContentIds.PLACEABLE_GRASS_PATCH: {ResourceIds.MATERIAL_FIBER: 1},
+		ContentIds.PLACEABLE_FLOWER_MEADOW: {ResourceIds.COMPONENT_FLOWER_BUNDLE: 1},
+		ContentIds.PLACEABLE_PLAZA_TILE: {ResourceIds.COMPONENT_STONE_BLOCK: 1},
+		ContentIds.PLACEABLE_FOREST_FLOOR: {ResourceIds.MATERIAL_FIBER: 1, ResourceIds.MATERIAL_CLAY: 1},
 	}
 
 static func cost_of(placeable_id: String) -> Dictionary:

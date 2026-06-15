@@ -33,9 +33,10 @@ const CATEGORIES: Array[String] = [
 	CATEGORY_FARMING, CATEGORY_DECOR, CATEGORY_TOOLS, CATEGORY_ADMIN,
 ]
 
-## Crop items may flow through crafting (farming bridge) alongside storables.
+## Crop items may flow through crafting (farming bridge) alongside storables,
+## tools, weapons, wearables, and quest items (ItemIds taxonomy).
 static func is_valid_craft_item(item_id: String) -> bool:
-	return ResourceIds.is_storable(item_id) or ContentRegistry.items().has(item_id)
+	return ItemIds.is_storable(item_id) or ContentRegistry.items().has(item_id)
 
 ## Returns "" when valid, otherwise a description of the first problem.
 static func validate(recipe: Dictionary) -> String:

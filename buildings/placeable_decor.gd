@@ -10,3 +10,14 @@ class_name PlaceableDecor
 
 func _ready() -> void:
 	DecorVisuals.build(self, decor_id)
+
+## Terrain overlays and floor pieces are walk-over: they still occupy their
+## grid tile (placement collision) but never block movement.
+func _is_walkable() -> bool:
+	var category: String = ContentRegistry.placeable_category(decor_id)
+	return category == "terrain" or decor_id == ContentIds.PLACEABLE_FLOOR_DECK or decor_id == ContentIds.PLACEABLE_STONE_FOUNDATION
+
+func set_placed_visual() -> void:
+	super.set_placed_visual()
+	if _is_walkable():
+		collision_shape.disabled = true

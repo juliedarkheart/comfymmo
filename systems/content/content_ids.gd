@@ -53,6 +53,27 @@ const PLACEABLE_TINY_POND := "tiny_pond"
 # Crafting stations (outdoor placeables; interacting opens the crafting panel).
 const PLACEABLE_WORKBENCH := "workbench"
 const PLACEABLE_GARDEN_TABLE := "garden_table"
+# Structure shells (exterior-only; "interior coming soon" — no entering).
+const PLACEABLE_COTTAGE_SHELL := "cottage_shell"
+const PLACEABLE_STORAGE_SHED := "storage_shed"
+const PLACEABLE_WORKSHOP_HUT := "workshop_hut"
+const PLACEABLE_BARN_SHELL := "barn_shell"
+const PLACEABLE_GREENHOUSE_SHELL := "greenhouse_shell"
+const PLACEABLE_WELL := "well"
+# Modular construction pieces.
+const PLACEABLE_WOOD_WALL := "wood_wall"
+const PLACEABLE_WOOD_DOOR_WALL := "wood_door_wall"
+const PLACEABLE_STONE_WALL := "stone_wall"
+const PLACEABLE_FLOOR_DECK := "floor_deck"
+const PLACEABLE_STONE_FOUNDATION := "stone_foundation"
+const PLACEABLE_WOODEN_PILLAR := "wooden_pillar"
+# Terrain/path overlays (terrain-as-placeables; shovel jobs).
+const PLACEABLE_DIRT_PATH := "dirt_path"
+const PLACEABLE_STONE_PATH := "stone_path"
+const PLACEABLE_GRASS_PATCH := "grass_patch"
+const PLACEABLE_FLOWER_MEADOW := "flower_meadow"
+const PLACEABLE_PLAZA_TILE := "plaza_tile"
+const PLACEABLE_FOREST_FLOOR := "forest_floor_patch"
 
 const DECOR_PLACEABLE_IDS: Array[String] = [
 	PLACEABLE_ROUND_TABLE, PLACEABLE_COZY_CHAIR, PLACEABLE_GARDEN_ARCH,
@@ -61,6 +82,12 @@ const DECOR_PLACEABLE_IDS: Array[String] = [
 	PLACEABLE_SIGNPOST, PLACEABLE_DECOR_SHRUB, PLACEABLE_TEA_TABLE,
 	PLACEABLE_BENCH, PLACEABLE_FLOWER_BED, PLACEABLE_TINY_POND,
 	PLACEABLE_WORKBENCH, PLACEABLE_GARDEN_TABLE,
+	PLACEABLE_COTTAGE_SHELL, PLACEABLE_STORAGE_SHED, PLACEABLE_WORKSHOP_HUT,
+	PLACEABLE_BARN_SHELL, PLACEABLE_GREENHOUSE_SHELL, PLACEABLE_WELL,
+	PLACEABLE_WOOD_WALL, PLACEABLE_WOOD_DOOR_WALL, PLACEABLE_STONE_WALL,
+	PLACEABLE_FLOOR_DECK, PLACEABLE_STONE_FOUNDATION, PLACEABLE_WOODEN_PILLAR,
+	PLACEABLE_DIRT_PATH, PLACEABLE_STONE_PATH, PLACEABLE_GRASS_PATCH,
+	PLACEABLE_FLOWER_MEADOW, PLACEABLE_PLAZA_TILE, PLACEABLE_FOREST_FLOOR,
 ]
 
 # --- Creatures (conceptual ids; creatures are currently spawned by class, not

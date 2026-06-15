@@ -40,11 +40,15 @@ const FARM_PLOT_CARROT_ID: String = ContentIds.FARM_PLOT_CARROT
 const FARM_PLOT_TURNIP_ID: String = ContentIds.FARM_PLOT_TURNIP
 const FARM_PLOT_BERRY_ID: String = ContentIds.FARM_PLOT_BERRY
 const CRAFTING_PANEL_SCENE := preload("res://ui/crafting_panel.tscn")
+const INVENTORY_PANEL_SCENE := preload("res://ui/inventory_panel.tscn")
 const STATION_RADIUS := 110.0
 
 var _farm_plots: Dictionary = {}
 var _crafting_panel: CanvasLayer = null
 var _progression_panel: CanvasLayer = null
+var _inventory_panel: CanvasLayer = null
+var _local_player: AvatarController = null
+var _local_nameplate: Node2D = null
 # Session-once XP marks (e.g. "talk_ow_maribel") so social/exploration XP
 # can't be farmed by spamming one villager/creature. Resets each boot.
 var _session_xp_marks: Dictionary = {}
@@ -56,6 +60,7 @@ func _ready() -> void:
 	game_state_manager.configure(save_system, object_registry)
 	inventory_system.configure(object_registry)
 	inventory_system.load_from_data(game_state_manager.get_player_section("inventory"))
+	_grant_starter_kit_once()
 	farming_system.load_from_data(game_state_manager.get_region_section(REGION_ID, "farming"))
 	_configure_farm_plots()
 	creature_system.load_from_data(game_state_manager.get_world_section("creatures"))
@@ -81,6 +86,9 @@ func _ready() -> void:
 	building_placement_system.object_placed.connect(_on_object_placed_for_xp)
 	_setup_crafting_panel()
 	_setup_progression_panel()
+	_setup_inventory_panel()
+	_local_player = player
+	_local_nameplate = Nameplate.attach(player, _local_player_name(), "You", Color("#bfe0ff"))
 	_refresh_mailbox_world_state()
 	building_placement_system.decorating_mode_changed.connect(_on_decorating_mode_changed.bind(player))
 	building_placement_system.decorating_mode_label_changed.connect(_on_decorating_mode_label_changed)
@@ -162,6 +170,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		_mark_input_handled()
 		return
 
+	if (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.keycode == KEY_H
+		and not _is_mailbox_open()
+		and not _decorating_mode_active
+	):
+		_open_help_panel()
+		_mark_input_handled()
+		return
+
 	if not _is_mailbox_open():
 		if (
 			event is InputEventKey
@@ -218,6 +238,19 @@ func _on_inventory_changed() -> void:
 	_refresh_inventory_hud()
 	if _crafting_panel != null and bool(_crafting_panel.call("is_open")):
 		_crafting_panel.call("refresh")
+	refresh_inventory_panel()
+
+## Rebuild the inventory panel + HUD lines + quick tools. Public so the
+## overworld controller can call it on a server materials/plot update too.
+func refresh_inventory_panel() -> void:
+	if _inventory_panel != null and bool(_inventory_panel.call("is_open")):
+		_inventory_panel.call("refresh")
+	_refresh_inventory_hud()
+	_refresh_quick_tools()
+
+## Quick-tools strip refresh hook. Base has no strip; overworld owns it.
+func _refresh_quick_tools() -> void:
+	pass
 
 # --- Crafting -------------------------------------------------------------------
 
@@ -344,6 +377,31 @@ func _setup_progression_panel() -> void:
 	add_child(_progression_panel)
 	_progression_panel.call("setup", Callable(self, "_get_progression_snapshot"))
 
+func _setup_inventory_panel() -> void:
+	_inventory_panel = INVENTORY_PANEL_SCENE.instantiate() as CanvasLayer
+	_inventory_panel.name = "InventoryPanel"
+	add_child(_inventory_panel)
+	# Reuse the crafting count getter (offline inventory or server pouch) so the
+	# inventory panel always matches whatever store is authoritative right now.
+	_inventory_panel.call("setup", Callable(self, "_crafting_get_count"), Callable(self, "_inventory_get_identity"))
+
+## Identity snapshot for the inventory panel + HUD. Base (offline homestead)
+## has no profile/plot; OverworldController overrides this with username,
+## profile id, server/offline mode, and the player's plot status.
+func _inventory_get_identity() -> Dictionary:
+	return {
+		"display_name": "Villager",
+		"username": "villager",
+		"mode": "Offline",
+		"plot_status": "—",
+		"profile_id": "",
+	}
+
+## Local player nameplate name. Base is "You"; OverworldController overrides
+## with the active profile's display name.
+func _local_player_name() -> String:
+	return "You"
+
 ## Whichever progression applies right now: the server's when connected
 ## (matching authority), else the local save's.
 func _get_progression_snapshot() -> Dictionary:
@@ -361,6 +419,16 @@ func _set_crafting_status(text: String) -> void:
 func _announce(text: String) -> void:
 	if has_method("_chat_toast"):
 		call("_chat_toast", text)
+
+## New (or pre-tools) saves get the starter tool loadout once. Tools are also
+## hand-recraftable from raw materials, so losing them never soft-locks.
+func _grant_starter_kit_once() -> void:
+	if bool(save_system.get_overworld_flag("starter_kit_granted", false)):
+		return
+	save_system.set_overworld_flag("starter_kit_granted", true)
+	var loadout: Dictionary = ItemIds.starter_loadout()
+	for tool_id in loadout.keys():
+		inventory_system.add_item(String(tool_id), int(loadout[tool_id]))
 
 ## Reward hook for mailbox/task completions: a small material bundle + XP.
 func _grant_task_reward(task_label: String) -> void:
@@ -412,6 +480,17 @@ func _refresh_mailbox_world_state() -> void:
 
 func _handle_farm_plot_interaction(interactable_id: String) -> void:
 	if not _farm_plots.has(interactable_id):
+		return
+
+	# Farming tool gates: planting needs the hoe, watering needs the can.
+	# Harvesting stays bare-hands. Tools are starter-kit items and always
+	# hand-recraftable, so this never soft-locks.
+	var plot_stage: String = String(farming_system.get_plot_state(interactable_id).get("stage", "empty"))
+	if plot_stage == "empty" and inventory_system.get_quantity(ItemIds.TOOL_WORN_HOE) < 1:
+		_announce("Requires Worn Hoe (craft one with K).")
+		return
+	if plot_stage == "planted_dry" and inventory_system.get_quantity(ItemIds.TOOL_WATERING_CAN) < 1:
+		_announce("Requires Watering Can (craft one with K).")
 		return
 
 	var interaction_result: Dictionary = farming_system.interact_with_plot(interactable_id)
@@ -474,13 +553,36 @@ func _refresh_all_farm_plot_visuals(active_plot_id: String) -> void:
 func _refresh_inventory_hud() -> void:
 	if hud.has_method("set_inventory_counts"):
 		hud.call("set_inventory_counts", _get_inventory_counts())
+	if hud.has_method("set_identity_line"):
+		var identity: Dictionary = _inventory_get_identity()
+		var level: int = PlayerProgression.level_for_xp(_player_xp_for_hud())
+		hud.call("set_identity_line", "@%s (%s) · %s · Lv %d" % [
+			String(identity.get("username", "villager")),
+			String(identity.get("display_name", "Villager")),
+			String(identity.get("mode", "Offline")),
+			level,
+		])
 	if hud.has_method("set_materials_text"):
-		hud.call("set_materials_text", _format_materials_text())
+		hud.call("set_materials_text", "%s · Tokens %d" % [_format_materials_text(), _crafting_get_count(ItemIds.QUEST_LAND_TOKEN)])
+	if hud.has_method("set_area_line"):
+		hud.call("set_area_line", _player_area_text())
+
+## Player XP for the HUD level readout (server value when connected).
+func _player_xp_for_hud() -> int:
+	if _is_crafting_connected():
+		var session: Node = get_node_or_null("/root/NetworkSession")
+		return int(session.call("get_server_xp"))
+	return save_system.get_player_xp()
+
+## Current area label for the HUD. Base homestead has no neighborhood; the
+## overworld overrides this with full area/plot classification.
+func _player_area_text() -> String:
+	return "Homestead"
 
 func _format_materials_text() -> String:
 	var parts: Array[String] = []
 	for material_id in ResourceIds.ALL_MATERIALS:
-		parts.append("%s %d" % [ResourceIds.display_name(material_id), inventory_system.get_quantity(material_id)])
+		parts.append("%s %d" % [ResourceIds.display_name(material_id), _crafting_get_count(material_id)])
 	return " · ".join(parts)
 
 func _refresh_survival_hud() -> void:
@@ -714,7 +816,21 @@ func _get_inventory_counts() -> Dictionary:
 	}
 
 func _toggle_inventory_panel() -> void:
-	if hud.has_method("toggle_inventory_panel"):
-		hud.call("toggle_inventory_panel")
+	if _inventory_panel != null:
+		_inventory_panel.call("toggle_panel")
+
+func _open_help_panel() -> void:
+	_open_observe_panel(
+		"Hearthvale Controls",
+		"Move: WASD / Arrow keys\n"
+		+ "Interact / talk / gather / claim: F (when a prompt shows)\n"
+		+ "Inventory: I    Craft: K    Skills: P    Help: H    Minimap: M\n"
+		+ "Build: B (Tab switches item)    Edit/move/remove: E\n"
+		+ "Eat carrot: C    Cycle time: T    Zoom: PgUp/PgDn (R reset)\n"
+		+ "Chat: Enter    Multiplayer/profile: F8    Wardrobe: F9\n"
+		+ "Dev: F10    Admin/world-builder: F7    Fullscreen/windowed: F11\n\n"
+		+ "Getting started: gather branches/pebbles/fiber/clay (F), craft tools (K), "
+		+ "claim a plot at a plot sign, then build (B). Talk to Farmer Rowan for help."
+	)
 
 # _mark_input_handled() is inherited from OutdoorAreaController.

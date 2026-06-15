@@ -13,19 +13,23 @@ static func from_dictionary(data: Dictionary) -> MaterialInventory:
 	var inventory: MaterialInventory = MaterialInventory.new()
 	for key in data.keys():
 		var amount: int = int(data[key])
-		if amount > 0 and ResourceIds.is_storable(String(key)):
+		if amount > 0 and ItemIds.is_storable(String(key)):
 			inventory._counts[String(key)] = amount
 	return inventory
 
 static func starter_pack() -> MaterialInventory:
-	# Friendly first-join grant so new multiplayer players can build something
-	# right away before they find the gathering spots.
-	return from_dictionary({
+	# Friendly first-join grant: basic materials, the full starter tool
+	# loadout (tools are also hand-recraftable, so losing them never
+	# soft-locks), and one land token for a first neighborhood plot.
+	var pack: Dictionary = {
 		ResourceIds.MATERIAL_WOOD: 10,
 		ResourceIds.MATERIAL_STONE: 6,
 		ResourceIds.MATERIAL_FIBER: 6,
 		ResourceIds.MATERIAL_CLAY: 4,
-	})
+		ItemIds.QUEST_LAND_TOKEN: 1,
+	}
+	pack.merge(ItemIds.starter_loadout())
+	return from_dictionary(pack)
 
 func to_dictionary() -> Dictionary:
 	return _counts.duplicate()
@@ -34,7 +38,7 @@ func get_count(material_id: String) -> int:
 	return int(_counts.get(material_id, 0))
 
 func add(material_id: String, amount: int) -> void:
-	if amount <= 0 or not ResourceIds.is_storable(material_id):
+	if amount <= 0 or not ItemIds.is_storable(material_id):
 		return
 	_counts[material_id] = get_count(material_id) + amount
 

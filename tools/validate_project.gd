@@ -1,4 +1,4 @@
-extends SceneTree
+﻿extends SceneTree
 
 # The continuous overworld is the main outdoor scene. The legacy paged region scenes
 # are kept here too so we catch it early if they ever stop parsing.
@@ -60,6 +60,20 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/progression/progression_registry.gd",
 	"res://ui/crafting_panel.tscn",
 	"res://ui/progression_panel.tscn",
+	"res://systems/items/item_ids.gd",
+	"res://systems/land/land_plot.gd",
+	"res://systems/land/land_registry.gd",
+	"res://systems/land/land_claim_system.gd",
+	"res://systems/admin/admin_permissions.gd",
+	# Usability repair pass: display, inventory, nameplate, land panels.
+	"res://ui/display_settings.gd",
+	"res://ui/nameplate.gd",
+	"res://ui/inventory_panel.tscn",
+	"res://ui/land_panel.tscn",
+	# Land/HUD/admin repair pass.
+	"res://ui/minimap_panel.tscn",
+	"res://ui/quick_tools_bar.tscn",
+	"res://ui/admin_panel.tscn",
 	"res://scenes/world/homestead.tscn",
 	"res://scenes/world/regions/homestead/homestead_region.tscn",
 	"res://scenes/world/regions/village_square/village_square_region.tscn",
@@ -275,7 +289,7 @@ func _initialize() -> void:
 		return
 
 	# The dev character creator toggle must stay a real InputMap action (bound
-	# to F9 logical + physical) — an exact-keycode check broke on Fn-layer
+	# to F9 logical + physical) â€” an exact-keycode check broke on Fn-layer
 	# keyboards once already.
 	if not InputMap.has_action("toggle_character_creator"):
 		push_error("InputMap action 'toggle_character_creator' is missing from project.godot")
@@ -403,6 +417,14 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# Usability pass: the fullscreen toggle action must exist so the player is
+	# never trapped in fullscreen, plus the inventory/help action ids.
+	for required_action in ["toggle_fullscreen", "toggle_inventory", "toggle_help", "toggle_minimap", "toggle_admin_panel"]:
+		if not InputMap.has_action(required_action):
+			push_error("InputMap action '%s' is missing from project.godot" % required_action)
+			quit(1)
+			return
+
 	# --- Server run/external-access pass ----------------------------------------
 	for required_file in [
 		"res://tools/run_server_local.ps1",
@@ -520,7 +542,7 @@ func _initialize() -> void:
 			quit(1)
 			return
 
-	# Build costs may use raw materials, components, or crop items — nothing else.
+	# Build costs may use raw materials, components, or crop items â€” nothing else.
 	for cost_placeable_id in BuildCosts.costs().keys():
 		for cost_item_id in (BuildCosts.costs()[cost_placeable_id] as Dictionary).keys():
 			if not CraftingRecipe.is_valid_craft_item(String(cost_item_id)):
@@ -643,6 +665,229 @@ func _initialize() -> void:
 			push_error("Component '%s' is not storable" % component_id)
 			quit(1)
 			return
+
+	# --- Worldbuilding pass: items, tools, soft-lock, land, identity -----------
+	# Item taxonomy: unique ids across every category, wearables map to real
+	# appearance accessories.
+	var all_item_ids: Dictionary = {}
+	for taxonomy_id in ResourceIds.ALL_MATERIALS + ResourceIds.ALL_COMPONENTS + ItemIds.ALL_TOOLS + ItemIds.ALL_WEAPONS + ItemIds.ALL_WEARABLES + ItemIds.ALL_QUEST_ITEMS:
+		if all_item_ids.has(taxonomy_id):
+			push_error("Duplicate item id across taxonomy: '%s'" % taxonomy_id)
+			quit(1)
+			return
+		all_item_ids[taxonomy_id] = true
+	for wearable_id in ItemIds.ALL_WEARABLES:
+		var accessory: String = ItemIds.wearable_accessory(wearable_id)
+		if not CharacterAppearanceRegistry.accessories().has(accessory):
+			push_error("Wearable '%s' maps to unknown accessory '%s'" % [wearable_id, accessory])
+			quit(1)
+			return
+
+	# Starter soft-lock prevention: every material has a HAND source in the
+	# spawn registry, every starter tool recipe is hand-craftable (no station,
+	# level 1, no tool-tier inputs), and tool-tier nodes reference real tools.
+	var hand_materials: Dictionary = {}
+	for spawn_def_variant in ResourceSpawnRegistry.definitions():
+		var spawn_def: Dictionary = spawn_def_variant as Dictionary
+		var node_yield: Dictionary = ResourceNode.definitions()[String(spawn_def["type"])] as Dictionary
+		var node_tool: String = String(node_yield.get("required_tool", ""))
+		if node_tool.is_empty():
+			hand_materials[String(node_yield["material_id"])] = true
+		elif not ItemIds.is_tool_item(node_tool):
+			push_error("Resource type '%s' requires unknown tool '%s'" % [spawn_def["type"], node_tool])
+			quit(1)
+			return
+	for base_material in ResourceIds.ALL_MATERIALS:
+		if not hand_materials.has(base_material):
+			push_error("SOFT-LOCK: material '%s' has no hand-gatherable source" % base_material)
+			quit(1)
+			return
+	for tool_id in ItemIds.ALL_TOOLS:
+		var tool_recipe: Dictionary = CraftingRegistry.get_recipe("craft_%s" % tool_id)
+		if tool_recipe.is_empty():
+			push_error("SOFT-LOCK: starter tool '%s' has no recipe" % tool_id)
+			quit(1)
+			return
+		if not String(tool_recipe.get("required_station", "")).is_empty() or int(tool_recipe.get("required_level", 1)) > 1:
+			push_error("SOFT-LOCK: starter tool recipe '%s' is gated behind a station/level" % tool_id)
+			quit(1)
+			return
+		for tool_input in (tool_recipe["inputs"] as Dictionary).keys():
+			if not ResourceIds.is_material(String(tool_input)):
+				push_error("SOFT-LOCK: starter tool '%s' needs non-raw input '%s'" % [tool_id, tool_input])
+				quit(1)
+				return
+	if not ItemIds.starter_loadout().has(ItemIds.TOOL_SIMPLE_HAMMER):
+		push_error("Starter loadout is missing the hammer")
+		quit(1)
+		return
+	# A tree must require the axe (chopping is tool-gated).
+	if String((ResourceNode.definitions()[ResourceNode.TYPE_TREE] as Dictionary)["required_tool"]) != ItemIds.TOOL_WORN_AXE:
+		push_error("Tree chopping does not require the axe")
+		quit(1)
+		return
+
+	# Required build tools resolve, terrain takes the shovel.
+	for tool_check_id in ContentRegistry.placeables().keys():
+		var build_tool: String = ContentRegistry.placeable_required_tool(String(tool_check_id))
+		if not ItemIds.is_tool_item(build_tool):
+			push_error("Placeable '%s' requires unknown tool '%s'" % [tool_check_id, build_tool])
+			quit(1)
+			return
+	if ContentRegistry.placeable_required_tool(ContentIds.PLACEABLE_DIRT_PATH) != ItemIds.TOOL_BASIC_SHOVEL:
+		push_error("Terrain overlays do not require the shovel")
+		quit(1)
+		return
+
+	# Land: plot ids unique with valid rects, >= 2 claimable, and the claim +
+	# build permission state machine behaves.
+	var plot_ids_seen: Dictionary = {}
+	for plot_def_variant in LandRegistry.definitions().values():
+		var plot_def: Dictionary = plot_def_variant as Dictionary
+		var def_plot_id: String = String(plot_def.get("plot_id", ""))
+		if def_plot_id.is_empty() or plot_ids_seen.has(def_plot_id):
+			push_error("Land plot id missing/duplicate: '%s'" % def_plot_id)
+			quit(1)
+			return
+		plot_ids_seen[def_plot_id] = true
+	if LandRegistry.claimable_plot_ids().size() < 4:
+		push_error("Fewer than 4 claimable homestead plots defined")
+		quit(1)
+		return
+	# Plots must be homestead-sized (clearly larger than an object footprint).
+	for claim_id in LandRegistry.claimable_plot_ids():
+		var claim_rect: Rect2i = LandRegistry.get_plot(String(claim_id)).get("rect", Rect2i()) as Rect2i
+		if claim_rect.size.x * claim_rect.size.y < 30:
+			push_error("Plot '%s' is too small to be a homestead (%dx%d)" % [claim_id, claim_rect.size.x, claim_rect.size.y])
+			quit(1)
+			return
+	var test_plots: Dictionary = {}
+	# Use an interior tile (plot center), not the sign tile (which now sits in
+	# FRONT of the plot), so build-permission tests check the real bounds.
+	var test_rect: Rect2i = LandRegistry.get_plot("meadow_lot_1").get("rect", Rect2i()) as Rect2i
+	var test_tile: Vector2i = Vector2i(test_rect.position.x + test_rect.size.x / 2, test_rect.position.y + test_rect.size.y / 2)
+	if not test_rect.has_point(test_tile):
+		push_error("Computed test tile is not inside meadow_lot_1")
+		quit(1)
+		return
+	if bool(LandClaimSystem.can_build_at(test_tile, "profile_a", test_plots)["allowed"]):
+		push_error("Unclaimed plot allowed building without a claim")
+		quit(1)
+		return
+	var claim_no_token: Dictionary = LandClaimSystem.attempt_claim(
+		"meadow_lot_1", "profile_a", "julie", test_plots,
+		func(_id: String, _n: int) -> bool: return false,
+		func(_id: String, _n: int) -> void: pass
+	)
+	if bool(claim_no_token["ok"]):
+		push_error("Plot claim succeeded without a land token")
+		quit(1)
+		return
+	var claim_ok: Dictionary = LandClaimSystem.attempt_claim(
+		"meadow_lot_1", "profile_a", "julie", test_plots,
+		func(_id: String, _n: int) -> bool: return true,
+		func(_id: String, _n: int) -> void: pass
+	)
+	if not bool(claim_ok["ok"]):
+		push_error("Valid plot claim failed: %s" % claim_ok["reason"])
+		quit(1)
+		return
+	test_plots["meadow_lot_1"] = claim_ok["state"]
+	if not bool(LandClaimSystem.can_build_at(test_tile, "profile_a", test_plots)["allowed"]):
+		push_error("Plot owner denied building on own plot")
+		quit(1)
+		return
+	if bool(LandClaimSystem.can_build_at(test_tile, "profile_b", test_plots)["allowed"]):
+		push_error("Non-owner allowed building on someone's plot")
+		quit(1)
+		return
+	if not bool(LandClaimSystem.can_build_at(test_tile, "profile_b", test_plots, true)["allowed"]):
+		push_error("Admin bypass denied")
+		quit(1)
+		return
+	# Shared-plot invites: only the owner may invite, and the invited member can
+	# then build; a non-owner invite is rejected.
+	if bool(LandClaimSystem.attempt_invite("meadow_lot_1", "profile_b", "profile_c", "carol", test_plots)["ok"]):
+		push_error("Non-owner was allowed to invite to a plot")
+		quit(1)
+		return
+	var invite_result: Dictionary = LandClaimSystem.attempt_invite("meadow_lot_1", "profile_a", "profile_b", "bob", test_plots)
+	if not bool(invite_result["ok"]):
+		push_error("Owner invite failed: %s" % invite_result["reason"])
+		quit(1)
+		return
+	test_plots["meadow_lot_1"] = invite_result["state"]
+	if not bool(LandClaimSystem.can_build_at(test_tile, "profile_b", test_plots)["allowed"]):
+		push_error("Invited member denied building on shared plot")
+		quit(1)
+		return
+	if not bool(LandClaimSystem.can_build_at(Vector2i(7, 16), "profile_b", test_plots)["allowed"]):
+		push_error("Public commons denied building")
+		quit(1)
+		return
+	if bool(LandClaimSystem.attempt_claim("rowan_training_plot", "profile_a", "julie", test_plots, func(_i: String, _n: int) -> bool: return true, func(_i: String, _n: int) -> void: pass)["ok"]):
+		push_error("NPC training land was claimable")
+		quit(1)
+		return
+
+	# Identity: username sanitizer + admin roles.
+	if PlayerIdentity.sanitize_username("  JuLie!! 99 ") != "julie99":
+		push_error("Username sanitizer regressed: '%s'" % PlayerIdentity.sanitize_username("  JuLie!! 99 "))
+		quit(1)
+		return
+	if PlayerIdentity.is_valid_username("ab") or not PlayerIdentity.is_valid_username("julie_99"):
+		push_error("Username validity rules regressed")
+		quit(1)
+		return
+	if String(LocalProfile.normalized({"display_name": "Old Save"}).get("username", "")).is_empty():
+		push_error("Old profile without username did not get a default")
+		quit(1)
+		return
+	if not AdminPermissions.can_world_build(AdminPermissions.offline_role()) or AdminPermissions.can_world_build(AdminPermissions.ROLE_PLAYER):
+		push_error("Admin role permissions regressed")
+		quit(1)
+		return
+
+	# Land repair pass: claimable plot rects must not overlap each other (each
+	# is a distinct yard), and the quick-tools strip ids must all be real tools.
+	var claimable: Array = LandRegistry.claimable_plot_ids()
+	for i in range(claimable.size()):
+		for j in range(i + 1, claimable.size()):
+			var rect_a: Rect2i = LandRegistry.get_plot(String(claimable[i])).get("rect", Rect2i()) as Rect2i
+			var rect_b: Rect2i = LandRegistry.get_plot(String(claimable[j])).get("rect", Rect2i()) as Rect2i
+			if rect_a.intersects(rect_b):
+				push_error("Plots '%s' and '%s' overlap" % [claimable[i], claimable[j]])
+				quit(1)
+				return
+	for quick_tool_id in [ItemIds.TOOL_WORN_AXE, ItemIds.TOOL_WORN_PICKAXE, ItemIds.TOOL_WORN_HOE, ItemIds.TOOL_WATERING_CAN, ItemIds.TOOL_SIMPLE_HAMMER, ItemIds.TOOL_BASIC_SHOVEL]:
+		if not ItemIds.is_tool_item(quick_tool_id):
+			push_error("Quick-tools strip references non-tool id '%s'" % quick_tool_id)
+			quit(1)
+			return
+
+	# Usability pass: nameplate helper builds labels; inventory categories all
+	# reference ids that resolve to a display name (no crash on lookup).
+	var nameplate_host: Node2D = Node2D.new()
+	var nameplate_holder: Node2D = Nameplate.attach(nameplate_host, "Tester", "Player")
+	if nameplate_holder == null or nameplate_holder.get_child_count() < 1:
+		push_error("Nameplate.attach did not build a label")
+		nameplate_host.free()
+		quit(1)
+		return
+	nameplate_host.free()
+
+	var inventory_ids: Array = ResourceIds.ALL_MATERIALS + ResourceIds.ALL_COMPONENTS + ItemIds.ALL_TOOLS \
+		+ ItemIds.ALL_QUEST_ITEMS + ItemIds.ALL_WEAPONS + ItemIds.ALL_WEARABLES \
+		+ [ContentIds.ITEM_CARROT, ContentIds.ITEM_TURNIP, ContentIds.ITEM_BERRY]
+	for inv_id in inventory_ids:
+		if ItemIds.display_name(String(inv_id)).is_empty():
+			push_error("Inventory item id '%s' has no display name" % inv_id)
+			quit(1)
+			return
+	if not ItemIds.ALL_QUEST_ITEMS.has(ItemIds.QUEST_LAND_TOKEN):
+		push_error("Land token missing from quest items (inventory tokens category)")
+		quit(1)
+		return
 
 	print("Project smoke test passed.")
 	quit(0)

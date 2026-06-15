@@ -20,6 +20,8 @@ signal gather_result_received(node_id: String, material_id: String, amount: int)
 signal gather_denied_received(node_id: String, reason: String)
 signal craft_result_received(message: String)
 signal craft_denied_received(reason: String)
+signal claim_result_received(message: String)
+signal server_plots_changed(plots: Dictionary)
 
 const POSITION_SYNC_INTERVAL := 0.12
 const REMOTE_PLAYER_SCRIPT := preload("res://systems/network/remote_player.gd")
@@ -44,6 +46,7 @@ var _network_objects: Dictionary = {}
 var _pending_records: Array = []
 var _server_materials: Dictionary = {}
 var _server_progression: Dictionary = {}
+var _server_plots: Dictionary = {}
 
 var _sync_accumulator: float = 0.0
 
@@ -64,6 +67,9 @@ func get_server_xp() -> int:
 
 func get_server_progression() -> Dictionary:
 	return SkillProgression.normalized(_server_progression)
+
+func get_server_plots() -> Dictionary:
+	return _server_plots.duplicate(true)
 
 ## The overworld controller registers itself so snapshots/placements can spawn
 ## into the live world. Safe to call multiple times; cleared on scene change.
@@ -203,8 +209,21 @@ func _rpc_join_request(payload: Dictionary) -> void:
 	var peer_id: int = multiplayer.get_remote_sender_id()
 	var identity: Dictionary = PlayerIdentity.normalized(payload)
 
-	# Session registration: a profile is "registered" the first time it joins —
-	# no passwords, the profile_id is the identity (prototype trust model).
+	# Username registration: first join binds the username to this profile_id
+	# (case-insensitive, no passwords — prototype trust model, see
+	# docs/server_identity.md). A username already bound to a DIFFERENT
+	# profile rejects the join with a friendly message.
+	var username: String = String(identity.get("username", ""))
+	var registered: Dictionary = _server_world.world.get("registered_users", {}) as Dictionary
+	var bound_profile: String = String(registered.get(username, ""))
+	if not bound_profile.is_empty() and bound_profile != String(identity.get("profile_id", "")):
+		print("[server] Rejected join: username '%s' is registered to another profile." % username)
+		_rpc_join_denied.rpc_id(peer_id, "Username '%s' is taken on this server — pick another in the F8 panel." % username)
+		return
+	var is_new_registration: bool = bound_profile.is_empty()
+	registered[username] = String(identity.get("profile_id", ""))
+	_server_world.world["registered_users"] = registered
+
 	# Display names are deduplicated against currently-online players so two
 	# "Villager"s stay distinguishable in chat and name tags.
 	identity["display_name"] = _dedupe_display_name(String(identity.get("display_name", "Villager")))
@@ -227,14 +246,14 @@ func _rpc_join_request(payload: Dictionary) -> void:
 	_players[peer_id] = player
 	_server_world.remember_profile(player)
 	_server_save.save_world(_server_world.world)
-	print("[server] %s (peer %d, profile %s) joined%s." % [
-		player.display_name, peer_id, player.profile_id,
-		" (returning)" if is_returning else " (new registration)",
+	print("[server] %s (@%s, peer %d, profile %s) joined%s." % [
+		player.display_name, player.username, peer_id, player.profile_id,
+		" (returning)" if is_returning else " (NEW username registration)",
 	])
 	_rpc_chat_system.rpc("%s joined." % player.display_name)
 	_rpc_chat_system.rpc_id(peer_id, (
-		"Welcome back, %s!" % player.display_name if is_returning
-		else "Registered on this server as %s (your profile is your identity — no password)." % player.display_name
+		"Welcome back, @%s!" % player.username if is_returning and not is_new_registration
+		else "Registered on this server as @%s (your profile is your identity — no password)." % player.username
 	))
 
 	var others: Array = []
@@ -247,6 +266,7 @@ func _rpc_join_request(payload: Dictionary) -> void:
 		"players": others,
 		"materials": player.materials.to_dictionary(),
 		"progression": player.progression,
+		"plots": _server_world.world.get("plots", {}),
 	})
 	for other_peer_id in _players.keys():
 		if other_peer_id != peer_id:
@@ -257,13 +277,20 @@ func _rpc_world_snapshot(snapshot: Dictionary) -> void:
 	connection_state_changed.emit("Joined world '%s'" % String(snapshot.get("world_id", "?")))
 	_server_materials = snapshot.get("materials", {}) as Dictionary
 	_server_progression = snapshot.get("progression", {}) as Dictionary
+	_server_plots = snapshot.get("plots", {}) as Dictionary
 	server_materials_changed.emit(get_server_materials())
+	server_plots_changed.emit(get_server_plots())
 	for record in (snapshot.get("placed_objects", []) as Array):
 		if typeof(record) == TYPE_DICTIONARY:
 			_spawn_network_object(record as Dictionary)
 	for player_data in (snapshot.get("players", []) as Array):
 		if typeof(player_data) == TYPE_DICTIONARY:
 			_spawn_remote_player(player_data as Dictionary)
+
+@rpc("authority", "reliable")
+func _rpc_join_denied(reason: String) -> void:
+	disconnect_session()
+	connection_state_changed.emit(reason)
 
 @rpc("authority", "reliable")
 func _rpc_player_joined(player_data: Dictionary) -> void:
@@ -308,12 +335,26 @@ func _rpc_request_place(content_id: String, tile_x: int, tile_y: int) -> void:
 	if not _server_world.is_tile_free(tile_x, tile_y):
 		_deny_place(peer_id, player.display_name, content_id, "That spot is taken")
 		return
+	var is_admin: bool = _profile_is_admin(player.profile_id)
+	# Land/plot permission, server-authoritative.
+	var land_result: Dictionary = LandClaimSystem.can_build_at(
+		Vector2i(tile_x, tile_y), player.profile_id,
+		_server_world.world.get("plots", {}) as Dictionary, is_admin
+	)
+	if not bool(land_result.get("allowed", true)):
+		_deny_place(peer_id, player.display_name, content_id, String(land_result.get("reason", "No build permission")))
+		return
+	# Required tool (admins bypass).
+	var required_tool: String = ContentRegistry.placeable_required_tool(content_id)
+	if not is_admin and not required_tool.is_empty() and player.materials.get_count(required_tool) < 1:
+		_deny_place(peer_id, player.display_name, content_id, "Requires %s" % ItemIds.display_name(required_tool))
+		return
 	var lock_reason: String = ProgressionRegistry.lock_reason(
 		ProgressionRegistry.placeable_locks().get(content_id, {}) as Dictionary,
 		SkillProgression.player_level(player.progression),
 		SkillProgression.skill_levels(player.progression)
 	)
-	if not lock_reason.is_empty():
+	if not is_admin and not lock_reason.is_empty():
 		_deny_place(peer_id, player.display_name, content_id, lock_reason)
 		return
 	var cost: Dictionary = BuildCosts.cost_of(content_id)
@@ -401,6 +442,11 @@ func _rpc_request_gather(node_id: String) -> void:
 		return
 
 	var yields: Dictionary = ResourceNode.definitions().get(String(definition["type"]), {}) as Dictionary
+	# Tool-tier nodes need the right tool in the server pouch.
+	var required_tool: String = String(yields.get("required_tool", ""))
+	if not required_tool.is_empty() and player.materials.get_count(required_tool) < 1:
+		_rpc_gather_denied.rpc_id(peer_id, node_id, "Requires %s (craft one with K)" % ItemIds.display_name(required_tool))
+		return
 	var material_id: String = String(yields.get("material_id", ResourceIds.MATERIAL_WOOD))
 	var amount: int = _server_rng.randi_range(int(yields.get("min", 1)), int(yields.get("max", 2)))
 	player.materials.add(material_id, amount)
@@ -487,6 +533,96 @@ func _grant_server_progression(player: ServerPlayerState, skill_id: String, skil
 		_rpc_chat_system.rpc_id(player.peer_id, "%s skill is now Level %d!" % [
 			ProgressionRegistry.skill_display_name(skill_id), int(grant_result["new_skill_level"]),
 		])
+
+# --- Land claims (server-authoritative) ----------------------------------------
+
+func request_claim_plot(plot_id: String) -> void:
+	if is_client_connected():
+		_rpc_request_claim_plot.rpc_id(1, plot_id)
+
+@rpc("any_peer", "reliable")
+func _rpc_request_claim_plot(plot_id: String) -> void:
+	if not is_server():
+		return
+	var peer_id: int = multiplayer.get_remote_sender_id()
+	var player: ServerPlayerState = _players.get(peer_id)
+	if player == null:
+		return
+	var plots: Dictionary = _server_world.world.get("plots", {}) as Dictionary
+	var result: Dictionary = LandClaimSystem.attempt_claim(
+		plot_id, player.profile_id, player.username, plots,
+		func(item_id: String, amount: int) -> bool: return player.materials.get_count(item_id) >= amount,
+		func(item_id: String, amount: int) -> void: player.materials.spend({item_id: amount})
+	)
+	if not bool(result["ok"]):
+		print("[server] Denied claim of '%s' by @%s: %s" % [plot_id, player.username, result["reason"]])
+		_rpc_claim_result.rpc_id(peer_id, "%s." % String(result["reason"]))
+		return
+	plots[plot_id] = result["state"]
+	_server_world.world["plots"] = plots
+	_server_world.remember_profile(player)
+	_server_save.save_world(_server_world.world)
+	print("[server] @%s claimed %s." % [player.username, plot_id])
+	_rpc_materials_update.rpc_id(peer_id, player.materials.to_dictionary())
+	_rpc_plots_update.rpc(plots)
+	_rpc_chat_system.rpc("%s claimed %s!" % [
+		player.display_name, String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)),
+	])
+	_rpc_claim_result.rpc_id(peer_id, "You claimed %s!" % String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)))
+
+func request_invite(plot_id: String, target_username: String) -> void:
+	if is_client_connected():
+		_rpc_request_invite.rpc_id(1, plot_id, target_username)
+
+@rpc("any_peer", "reliable")
+func _rpc_request_invite(plot_id: String, target_username: String) -> void:
+	if not is_server():
+		return
+	var peer_id: int = multiplayer.get_remote_sender_id()
+	var player: ServerPlayerState = _players.get(peer_id)
+	if player == null:
+		return
+	# Resolve the username to a registered profile_id (case-insensitive).
+	var username: String = PlayerIdentity.sanitize_username(target_username)
+	var registered: Dictionary = _server_world.world.get("registered_users", {}) as Dictionary
+	var target_profile_id: String = String(registered.get(username, ""))
+	var plots: Dictionary = _server_world.world.get("plots", {}) as Dictionary
+	var result: Dictionary = LandClaimSystem.attempt_invite(
+		plot_id, player.profile_id, target_profile_id, username, plots
+	)
+	if not bool(result["ok"]):
+		_rpc_claim_result.rpc_id(peer_id, "%s." % String(result["reason"]))
+		return
+	plots[plot_id] = result["state"]
+	_server_world.world["plots"] = plots
+	_server_save.save_world(_server_world.world)
+	print("[server] @%s invited @%s to %s." % [player.username, username, plot_id])
+	_rpc_plots_update.rpc(plots)
+	_rpc_claim_result.rpc_id(peer_id, "You invited @%s to %s — they can build here now." % [
+		username, String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)),
+	])
+	# Tell the invitee too, if they're online.
+	for online_peer_id in _players.keys():
+		if String((_players[online_peer_id] as ServerPlayerState).profile_id) == target_profile_id:
+			_rpc_claim_result.rpc_id(online_peer_id, "%s invited you to build on %s!" % [
+				player.display_name, String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)),
+			])
+
+@rpc("authority", "reliable")
+func _rpc_plots_update(plots: Dictionary) -> void:
+	_server_plots = plots
+	server_plots_changed.emit(get_server_plots())
+
+@rpc("authority", "reliable")
+func _rpc_claim_result(message: String) -> void:
+	claim_result_received.emit(message)
+
+func _profile_is_admin(profile_id: String) -> bool:
+	if _server_world == null:
+		return false
+	var roles: Dictionary = _server_world.world.get("roles", {}) as Dictionary
+	var role: String = String(roles.get(profile_id, ""))
+	return role == "owner" or role == "admin" or role == "builder"
 
 func _deny_place(peer_id: int, display_name: String, content_id: String, reason: String) -> void:
 	print("[server] Denied placement of '%s' by %s (peer %d): %s" % [content_id, display_name, peer_id, reason])

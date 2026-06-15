@@ -11,6 +11,7 @@ var _session: Node = null
 @onready var _rows: VBoxContainer = $Panel/Rows
 var _status_label: Label = null
 var _profile_label: Label = null
+var _username_edit: LineEdit = null
 var _name_edit: LineEdit = null
 var _ip_edit: LineEdit = null
 var _port_edit: LineEdit = null
@@ -56,6 +57,7 @@ func _build_rows() -> void:
 	_profile_label.add_theme_color_override("font_color", Color(0.87, 0.79, 0.68, 0.8))
 	_rows.add_child(_profile_label)
 
+	_username_edit = _add_field("Username", "villager")
 	_name_edit = _add_field("Display Name", "Villager")
 	_ip_edit = _add_field("Server IP", "127.0.0.1")
 	_port_edit = _add_field("Port", str(ServerConfig.DEFAULT_PORT))
@@ -108,6 +110,7 @@ func _refresh_from_profile() -> void:
 	if _profile_manager == null or _name_edit == null:
 		return
 	var profile: Dictionary = _profile_manager.get_active_profile()
+	_username_edit.text = String(profile.get("username", "villager"))
 	_name_edit.text = String(profile.get("display_name", "Villager"))
 	_ip_edit.text = String(profile.get("last_server_ip", "127.0.0.1"))
 	_port_edit.text = str(int(profile.get("last_server_port", ServerConfig.DEFAULT_PORT)))
@@ -123,6 +126,15 @@ func _on_connect_pressed() -> void:
 	var port: int = clampi(int(_port_edit.text), 1, 65535)
 	var profile: Dictionary = {}
 	if _profile_manager != null:
+		# Username: lowercase a-z, 0-9, _ and -, 3-20 chars; your persistent
+		# handle on a server (first join registers it, no password).
+		var username: String = PlayerIdentity.sanitize_username(_username_edit.text)
+		if username.length() < PlayerIdentity.USERNAME_MIN_LENGTH:
+			if _status_label != null:
+				_status_label.text = "Pick a username first (3-20 chars: a-z, 0-9, _ or -)."
+			return
+		_profile_manager.update_active_profile({"username": username})
+		_username_edit.text = username
 		_profile_manager.set_display_name(_name_edit.text)
 		_profile_manager.remember_server(ip, port)
 		profile = _profile_manager.get_active_profile()

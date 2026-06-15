@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://hv_placeable_dirt_path"]
+
+[ext_resource type="Script" path="res://buildings/placeable_decor.gd" id="1_decor"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_dirt_path"]
+size = Vector2(8, 6)
+
+[node name="PlaceableDirtPath" type="StaticBody2D"]
+script = ExtResource("1_decor")
+decor_id = "dirt_path"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 0)
+shape = SubResource("RectangleShape2D_dirt_path")

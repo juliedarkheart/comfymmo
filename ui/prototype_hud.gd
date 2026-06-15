@@ -6,10 +6,12 @@ extends CanvasLayer
 @onready var _turnip_label: Label = $Panel/Rows/InvRow/TurnipLabel
 @onready var _berry_label: Label = $Panel/Rows/InvRow/BerryLabel
 @onready var _materials_label: Label = $Panel/Rows/MaterialsLabel
+@onready var _identity_label: Label = $Panel/Rows/IdentityLabel
+@onready var _area_label: Label = $Panel/Rows/AreaLabel
 @onready var _mode_label: Label = $Panel/Rows/ModeLabel
 @onready var _controls_label: Label = $Panel/Rows/ControlsLabel
 
-var _controls_text: String = "Move: WASD/Arrows | Eat: C | Inv: I | Time: T | Zoom: PgUp/PgDn (R reset) | Dev: F10"
+var _controls_text: String = "Move WASD · Interact F · Inventory I · Craft K · Build B · Skills P · Help H · Fullscreen F11"
 var _mood_display: String = "Morning"
 var _day_number: int = 1
 var _current_mode_name: String = "Explore"
@@ -30,6 +32,41 @@ func _ready() -> void:
 	set_mood(WorldMood.DEFAULT_MOOD)
 	_hide_interaction_prompt()
 	hide_mailbox()
+	# Restore the saved window mode (boots windowed if never set).
+	DisplaySettings.apply_saved()
+
+## Global F11 fullscreen toggle. Handled in the HUD's _input (runs before
+## _unhandled_input gameplay handlers) so it works in every mode, even while a
+## panel is open. Never traps the player — F11 always flips back.
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("toggle_fullscreen"):
+		var fullscreen: bool = DisplaySettings.toggle_fullscreen()
+		set_interaction_prompt("")
+		if _mode_label != null:
+			_flash_controls("Window: %s (F11 to toggle)" % ("Fullscreen" if fullscreen else "Windowed"))
+		var viewport: Viewport = get_viewport()
+		if viewport != null:
+			viewport.set_input_as_handled()
+
+func _flash_controls(text: String) -> void:
+	if _controls_label != null:
+		_controls_label.text = text
+		var timer: SceneTreeTimer = get_tree().create_timer(2.5)
+		timer.timeout.connect(func() -> void:
+			if _controls_label != null:
+				_controls_label.text = _controls_text
+		)
+
+## Identity/plot summary line (username · tools · tokens · current plot).
+## Additive HUD API; callers guard with has_method.
+func set_identity_line(text: String) -> void:
+	if _identity_label != null:
+		_identity_label.text = text
+
+## Current area/plot feedback line ("📍 Meadow Lot 1 — Your Plot").
+func set_area_line(text: String) -> void:
+	if _area_label != null:
+		_area_label.text = "📍 %s" % text
 
 func set_mood(mood_id: String) -> void:
 	_mood_display = WorldMood.display_name(mood_id)

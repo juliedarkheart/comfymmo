@@ -8,6 +8,7 @@ class_name ServerPlayerState
 
 var peer_id: int = 0
 var profile_id: String = ""
+var username: String = "villager"
 var display_name: String = "Villager"
 var appearance: Dictionary = {}
 var position: Vector2 = Vector2.ZERO
@@ -19,6 +20,7 @@ static func create(target_peer_id: int, identity: Dictionary, starting_materials
 	var state: ServerPlayerState = ServerPlayerState.new()
 	state.peer_id = target_peer_id
 	state.profile_id = String(identity.get("profile_id", ""))
+	state.username = String(identity.get("username", "villager"))
 	state.display_name = String(identity.get("display_name", "Villager"))
 	state.appearance = identity.get("appearance", {}) as Dictionary
 	state.materials = starting_materials

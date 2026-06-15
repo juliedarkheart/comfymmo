@@ -9,6 +9,7 @@ static func create_default(display_name: String = "Villager") -> Dictionary:
 	var now: String = Time.get_datetime_string_from_system(true)
 	return {
 		"profile_id": generate_profile_id(),
+		"username": PlayerIdentity.username_from_display_name(display_name),
 		"display_name": display_name,
 		"created_at": now,
 		"last_played_at": now,
@@ -35,6 +36,11 @@ static func normalized(data: Dictionary) -> Dictionary:
 		result["profile_id"] = generate_profile_id()
 	if String(result.get("display_name", "")).strip_edges().is_empty():
 		result["display_name"] = "Villager"
+	# Old profiles lack a username: derive one from the display name.
+	var username: String = PlayerIdentity.sanitize_username(String(result.get("username", "")))
+	if username.length() < PlayerIdentity.USERNAME_MIN_LENGTH:
+		username = PlayerIdentity.username_from_display_name(String(result["display_name"]))
+	result["username"] = username
 	result["appearance"] = CharacterAppearance.normalized(result.get("appearance", {}) as Dictionary)
 	result["last_server_port"] = clampi(int(result.get("last_server_port", ServerConfig.DEFAULT_PORT)), 1, 65535)
 	return result

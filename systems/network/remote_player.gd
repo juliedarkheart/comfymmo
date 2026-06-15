@@ -18,17 +18,7 @@ func setup(display_name: String, appearance: Dictionary, start_position: Vector2
 	add_child(body)
 	CharacterVisualBuilder.build(body, appearance)
 
-	var tag: Label = Label.new()
-	tag.name = "NameTag"
-	tag.text = display_name
-	tag.position = Vector2(-60, -86)
-	tag.custom_minimum_size = Vector2(120, 0)
-	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tag.add_theme_font_size_override("font_size", 12)
-	tag.add_theme_color_override("font_color", Color("#f5f0e6"))
-	tag.add_theme_color_override("font_outline_color", Color(0.16, 0.12, 0.09, 0.9))
-	tag.add_theme_constant_override("outline_size", 4)
-	add_child(tag)
+	Nameplate.attach(self, display_name, "Player", Color("#bfe0ff"))
 
 func apply_position(target: Vector2) -> void:
 	_target_position = target

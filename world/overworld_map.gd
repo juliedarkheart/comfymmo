@@ -32,6 +32,7 @@ func _build_overworld() -> void:
 	_build_overworld_backdrop()
 	_build_region_tints()
 	_build_ground()                 # inherited: detailed homestead yard tiles at origin
+	_build_neighborhood_ground()    # buildable ground for the neighborhood plots
 	_build_natural_borders()
 	_build_connecting_roads()
 	_build_village_area()
@@ -39,6 +40,45 @@ func _build_overworld() -> void:
 	_build_overworld_wilderness()
 	_build_homestead_colliders()    # inherited: cottage, trees, fence (homestead area)
 	_build_overworld_bounds()
+
+## The neighborhood is a second buildable region east and south of the core
+## (the original homestead grid stays Rowan's training land). is_tile_in_bounds
+## treats both the core AND these rects as placeable; tiles outside both remain
+## structurally unbuildable (so town/forest can never be built on).
+func neighborhood_rects() -> Array:
+	return [Rect2i(24, 0, 18, 15), Rect2i(11, 18, 19, 8)]
+
+func is_tile_in_bounds(tile: Vector2i) -> bool:
+	if tile.x >= 0 and tile.x < MAP_WIDTH and tile.y >= 0 and tile.y < MAP_HEIGHT:
+		return true
+	for rect in neighborhood_rects():
+		if (rect as Rect2i).has_point(tile):
+			return true
+	return false
+
+## Draw cozy ground tiles for the neighborhood region so it's not bare backdrop,
+## plus a soft road from the core out to it. Visual only — placement validity is
+## governed by is_tile_in_bounds + the land plot rules.
+func _build_neighborhood_ground() -> void:
+	for rect in neighborhood_rects():
+		var r: Rect2i = rect as Rect2i
+		for ty in range(r.position.y, r.end.y):
+			for tx in range(r.position.x, r.end.x):
+				var tile := Vector2i(tx, ty)
+				var ground := Polygon2D.new()
+				ground.position = grid_to_world(tile)
+				ground.polygon = _tile_diamond()
+				ground.color = Color("#83b06b") if (tx + ty) % 2 == 0 else Color("#7aa663")
+				ground_layer.add_child(ground)
+	# A dirt road from the core's east edge out into the east neighborhood.
+	TerrainShapes.add_ribbon(
+		ground_layer,
+		PackedVector2Array([
+			grid_to_world(Vector2i(20, 4)), grid_to_world(Vector2i(24, 3)),
+			grid_to_world(Vector2i(30, 4)), grid_to_world(Vector2i(38, 5)),
+		]),
+		16.0, 16.0, Color("#c2a071")
+	)
 
 func _build_overworld_backdrop() -> void:
 	var limits: Rect2i = get_camera_limits()

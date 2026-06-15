@@ -27,6 +27,17 @@ static func definitions() -> Array:
 		{"node_id": "gather_forest_clay", "type": ResourceNode.TYPE_CLAY, "anchor": "forest", "x": 300, "y": 250},
 		{"node_id": "gather_forest_fiber", "type": ResourceNode.TYPE_FIBER, "anchor": "forest", "x": -320, "y": 240},
 		{"node_id": "gather_forest_wood_2", "type": ResourceNode.TYPE_WOOD, "anchor": "forest", "x": 420, "y": 400},
+		# Tool tier: chopping trees in every area (axe), boulders (pickaxe),
+		# and a rich clay deposit (shovel). Better yields than the hand tier.
+		{"node_id": "chop_home_tree_1", "type": ResourceNode.TYPE_TREE, "anchor": "homestead", "x": 1, "y": 16},
+		{"node_id": "chop_home_tree_2", "type": ResourceNode.TYPE_TREE, "anchor": "homestead", "x": 20, "y": 16},
+		{"node_id": "chop_village_tree", "type": ResourceNode.TYPE_TREE, "anchor": "village", "x": -220, "y": 180},
+		{"node_id": "chop_forest_tree_1", "type": ResourceNode.TYPE_TREE, "anchor": "forest", "x": -120, "y": 320},
+		{"node_id": "chop_forest_tree_2", "type": ResourceNode.TYPE_TREE, "anchor": "forest", "x": 180, "y": 380},
+		{"node_id": "chop_forest_tree_3", "type": ResourceNode.TYPE_TREE, "anchor": "forest", "x": 380, "y": 300},
+		{"node_id": "mine_home_boulder", "type": ResourceNode.TYPE_BOULDER, "anchor": "homestead", "x": 19, "y": 15},
+		{"node_id": "mine_forest_boulder", "type": ResourceNode.TYPE_BOULDER, "anchor": "forest", "x": -40, "y": 460},
+		{"node_id": "dig_forest_clay_deposit", "type": ResourceNode.TYPE_CLAY_DEPOSIT, "anchor": "forest", "x": 340, "y": 200},
 	]
 
 static func find(node_id: String) -> Dictionary:

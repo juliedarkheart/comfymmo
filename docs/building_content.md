@@ -42,6 +42,26 @@ soft-ellipse cozy shapes in the established palette.
 1 ContentRegistry line + 1 BuildCosts line + 1 drawer in DecorVisuals +
 1 six-line scene. Validation fails if any piece is missing.
 
+## ARK / Once Human inspired modular construction (cozy 2D iso adaptation)
+
+The build kit aims at survival-builder construction — foundations, walls,
+doors/windows, roofs, fences/gates, structures, stations, storage, farming,
+paths/terrain, furniture, decor — adapted to the cute 2D iso grid. It does NOT
+attempt 3D snapping complexity, interiors, raids, PvP, or structure damage.
+
+Categories (in `ContentRegistry.placeables()` `category` field): structure,
+modular, terrain, station, furniture, garden, decor, storage. Modular pieces
+(wooden/stone foundations, deck floor, walls, door/window walls, pillars,
+fences) and structure shells (cottage/shed/workshop/barn/greenhouse/well) are
+**exterior-only** — doors say "Interior coming later" (docs/interiors_strategy.md).
+
+Placement is **grid-aligned** (snaps to tiles), with a ghost preview, red
+invalid tint, footprint metadata (shells are 2×2), and clear denials for
+cost/tool/permission. Terrain overlays (paths, grass, plaza, flower meadow,
+forest floor) require the shovel and are walk-over. A player on a claimed lot
+can lay foundations, run walls, add a door/window wall and roof, fence a yard,
+place stations/storage, and pave paths — a tiny cozy survival-builder kit.
+
 ## Build UX (Minecraft-like, cozy)
 
 B opens placement with a ghost preview snapped to the grid; green/red tint +

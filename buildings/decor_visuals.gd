@@ -127,6 +127,90 @@ static func build(parent: Node2D, decor_id: String) -> void:
 			_ellipse(parent, Vector2(8, -18), 4.0, 3.0, Color("#c87858"), 10)
 			_ellipse(parent, Vector2(8, -21), 3.0, 2.2, LEAF, 8)
 			_poly(parent, PackedVector2Array([Vector2(12, -14), Vector2(16, -14), Vector2(16, -6), Vector2(12, -6)]), PINK)
+		# --- Structure shells (exterior-only; door sign reads "soon") ----------
+		ContentIds.PLACEABLE_COTTAGE_SHELL:
+			_shell(parent, CREAM, Color("#c97a6a"), true)
+		ContentIds.PLACEABLE_STORAGE_SHED:
+			_shell(parent, WOOD, WOOD_DARK, false)
+		ContentIds.PLACEABLE_WORKSHOP_HUT:
+			_shell(parent, WOOD_LIGHT, Color("#8a8e9c"), false)
+			_ellipse(parent, Vector2(24, -28), 4.0, 4.0, STONE, 8)
+		ContentIds.PLACEABLE_BARN_SHELL:
+			_shell(parent, Color("#c0625a"), Color("#8a4a44"), true)
+			_poly(parent, PackedVector2Array([Vector2(-10, -26), Vector2(10, -26), Vector2(10, -24), Vector2(-10, -24)]), CREAM)
+		ContentIds.PLACEABLE_GREENHOUSE_SHELL:
+			_shell(parent, Color(0.75, 0.88, 0.92, 0.85), Color("#9cc47e"), false)
+		ContentIds.PLACEABLE_WELL:
+			_ellipse(parent, Vector2(0, -2), 14.0, 8.0, STONE)
+			_ellipse(parent, Vector2(0, -3), 9.0, 5.0, Color("#7db5cf"))
+			for px: float in [-10.0, 10.0]:
+				_poly(parent, PackedVector2Array([Vector2(px - 1.5, -4), Vector2(px + 1.5, -4), Vector2(px + 1.5, -26), Vector2(px - 1.5, -26)]), WOOD_DARK)
+			_poly(parent, TerrainShapes.dome(Vector2(0, -26), 14.0, 7.0, 10), Color("#c97a6a"))
+		# --- Modular pieces ------------------------------------------------------
+		ContentIds.PLACEABLE_WOOD_WALL:
+			_poly(parent, PackedVector2Array([Vector2(-16, -2), Vector2(16, -2), Vector2(16, -30), Vector2(-16, -30)]), WOOD)
+			for line_y: float in [-21.0, -12.0]:
+				_poly(parent, PackedVector2Array([Vector2(-16, line_y), Vector2(16, line_y), Vector2(16, line_y + 1.5), Vector2(-16, line_y + 1.5)]), WOOD_DARK)
+		ContentIds.PLACEABLE_WOOD_DOOR_WALL:
+			_poly(parent, PackedVector2Array([Vector2(-16, -2), Vector2(16, -2), Vector2(16, -30), Vector2(-16, -30)]), WOOD)
+			var door_points: PackedVector2Array = TerrainShapes.dome(Vector2(0, -14), 7.0, 8.0)
+			door_points.append(Vector2(7, -2))
+			door_points.append(Vector2(-7, -2))
+			_poly(parent, door_points, WOOD_DARK)
+			_ellipse(parent, Vector2(3.5, -10), 1.2, 1.2, Color("#d4a84a"), 8)
+		ContentIds.PLACEABLE_STONE_WALL:
+			_poly(parent, PackedVector2Array([Vector2(-16, -2), Vector2(16, -2), Vector2(16, -28), Vector2(-16, -28)]), STONE)
+			for stone_data in [Vector2(-9, -22), Vector2(5, -18), Vector2(-3, -9), Vector2(10, -8)]:
+				_ellipse(parent, stone_data, 4.5, 3.0, Color("#bab6ad"), 8)
+		ContentIds.PLACEABLE_FLOOR_DECK:
+			_poly(parent, PackedVector2Array([Vector2(0, -14), Vector2(26, 0), Vector2(0, 14), Vector2(-26, 0)]), WOOD_LIGHT)
+			_poly(parent, PackedVector2Array([Vector2(-13, -7), Vector2(13, 7), Vector2(11, 8.5), Vector2(-15, -5.5)]), WOOD)
+		ContentIds.PLACEABLE_STONE_FOUNDATION:
+			_poly(parent, PackedVector2Array([Vector2(0, -14), Vector2(26, 0), Vector2(0, 14), Vector2(-26, 0)]), STONE)
+			_poly(parent, PackedVector2Array([Vector2(0, -10), Vector2(19, 0), Vector2(0, 10), Vector2(-19, 0)]), Color("#bab6ad"))
+		ContentIds.PLACEABLE_WOODEN_PILLAR:
+			_poly(parent, PackedVector2Array([Vector2(-3.5, 0), Vector2(3.5, 0), Vector2(3.5, -34), Vector2(-3.5, -34)]), WOOD)
+			_ellipse(parent, Vector2(0, -35), 6.0, 2.5, WOOD_LIGHT, 8)
+			_ellipse(parent, Vector2(0, 0), 6.5, 3.0, WOOD_DARK, 8)
+		# --- Terrain overlays (flat iso diamonds, drawn under props) -------------
+		ContentIds.PLACEABLE_DIRT_PATH:
+			_terrain_tile(parent, Color("#b08a5e"), Color("#9c764e"))
+		ContentIds.PLACEABLE_STONE_PATH:
+			_terrain_tile(parent, Color("#a8a49c"), Color("#948f86"))
+		ContentIds.PLACEABLE_GRASS_PATCH:
+			_terrain_tile(parent, Color("#80ad68"), Color("#6c9954"))
+		ContentIds.PLACEABLE_FLOWER_MEADOW:
+			_terrain_tile(parent, Color("#80ad68"), Color("#6c9954"))
+			for flower_data in [[Vector2(-8, 0), PINK], [Vector2(2, -4), Color("#f2d469")], [Vector2(8, 3), Color("#cdb4dd")]]:
+				_ellipse(parent, flower_data[0], 2.2, 2.2, flower_data[1], 8)
+		ContentIds.PLACEABLE_PLAZA_TILE:
+			_terrain_tile(parent, Color("#cdbb93"), Color("#b5a47e"))
+		ContentIds.PLACEABLE_FOREST_FLOOR:
+			_terrain_tile(parent, Color("#5d7a4c"), Color("#4e6940"))
+			_ellipse(parent, Vector2(5, 1), 3.0, 1.6, Color("#8cba74"), 8)
 		_:
 			# Unknown id: visible placeholder so a registry mistake is obvious.
 			_ellipse(parent, Vector2(0, -8), 10.0, 10.0, Color("#c25448"))
+
+## Generic 2x2 structure shell, centered on the footprint midpoint (world
+## offset (0, 16) from the origin tile): wall slab, domed roof, shut door with
+## a tiny "interior coming soon" sign plate. Exterior only — never enterable.
+static func _shell(parent: Node2D, wall: Color, roof: Color, has_chimney: bool) -> void:
+	_ellipse(parent, Vector2(0, 32), 56.0, 18.0, Color(0.16, 0.12, 0.08, 0.18))
+	_poly(parent, PackedVector2Array([
+		Vector2(-46, 30), Vector2(46, 30), Vector2(52, 22), Vector2(52, -12),
+		Vector2(-52, -12), Vector2(-52, 22),
+	]), wall)
+	_poly(parent, TerrainShapes.dome(Vector2(0, -12), 58.0, 34.0, 14), roof)
+	_poly(parent, PackedVector2Array([Vector2(-56, -14), Vector2(56, -14), Vector2(52, -8), Vector2(-52, -8)]), Color("#e8cfa8"))
+	if has_chimney:
+		_poly(parent, PackedVector2Array([Vector2(26, -50), Vector2(36, -50), Vector2(36, -28), Vector2(26, -31)]), Color("#c99181"))
+	var shell_door: PackedVector2Array = TerrainShapes.dome(Vector2(0, 18), 8.0, 9.0)
+	shell_door.append(Vector2(8, 30))
+	shell_door.append(Vector2(-8, 30))
+	_poly(parent, shell_door, WOOD_DARK)
+	_poly(parent, PackedVector2Array([Vector2(-6, 12), Vector2(6, 12), Vector2(6, 16), Vector2(-6, 16)]), CREAM)
+
+static func _terrain_tile(parent: Node2D, base: Color, edge: Color) -> void:
+	_poly(parent, PackedVector2Array([Vector2(0, -16), Vector2(30, 0), Vector2(0, 16), Vector2(-30, 0)]), edge)
+	_poly(parent, PackedVector2Array([Vector2(0, -13), Vector2(26, 0), Vector2(0, 13), Vector2(-26, 0)]), base)

@@ -76,6 +76,60 @@ static func recipes() -> Dictionary:
 			"admin_only": false,
 			"description": "Save seeds from your best crops (future planting stock).",
 		},
+		# --- Starter tools: ALWAYS hand-craftable at level 1 from hand-gatherable
+		# raw materials only (the soft-lock guarantee — never gate these behind
+		# tools, stations, levels, or components).
+		"craft_worn_axe": _tool_recipe(ItemIds.TOOL_WORN_AXE, "Worn Axe", {ResourceIds.MATERIAL_WOOD: 2, ResourceIds.MATERIAL_STONE: 2}, "Lash a sharp stone to a sturdy branch."),
+		"craft_worn_pickaxe": _tool_recipe(ItemIds.TOOL_WORN_PICKAXE, "Worn Pickaxe", {ResourceIds.MATERIAL_WOOD: 2, ResourceIds.MATERIAL_STONE: 2}, "A pointed stone head for cracking boulders."),
+		"craft_worn_hoe": _tool_recipe(ItemIds.TOOL_WORN_HOE, "Worn Hoe", {ResourceIds.MATERIAL_WOOD: 2, ResourceIds.MATERIAL_FIBER: 1}, "Turn soil for planting."),
+		"craft_watering_can": _tool_recipe(ItemIds.TOOL_WATERING_CAN, "Watering Can", {ResourceIds.MATERIAL_CLAY: 2, ResourceIds.MATERIAL_FIBER: 1}, "A clay can with a fiber-bound handle."),
+		"craft_simple_hammer": _tool_recipe(ItemIds.TOOL_SIMPLE_HAMMER, "Simple Hammer", {ResourceIds.MATERIAL_WOOD: 1, ResourceIds.MATERIAL_STONE: 2}, "Every builder's first friend."),
+		"craft_basic_shovel": _tool_recipe(ItemIds.TOOL_BASIC_SHOVEL, "Basic Shovel", {ResourceIds.MATERIAL_WOOD: 2, ResourceIds.MATERIAL_CLAY: 1}, "Dig clay and lay garden paths."),
+		# --- Weapons (future-combat placeholders) -------------------------------
+		"craft_wooden_staff": {
+			"recipe_id": "craft_wooden_staff", "display_name": "Wooden Staff",
+			"category": CraftingRecipe.CATEGORY_TOOLS,
+			"inputs": {ResourceIds.COMPONENT_PLANK: 2, ResourceIds.COMPONENT_FIBER_ROPE: 1},
+			"output_id": ItemIds.WEAPON_WOODEN_STAFF, "output_amount": 1,
+			"required_level": 2, "required_station": ContentIds.PLACEABLE_WORKBENCH, "xp_reward": 4,
+			"admin_only": false, "description": "A trusty walking staff (adventures come later).",
+		},
+		"craft_practice_sword": {
+			"recipe_id": "craft_practice_sword", "display_name": "Practice Sword",
+			"category": CraftingRecipe.CATEGORY_TOOLS,
+			"inputs": {ResourceIds.COMPONENT_PLANK: 2},
+			"output_id": ItemIds.WEAPON_PRACTICE_SWORD, "output_amount": 1,
+			"required_level": 2, "required_station": ContentIds.PLACEABLE_WORKBENCH, "xp_reward": 4,
+			"admin_only": false, "description": "Wooden and harmless, for now.",
+		},
+		# --- Wearables (unlock the matching wardrobe accessory) -----------------
+		"craft_wearable_leaf_clip": {
+			"recipe_id": "craft_wearable_leaf_clip", "display_name": "Leaf Clip",
+			"category": CraftingRecipe.CATEGORY_DECOR,
+			"inputs": {ResourceIds.MATERIAL_FIBER: 1},
+			"output_id": ItemIds.WEARABLE_LEAF_CLIP, "output_amount": 1,
+			"required_level": 1, "required_station": "", "xp_reward": 2,
+			"admin_only": false, "description": "A fresh leaf for your hair (wardrobe accessory).",
+		},
+		"craft_wearable_acorn_cap": {
+			"recipe_id": "craft_wearable_acorn_cap", "display_name": "Acorn Cap",
+			"category": CraftingRecipe.CATEGORY_DECOR,
+			"inputs": {ResourceIds.MATERIAL_FIBER: 2, ContentIds.ITEM_BERRY: 1},
+			"output_id": ItemIds.WEARABLE_ACORN_CAP, "output_amount": 1,
+			"required_level": 2, "required_station": ContentIds.PLACEABLE_GARDEN_TABLE, "xp_reward": 4,
+			"admin_only": false, "description": "A jaunty woodland cap (wardrobe accessory).",
+		},
+	}
+
+## Starter tools share one shape: hand-craftable, level 1, no station.
+static func _tool_recipe(output_id: String, display_name: String, inputs: Dictionary, description: String) -> Dictionary:
+	return {
+		"recipe_id": "craft_%s" % output_id, "display_name": display_name,
+		"category": CraftingRecipe.CATEGORY_TOOLS,
+		"inputs": inputs,
+		"output_id": output_id, "output_amount": 1,
+		"required_level": 1, "required_station": "", "xp_reward": 3,
+		"admin_only": false, "description": description,
 	}
 
 static func get_recipe(recipe_id: String) -> Dictionary:

@@ -62,7 +62,7 @@ func _register_defaults() -> void:
 		if scene == null:
 			push_warning("Decor placeable scene failed to load: %s" % decor_id)
 			continue
-		_register_placeable(decor_id, String(entry.get("display_name", decor_id)), Vector2i.ONE, scene)
+		_register_placeable(decor_id, String(entry.get("display_name", decor_id)), ContentRegistry.placeable_footprint(decor_id), scene)
 
 	_item_definitions[ContentIds.ITEM_PLACEHOLDER_SEED_PACKET] = {
 		"id": ContentIds.ITEM_PLACEHOLDER_SEED_PACKET,

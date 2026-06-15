@@ -55,6 +55,13 @@ static func create_default_world(target_world_name: String) -> Dictionary:
 		# Cache of previously seen players keyed by profile_id: display name and
 		# materials, so materials survive reconnects/restarts. No secrets.
 		"known_profiles": {},
+		# Username registry: lowercase username -> profile_id (first-join
+		# registration; case-insensitive uniqueness; no passwords).
+		"registered_users": {},
+		# Plot ownership state: plot_id -> LandPlot state dict.
+		"plots": {},
+		# Admin roles: profile_id -> role (trust-based prototype model).
+		"roles": {},
 	}
 
 ## Defensive shape repair so a hand-edited or older world file always loads.
@@ -66,6 +73,9 @@ static func normalize_world(world: Dictionary) -> Dictionary:
 		normalized["world_flags"] = world["world_flags"]
 	if typeof(world.get("known_profiles")) == TYPE_DICTIONARY:
 		normalized["known_profiles"] = world["known_profiles"]
+	for optional_section in ["registered_users", "plots", "roles"]:
+		if typeof(world.get(optional_section)) == TYPE_DICTIONARY:
+			normalized[optional_section] = world[optional_section]
 	var placed: Array = []
 	if typeof(world.get("placed_objects")) == TYPE_ARRAY:
 		for record in (world["placed_objects"] as Array):

@@ -25,6 +25,10 @@ var interactable_system: InteractableSystem
 # Optional: when wired (homestead/overworld), building consumes materials via
 # BuildCosts. Legacy region controllers never wire it, so they stay free.
 var inventory_system: InventorySystem = null
+# Admin/world-builder bypass (/adminbuild): skips costs, tools, and locks.
+var admin_bypass: bool = false
+# Profile id used for land-plot permission checks ("" disables them).
+var builder_profile_id: String = ""
 var _placeable_ids: Array[String] = []
 var _preview_object: PlaceableCrate
 var _active_placeable_id: String = "crate"
@@ -241,6 +245,13 @@ func _is_valid_placement(tile: Vector2i) -> bool:
 func set_inventory_system(target_inventory_system: InventorySystem) -> void:
 	inventory_system = target_inventory_system
 
+func set_builder_profile(profile_id: String) -> void:
+	builder_profile_id = profile_id
+
+func set_admin_bypass(enabled: bool) -> void:
+	admin_bypass = enabled
+	_emit_mode_label_changed()
+
 ## Runtime lookup instead of the autoload identifier: scripts referencing the
 ## autoload name directly fail to compile under `--script` (validation) where
 ## autoload globals are not registered. Null means "behave offline".
@@ -277,10 +288,25 @@ func _get_active_place_result(tile: Vector2i) -> Dictionary:
 	var result: Dictionary = map.get_place_footprint_result(tile, placeable_data.footprint, _get_occupied_tiles())
 	if not bool(result.get("valid", false)):
 		return result
+	if admin_bypass:
+		return result  # world-builder mode: skip locks, land, tools, costs
+	# Land/plot permission (neighborhood plots need ownership; commons and
+	# Rowan's training land are open; town is off-grid and unbuildable anyway).
+	if inventory_system != null and not builder_profile_id.is_empty():
+		var land_result: Dictionary = LandClaimSystem.can_build_at(
+			tile, builder_profile_id, _current_plots_state(), false
+		)
+		if not bool(land_result.get("allowed", true)):
+			return {"valid": false, "reason": String(land_result.get("reason", "No build permission"))}
 	# Progression locks (player level / skill level) on the demonstration set.
 	var lock_reason: String = _progression_lock_reason(_active_placeable_id)
 	if not lock_reason.is_empty():
 		return {"valid": false, "reason": lock_reason}
+	# Required tool (hammer for builds, shovel for terrain).
+	var required_tool: String = ContentRegistry.placeable_required_tool(_active_placeable_id)
+	if inventory_system != null and not required_tool.is_empty():
+		if _builder_item_count(required_tool) < 1:
+			return {"valid": false, "reason": "Requires %s" % ItemIds.display_name(required_tool)}
 	# Survival-lite material gate. Connected clients skip the local check — the
 	# server owns their materials and validates the request authoritatively.
 	if inventory_system != null and not _is_network_client():
@@ -292,6 +318,24 @@ func _get_active_place_result(tile: Vector2i) -> Dictionary:
 					"reason": "Needs %s" % BuildCosts.cost_text(_active_placeable_id),
 				}
 	return result
+
+## Item count from whichever store rules right now (server pouch / inventory).
+func _builder_item_count(item_id: String) -> int:
+	if _is_network_client():
+		return int((_network_session().call("get_server_materials") as Dictionary).get(item_id, 0))
+	if inventory_system != null:
+		return inventory_system.get_quantity(item_id)
+	return 0
+
+## Plot ownership state from whichever store rules right now.
+func _current_plots_state() -> Dictionary:
+	if _is_network_client():
+		return _network_session().call("get_server_plots") as Dictionary
+	if save_system != null:
+		var raw: Variant = save_system.get_overworld_flag("land_plots", {})
+		if typeof(raw) == TYPE_DICTIONARY:
+			return raw as Dictionary
+	return {}
 
 func _try_place_active_object() -> void:
 	if not _is_valid_placement(_current_tile):
@@ -307,7 +351,7 @@ func _try_place_active_object() -> void:
 		return
 
 	# Offline: spend materials (when an inventory is wired), then place locally.
-	if inventory_system != null:
+	if inventory_system != null and not admin_bypass:
 		var cost: Dictionary = BuildCosts.cost_of(_active_placeable_id)
 		for material_id in cost.keys():
 			if not inventory_system.remove_item(String(material_id), int(cost[material_id])):

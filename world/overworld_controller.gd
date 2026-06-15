@@ -19,6 +19,10 @@ const BRAM_SCENE := preload("res://scenes/villagers/bram_nettle.tscn")
 const DEV_CHARACTER_CREATOR_SCENE := preload("res://ui/dev_character_creator_panel.tscn")
 const NETWORK_CONNECT_PANEL_SCENE := preload("res://ui/network_connect_panel.tscn")
 const CHAT_PANEL_SCENE := preload("res://ui/chat_panel.tscn")
+const LAND_PANEL_SCENE := preload("res://ui/land_panel.tscn")
+const MINIMAP_SCENE := preload("res://ui/minimap_panel.tscn")
+const QUICK_TOOLS_SCENE := preload("res://ui/quick_tools_bar.tscn")
+const ADMIN_PANEL_SCENE := preload("res://ui/admin_panel.tscn")
 # Constant names kept; values now come from ContentIds (stable, save-compatible).
 const VILLAGE_REGION_ID := ContentIds.AREA_VILLAGE_SQUARE
 const FOREST_REGION_ID := ContentIds.AREA_FOREST_EDGE
@@ -36,13 +40,25 @@ var _chat_panel: CanvasLayer = null
 var _network_player: AvatarController = null
 var _resource_nodes: Dictionary = {}
 var _gather_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _land_panel: CanvasLayer = null
+var _minimap: CanvasLayer = null
+var _quick_tools: CanvasLayer = null
+var _admin_panel: CanvasLayer = null
+var _hud_tick: float = 0.0
 
 func _ready() -> void:
-	super._ready()
+	# Load profiles BEFORE super._ready(): the base spawns the avatar and reads
+	# _local_player_name()/_inventory_get_identity() (overridden here to use the
+	# profile), so the real username must be available first. Calling
+	# get_active_profile() before load would create/overwrite the profiles file.
 	_profile_manager.load_profiles()
+	super._ready()
 	_gather_rng.randomize()
 	var player: AvatarController = _find_player()
 	_network_player = player
+	_refresh_inventory_hud()
+	_setup_land_panel()
+	_setup_overworld_ui()
 	_apply_overworld_camera(player)
 	_spawn_village_content(player)
 	_spawn_forest_content(player)
@@ -50,8 +66,158 @@ func _ready() -> void:
 	_setup_dev_overlay(player)
 	_setup_wardrobe()
 	_setup_cottage_sign()
+	_setup_landing_area()
+	_setup_plot_markers()
+	_setup_town_services()
 	_setup_network(player)
 	_show_welcome_if_first_boot.call_deferred()
+
+func _setup_land_panel() -> void:
+	_land_panel = LAND_PANEL_SCENE.instantiate() as CanvasLayer
+	_land_panel.name = "LandPanel"
+	add_child(_land_panel)
+	_land_panel.call("setup", Callable(self, "_do_claim_plot"))
+
+func _setup_overworld_ui() -> void:
+	# Quick tools strip (left), minimap (top-right), admin panel (F7).
+	_quick_tools = QUICK_TOOLS_SCENE.instantiate() as CanvasLayer
+	_quick_tools.name = "QuickToolsBar"
+	add_child(_quick_tools)
+	_quick_tools.call("setup", Callable(self, "_crafting_get_count"))
+
+	_minimap = MINIMAP_SCENE.instantiate() as CanvasLayer
+	_minimap.name = "MinimapPanel"
+	add_child(_minimap)
+	var landmarks: Array = [
+		{"pos": map.grid_to_world(Vector2i(3, 8)), "color": Color("#bfe6a0")},   # Rowan
+		{"pos": map.grid_to_world(Vector2i(25, 7)), "color": Color("#9fc4e8")},  # Clerk Hazel
+		{"pos": OverworldMap.VILLAGE_OFFSET + Vector2(96, 272), "color": Color("#f2d469")}, # town fountain
+		{"pos": OverworldMap.FOREST_OFFSET + Vector2(136, 166), "color": Color("#c0a0e0")}, # shrine
+	]
+	var plot_centers: Dictionary = {}
+	for plot_id in LandRegistry.claimable_plot_ids():
+		var rect: Rect2i = LandRegistry.get_plot(String(plot_id)).get("rect", Rect2i()) as Rect2i
+		plot_centers[plot_id] = map.grid_to_world(Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2))
+	_minimap.call("setup", landmarks, plot_centers)
+
+	_admin_panel = ADMIN_PANEL_SCENE.instantiate() as CanvasLayer
+	_admin_panel.name = "AdminPanel"
+	add_child(_admin_panel)
+	_admin_panel.call("setup", self)
+	_refresh_quick_tools()
+	_refresh_minimap_plots()
+
+func _process(delta: float) -> void:
+	# Throttled HUD area + minimap player marker updates as the player walks.
+	_hud_tick += delta
+	if _hud_tick < 0.25:
+		return
+	_hud_tick = 0.0
+	if hud.has_method("set_area_line"):
+		hud.call("set_area_line", _player_area_text())
+	if _minimap != null:
+		_minimap.call("set_player_position", get_player_position())
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("toggle_minimap"):
+		if _minimap != null:
+			_minimap.call("toggle_panel")
+		_mark_input_handled()
+		return
+	if event.is_action_pressed("toggle_admin_panel"):
+		if _admin_panel != null:
+			_admin_panel.call("toggle_panel")
+		_mark_input_handled()
+		return
+	super._unhandled_input(event)
+
+func _refresh_quick_tools() -> void:
+	if _quick_tools != null:
+		_quick_tools.call("refresh")
+
+func _refresh_minimap_plots() -> void:
+	if _minimap == null:
+		return
+	var profile_id: String = String(_profile_manager.get_active_profile().get("profile_id", ""))
+	var plots: Dictionary = _current_land_plots()
+	var states: Dictionary = {}
+	for plot_id in LandRegistry.claimable_plot_ids():
+		var state: Dictionary = LandPlot.normalized_state(plots.get(String(plot_id), {}) as Dictionary)
+		if String(state["status"]) != LandPlot.STATUS_OWNED:
+			states[plot_id] = "unclaimed"
+		elif String(state["owner_profile_id"]) == profile_id:
+			states[plot_id] = "owned"
+		elif (state["member_profile_ids"] as Array).has(profile_id):
+			states[plot_id] = "friend"
+		else:
+			states[plot_id] = "other"
+	_minimap.call("set_plot_states", states)
+
+## Override: real identity from the active profile + current plot status.
+func _inventory_get_identity() -> Dictionary:
+	var profile: Dictionary = _profile_manager.get_active_profile()
+	var connected: bool = false
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null and bool(session.call("is_client_connected")):
+		connected = true
+	return {
+		"display_name": String(profile.get("display_name", "Villager")),
+		"username": String(profile.get("username", "villager")),
+		"profile_id": String(profile.get("profile_id", "")),
+		"mode": "Server" if connected else "Offline",
+		"plot_status": _player_plot_status_text(),
+	}
+
+func _local_player_name() -> String:
+	return String(_profile_manager.get_active_profile().get("display_name", "You"))
+
+## Short plot-status label for the HUD/inventory: where the player is standing.
+func _player_plot_status_text() -> String:
+	var tile: Vector2i = map.world_to_grid(get_player_position())
+	var plot: Dictionary = LandRegistry.plot_at_tile(tile)
+	if plot.is_empty():
+		return "Town/Commons"
+	if bool(plot.get("npc_owned", false)):
+		return "Rowan's Farm"
+	var profile_id: String = String(_profile_manager.get_active_profile().get("profile_id", ""))
+	var state: Dictionary = LandPlot.normalized_state(_current_land_plots().get(String(plot["plot_id"]), {}) as Dictionary)
+	if String(state["status"]) != LandPlot.STATUS_OWNED:
+		return "Unclaimed: %s" % String(plot["display_name"])
+	if String(state["owner_profile_id"]) == profile_id:
+		return "Your plot"
+	if (state["member_profile_ids"] as Array).has(profile_id):
+		return "Friend's plot"
+	return "%s's plot" % String(state["owner_username"])
+
+## Rich area/plot label for the HUD area line. Classifies by plot, then by
+## world region (town/forest/neighborhood/landing). Matches /where.
+func _player_area_text() -> String:
+	var pos: Vector2 = get_player_position()
+	var tile: Vector2i = map.world_to_grid(pos)
+	var plot: Dictionary = LandRegistry.plot_at_tile(tile)
+	if not plot.is_empty():
+		if bool(plot.get("npc_owned", false)):
+			return "%s — Tutorial Land" % String(plot["display_name"])
+		var profile_id: String = String(_profile_manager.get_active_profile().get("profile_id", ""))
+		var state: Dictionary = LandPlot.normalized_state(_current_land_plots().get(String(plot["plot_id"]), {}) as Dictionary)
+		if String(state["status"]) != LandPlot.STATUS_OWNED:
+			return "%s — Unclaimed" % String(plot["display_name"])
+		if String(state["owner_profile_id"]) == profile_id:
+			return "%s — Your Plot" % String(plot["display_name"])
+		if (state["member_profile_ids"] as Array).has(profile_id):
+			return "%s — Friend's Plot" % String(plot["display_name"])
+		return "%s — Owned by @%s" % [String(plot["display_name"]), String(state["owner_username"])]
+	# Off-plot: classify by world region.
+	if pos.x >= 1150.0 and pos.x < 2050.0:
+		return "Town Square — Public, protected"
+	if pos.x >= 2550.0:
+		return "Forest Edge — Wilderness"
+	for rect in (map as OverworldMap).neighborhood_rects():
+		if (rect as Rect2i).has_point(tile):
+			return "Neighborhood — Public path"
+	if map.is_tile_in_bounds(tile):
+		return "Rowan's Training Farm — Tutorial"
+	return "Hearthvale — Wilderness"
 
 func _setup_dev_overlay(player: AvatarController) -> void:
 	var camera: AvatarCamera = get_camera(player)
@@ -106,6 +272,7 @@ func _spawn_village_content(player: AvatarController) -> void:
 	var maribel: SimpleVillager = MARIBEL_SCENE.instantiate() as SimpleVillager
 	maribel.position = c + Vector2(128, 218)
 	gameplay_layer.add_child(maribel)
+	Nameplate.attach(maribel, "Maribel Tock", "Villager", Color("#e8c0d4"))
 	register_world_interactable(
 		"ow_maribel", maribel, ContentIds.INTERACTION_VILLAGER, "Press F to talk to Maribel",
 		_talk_villager.bind("ow_maribel")
@@ -118,6 +285,7 @@ func _spawn_village_content(player: AvatarController) -> void:
 	var bram: SimpleVillager = BRAM_SCENE.instantiate() as SimpleVillager
 	bram.position = c + Vector2(60, 452)
 	gameplay_layer.add_child(bram)
+	Nameplate.attach(bram, "Bram Nettle", "Villager", Color("#c8d0a0"))
 	register_world_interactable(
 		"ow_bram", bram, ContentIds.INTERACTION_VILLAGER, "Press F to talk to Bram",
 		_talk_villager.bind("ow_bram")
@@ -277,6 +445,10 @@ func _handle_gather(node_id: String) -> void:
 
 	# Offline: local cooldown + local inventory (auto-saves via the existing
 	# inventory_changed handler), with a non-modal toast in the chat log.
+	var required_tool: String = node.get_required_tool()
+	if not required_tool.is_empty() and inventory_system.get_quantity(required_tool) < 1:
+		_chat_toast("Requires %s (craft one with K)." % ItemIds.display_name(required_tool))
+		return
 	if not node.is_ready():
 		_chat_toast("This spot is still recovering (%ds)." % node.remaining_seconds())
 		return
@@ -350,6 +522,321 @@ func _open_wardrobe() -> void:
 	if _creator_panel != null and _creator_panel.has_method("open_panel"):
 		_creator_panel.call("open_panel", true)
 
+# --- Landing area, Farmer Rowan, neighborhood plots, town services ------------
+
+const ROWAN_TOKEN_FLAG := "rowan_land_token_given"
+
+func _setup_landing_area() -> void:
+	# The spawn IS the landing: Rowan's training farm. A welcome board plus
+	# Farmer Rowan herself, whose staged dialogue is the tutorial chain.
+	var board: Node2D = _make_sign(map.grid_to_world(Vector2i(9, 12)), Color("#e8a0b4"))
+	register_world_interactable(
+		"landing_welcome_board", board, ContentIds.INTERACTION_GENERIC,
+		"Press F to read the welcome board", _read_welcome_board
+	)
+
+	var rowan: SimpleVillager = SimpleVillager.new()
+	rowan.villager_name = "Farmer Rowan"
+	rowan.position = map.grid_to_world(Vector2i(3, 8))
+	gameplay_layer.add_child(rowan)
+	Nameplate.attach(rowan, "Farmer Rowan", "Mentor", Color("#bfe6a0"))
+	register_world_interactable(
+		"farmer_rowan", rowan, ContentIds.INTERACTION_VILLAGER,
+		"Press F to talk to Farmer Rowan", _talk_rowan
+	)
+
+func _read_welcome_board() -> void:
+	_open_observe_panel(
+		"Welcome to Hearthvale Landing",
+		"You're on Farmer Rowan's training farm — learn here, then make a place of your own.\n\n"
+		+ "GATHER branches/pebbles/fiber/clay: F   ·   INVENTORY: I   ·   CRAFT: K\n"
+		+ "BUILD: B (needs your hammer)   ·   SKILLS: P   ·   FULL HELP: H\n"
+		+ "CHAT: Enter   ·   MULTIPLAYER/PROFILE: F8   ·   WARDROBE: F9   ·   FULLSCREEN: F11\n\n"
+		+ "Plot signs east and north mark claimable lots — talk to Farmer Rowan for a Land Token, "
+		+ "then press F at a sign to Claim it. The village square (east) has the town stalls and notice board."
+	)
+
+## Rowan's staged tutorial: each talk reads your actual progress and gives the
+## next concrete step. First talk hands over the land token. Lightweight by
+## design — the mailbox tasks remain the structured task list.
+func _talk_rowan() -> void:
+	_grant_xp_once("talk_farmer_rowan", ProgressionRegistry.SKILL_SOCIAL, 2, 1)
+	if not bool(save_system.get_overworld_flag(ROWAN_TOKEN_FLAG, false)):
+		save_system.set_overworld_flag(ROWAN_TOKEN_FLAG, true)
+		inventory_system.add_item(ItemIds.QUEST_LAND_TOKEN, 1)
+		_chat_toast("Farmer Rowan gave you a Land Token!")
+		_open_observe_panel("Farmer Rowan",
+			"Welcome to Hearthvale, neighbor! This is my training farm — practice anything here. "
+			+ "Start by gathering: branches, pebbles, fiber, and that soft clay by the fence, all bare-handed. "
+			+ "Press K to craft your tools if you ever lose them. And take this Land Token — "
+			+ "when you've found your feet, claim a lot at the plot signs east of here.")
+		return
+	if inventory_system.get_quantity(ItemIds.TOOL_WORN_AXE) < 1:
+		_open_observe_panel("Farmer Rowan",
+			"Lost your axe? No matter — gather a couple of branches and pebbles, press K, and craft a worn axe by hand. "
+			+ "Every tool I know starts from what's lying on the ground.")
+		return
+	if not _player_owns_any_plot():
+		_open_observe_panel("Farmer Rowan",
+			"You're handling those tools well! Chop the marked trees for proper wood, mine the boulder out east with a pickaxe. "
+			+ "When you're ready for land of your own, take your token to a plot sign — Meadow Lots east, Orchard Lots north.")
+		return
+	_open_observe_panel("Farmer Rowan",
+		"Look at you, a landholder! Build something cozy on your lot — walls, a shed, even a cottage shell. "
+		+ "Craft planks and stone blocks at the workbench. And bring friends; Hearthvale grows best together.")
+
+func _player_owns_any_plot() -> bool:
+	var profile_id: String = String(_profile_manager.get_active_profile().get("profile_id", ""))
+	var plots: Dictionary = _current_land_plots()
+	for plot_state in plots.values():
+		if String((plot_state as Dictionary).get("owner_profile_id", "")) == profile_id:
+			return true
+	return false
+
+## The plot id the active profile owns, preferring the one under the player's
+## feet (so /invite targets the right lot when they own several); "" if none.
+func _player_owned_plot_id() -> String:
+	var profile_id: String = String(_profile_manager.get_active_profile().get("profile_id", ""))
+	var plots: Dictionary = _current_land_plots()
+	var standing_plot: Dictionary = LandRegistry.plot_at_tile(map.world_to_grid(get_player_position()))
+	var standing_id: String = String(standing_plot.get("plot_id", ""))
+	var first_owned: String = ""
+	for plot_id_variant in plots.keys():
+		var plot_id: String = String(plot_id_variant)
+		if String((plots[plot_id] as Dictionary).get("owner_profile_id", "")) != profile_id:
+			continue
+		if plot_id == standing_id:
+			return plot_id
+		if first_owned.is_empty():
+			first_owned = plot_id
+	return first_owned
+
+func _current_land_plots() -> Dictionary:
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null and bool(session.call("is_client_connected")):
+		return session.call("get_server_plots") as Dictionary
+	var raw: Variant = save_system.get_overworld_flag("land_plots", {})
+	return raw as Dictionary if typeof(raw) == TYPE_DICTIONARY else {}
+
+func _setup_plot_markers() -> void:
+	# Neighborhood entrance sign + notice board where the road meets the lots.
+	var entrance: Node2D = _make_plot_sign(map.grid_to_world(Vector2i(24, 6)), "Hearthvale Neighborhood", Color("#e8c060"))
+	register_world_interactable(
+		"neighborhood_entrance", entrance, ContentIds.INTERACTION_GENERIC,
+		"Press F to read the neighborhood board", _read_neighborhood_board
+	)
+	for plot_id_variant in LandRegistry.definitions().keys():
+		var plot_id: String = String(plot_id_variant)
+		if not bool(LandRegistry.get_plot(plot_id).get("claimable", false)):
+			continue
+		_build_plot_boundary(plot_id)
+		var marker: Node2D = _make_plot_sign(
+			map.grid_to_world(LandRegistry.marker_tile(plot_id)),
+			String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)), Color("#9fc4e8")
+		)
+		register_world_interactable(
+			"plot_marker_%s" % plot_id, marker, ContentIds.INTERACTION_GENERIC,
+			"Press F to view %s" % String(LandRegistry.get_plot(plot_id).get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
+		)
+	# Land clerk at the neighborhood entrance.
+	var clerk: BramVillager = BramVillager.new()
+	clerk.villager_name = "Clerk Hazel"
+	clerk.position = map.grid_to_world(Vector2i(25, 7))
+	gameplay_layer.add_child(clerk)
+	Nameplate.attach(clerk, "Clerk Hazel", "Land Office", Color("#9fc4e8"))
+	register_world_interactable(
+		"land_clerk", clerk, ContentIds.INTERACTION_VILLAGER,
+		"Press F to talk to the land clerk", _talk_land_clerk
+	)
+
+func _read_neighborhood_board() -> void:
+	_open_observe_panel(
+		"Hearthvale Neighborhood",
+		"Homestead lots for cozy folk! Each lot is a full yard — room for a cottage shell, garden, shed, "
+		+ "fences, paths and decor. Walk up to a lot's sign and press F to Claim it (one Land Token; "
+		+ "Farmer Rowan hands those out). Lots are marked by corner posts and a boundary. "
+		+ "Own one? Build anywhere inside it (B), and /invite <username> a friend on a server. "
+		+ "Open the minimap (M) to find your way around."
+	)
+
+## Draw corner posts + a soft boundary outline so a plot reads as a real yard.
+func _build_plot_boundary(plot_id: String) -> void:
+	var corners: Array = LandRegistry.corner_tiles(plot_id)
+	var boundary: Line2D = Line2D.new()
+	boundary.width = 3.0
+	boundary.default_color = Color(0.94, 0.86, 0.55, 0.55)
+	boundary.z_index = -5
+	for corner_tile in corners:
+		boundary.add_point(map.grid_to_world(corner_tile as Vector2i))
+	boundary.add_point(map.grid_to_world(corners[0] as Vector2i))
+	gameplay_layer.add_child(boundary)
+	for corner_tile in corners:
+		var post: Node2D = Node2D.new()
+		post.position = map.grid_to_world(corner_tile as Vector2i)
+		gameplay_layer.add_child(post)
+		var stake: Polygon2D = Polygon2D.new()
+		stake.polygon = PackedVector2Array([Vector2(-2.5, 0), Vector2(2.5, 0), Vector2(2.5, -22), Vector2(-2.5, -22)])
+		stake.color = Color("#a8754a")
+		post.add_child(stake)
+		var cap: Polygon2D = Polygon2D.new()
+		cap.polygon = TerrainShapes.ellipse(Vector2(0, -23), 4.5, 2.5, 8)
+		cap.color = Color("#d8b572")
+		post.add_child(cap)
+
+## A large, readable plot/area sign with a title plate.
+func _make_plot_sign(world_pos: Vector2, title: String, accent: Color) -> Node2D:
+	var sign_marker: Node2D = Node2D.new()
+	sign_marker.position = world_pos
+	gameplay_layer.add_child(sign_marker)
+	for px: float in [-12.0, 12.0]:
+		var post: Polygon2D = Polygon2D.new()
+		post.polygon = PackedVector2Array([Vector2(px - 3, 0), Vector2(px + 3, 0), Vector2(px + 3, -34), Vector2(px - 3, -34)])
+		post.color = Color("#8a5e3c")
+		sign_marker.add_child(post)
+	var board: Polygon2D = Polygon2D.new()
+	board.polygon = PackedVector2Array([Vector2(-30, -56), Vector2(30, -56), Vector2(33, -48), Vector2(30, -30), Vector2(-30, -30), Vector2(-33, -48)])
+	board.color = Color("#e0bf8a")
+	sign_marker.add_child(board)
+	var ribbon: Polygon2D = Polygon2D.new()
+	ribbon.polygon = PackedVector2Array([Vector2(-30, -52), Vector2(30, -52), Vector2(30, -47), Vector2(-30, -47)])
+	ribbon.color = accent
+	sign_marker.add_child(ribbon)
+	var plate: Label = Label.new()
+	plate.text = title
+	plate.position = Vector2(-60, -48)
+	plate.custom_minimum_size = Vector2(120, 0)
+	plate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plate.add_theme_font_size_override("font_size", 11)
+	plate.add_theme_color_override("font_color", Color("#4a3420"))
+	sign_marker.add_child(plate)
+	return sign_marker
+
+func _talk_land_clerk() -> void:
+	_grant_xp_once("talk_land_clerk", ProgressionRegistry.SKILL_SOCIAL, 2, 1)
+	var tokens: int = _crafting_get_count(ItemIds.QUEST_LAND_TOKEN)
+	var lines: Array[String] = [
+		"Land office, at your service! You hold %d Land Token%s." % [tokens, "" if tokens == 1 else "s"],
+		"",
+		"Current registry:",
+	]
+	var plots: Dictionary = _current_land_plots()
+	for plot_id in LandRegistry.definitions().keys():
+		lines.append("· %s" % LandClaimSystem.describe(String(plot_id), plots))
+	lines.append("")
+	lines.append("To claim: walk to a plot sign (the blue-ribbon posts east and north) and press F — a panel will let you Claim it. One token each. Town and Rowan's farm stay public. Own a plot? Share it with /invite <username> on a server.")
+	_open_observe_panel("Clerk Hazel — Land Office", "\n".join(lines))
+
+## Plot sign interaction: opens the land panel with full info + a Claim button.
+## (Keyboard F opens the panel; the panel's Claim button does the actual claim
+## via _do_claim_plot, so the flow is visible and mouse-friendly.)
+func _interact_plot_marker(plot_id: String) -> void:
+	var plots: Dictionary = _current_land_plots()
+	var plot: Dictionary = LandRegistry.get_plot(plot_id)
+	var state: Dictionary = LandPlot.normalized_state(plots.get(plot_id, {}) as Dictionary)
+	var profile_id: String = String(_profile_manager.get_active_profile().get("profile_id", ""))
+	var tokens: int = _crafting_get_count(ItemIds.QUEST_LAND_TOKEN)
+	var cost: int = int(plot.get("price_tokens", 1))
+	var status: String = String(state["status"])
+	var is_owner: bool = status == LandPlot.STATUS_OWNED and String(state["owner_profile_id"]) == profile_id
+
+	var owner_text: String = "Unclaimed"
+	var permission_text: String = ""
+	var can_claim: bool = false
+	if status == LandPlot.STATUS_OWNED:
+		owner_text = String(state["owner_username"])
+		if is_owner:
+			permission_text = "You own this plot — you can build here."
+		elif (state["member_profile_ids"] as Array).has(profile_id):
+			permission_text = "You're a member here — you can build."
+		else:
+			permission_text = "You cannot build here (not the owner)."
+	else:
+		if tokens >= cost:
+			can_claim = true
+			permission_text = "Available! Claim it to build here."
+		else:
+			permission_text = "You need %d Land Token to claim this (talk to Farmer Rowan)." % cost
+
+	var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
+	_land_panel.call("open_for_plot", {
+		"plot_id": plot_id,
+		"display_name": String(plot.get("display_name", plot_id)),
+		"size_text": "Homestead Plot · %d×%d tiles · Neighborhood" % [rect.size.x, rect.size.y],
+		"status_text": status.capitalize(),
+		"owner": owner_text,
+		"members": (state["member_profile_ids"] as Array).size(),
+		"cost": cost,
+		"tokens": tokens,
+		"permission_text": permission_text,
+		"can_claim": can_claim,
+		"is_owner": is_owner,
+	})
+
+## Executes a claim (panel Claim button callback). Connected = server-
+## authoritative; offline = local save. Refreshes HUD/inventory either way.
+func _do_claim_plot(plot_id: String) -> void:
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null and bool(session.call("is_client_connected")):
+		session.call("request_claim_plot", plot_id)
+		return
+	var plots: Dictionary = _current_land_plots()
+	var profile: Dictionary = _profile_manager.get_active_profile()
+	var result: Dictionary = LandClaimSystem.attempt_claim(
+		plot_id, String(profile.get("profile_id", "")), String(profile.get("username", "")), plots,
+		func(item_id: String, amount: int) -> bool: return inventory_system.get_quantity(item_id) >= amount,
+		func(item_id: String, amount: int) -> void: inventory_system.remove_item(item_id, amount)
+	)
+	if not bool(result["ok"]):
+		_chat_toast("%s." % String(result["reason"]))
+		return
+	plots[plot_id] = result["state"]
+	save_system.set_overworld_flag("land_plots", plots)
+	_grant_xp(ProgressionRegistry.SKILL_STEWARDSHIP, 5, 3)
+	refresh_inventory_panel()
+	_refresh_minimap_plots()
+	_chat_toast("You claimed %s! Build anywhere inside it (B)." % String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)))
+
+func _setup_town_services() -> void:
+	# Outdoor service stalls around the village square: visual kiosks with
+	# friendly "coming soon" panels — the town structure ahead of the economy.
+	var c: Vector2 = OverworldMap.VILLAGE_OFFSET
+	var services: Array = [
+		["town_general_store", "General Store", c + Vector2(220, 240), "Seeds, snacks, and sundries — trading opens with the economy update."],
+		["town_builder_supply", "Builder Supply", c + Vector2(-40, 160), "Planks and blocks by the bundle — for now, craft your own at a workbench (K)."],
+		["town_farm_supply", "Farming Supply", c + Vector2(200, 400), "Tools and seeds someday; today, Rowan's farm west of here teaches it free."],
+		["town_wardrobe_stall", "Wardrobe Stall", c + Vector2(-100, 380), "Fashion forward! Craft wearables (K) and try looks at any mirror (F9)."],
+	]
+	for service in services:
+		var stall: Node2D = _make_sign(service[2] as Vector2, Color("#f2d469"))
+		var service_id: String = String(service[0])
+		var service_name: String = String(service[1])
+		var blurb: String = String(service[3])
+		register_world_interactable(
+			service_id, stall, ContentIds.INTERACTION_GENERIC,
+			"Press F to visit %s" % service_name,
+			func() -> void: _open_observe_panel("%s (coming soon)" % service_name, blurb)
+		)
+
+func _make_sign(world_pos: Vector2, accent: Color) -> Node2D:
+	var sign_marker: Node2D = Node2D.new()
+	sign_marker.position = world_pos
+	gameplay_layer.add_child(sign_marker)
+	var post: Polygon2D = Polygon2D.new()
+	post.polygon = PackedVector2Array([Vector2(-2, 0), Vector2(2, 0), Vector2(2, -20), Vector2(-2, -20)])
+	post.color = Color("#8a5e3c")
+	sign_marker.add_child(post)
+	var board: Polygon2D = Polygon2D.new()
+	board.polygon = PackedVector2Array([
+		Vector2(-13, -32), Vector2(13, -32), Vector2(15, -27), Vector2(13, -19), Vector2(-13, -19), Vector2(-15, -27),
+	])
+	board.color = Color("#e0bf8a")
+	sign_marker.add_child(board)
+	var ribbon: Polygon2D = Polygon2D.new()
+	ribbon.polygon = PackedVector2Array([Vector2(-10, -29), Vector2(10, -29), Vector2(10, -26), Vector2(-10, -26)])
+	ribbon.color = accent
+	sign_marker.add_child(ribbon)
+	return sign_marker
+
 # --- Cottage door sign (interiors deferred) ----------------------------------
 # TODO(interiors): when interiors land (docs/interiors_plan.md), this sign is
 # replaced by a real door interaction routed through WorldRegionManager as a
@@ -409,6 +896,11 @@ func _setup_network(player: AvatarController) -> void:
 	session.connect("gather_denied_received", _on_network_gather_denied)
 	session.connect("craft_result_received", _on_network_craft_result)
 	session.connect("craft_denied_received", _on_network_craft_denied)
+	session.connect("claim_result_received", _chat_toast)
+	session.connect("server_plots_changed", _on_server_plots_changed)
+	building_placement_system.set_builder_profile(
+		String(_profile_manager.get_active_profile().get("profile_id", ""))
+	)
 	var network_panel: CanvasLayer = NETWORK_CONNECT_PANEL_SCENE.instantiate() as CanvasLayer
 	network_panel.name = "NetworkConnectPanel"
 	add_child(network_panel)
@@ -470,11 +962,11 @@ func _handle_chat_command(text: String) -> void:
 				return
 			var item_id: String = String(parts[1]).to_lower()
 			var amount: int = clampi(int(parts[2]) if parts.size() > 2 else 1, 1, 999)
-			if not ResourceIds.is_storable(item_id) and ContentRegistry.items().get(item_id, {}).is_empty():
-				_chat_toast("Unknown id '%s'. Try wood, stone, fiber, clay, plank, fiber_rope..." % item_id)
+			if not ItemIds.is_storable(item_id) and ContentRegistry.items().get(item_id, {}).is_empty():
+				_chat_toast("Unknown id '%s'. Try wood, plank, worn_axe, land_token..." % item_id)
 				return
 			inventory_system.add_item(item_id, amount)
-			_chat_toast("(admin) +%d %s" % [amount, ResourceIds.display_name(item_id)])
+			_chat_toast("(admin) +%d %s" % [amount, ItemIds.display_name(item_id)])
 		"/xp":
 			if _admin_commands_blocked():
 				return
@@ -491,6 +983,45 @@ func _handle_chat_command(text: String) -> void:
 			var skill_amount: int = clampi(int(parts[2]) if parts.size() > 2 else 10, 1, 9999)
 			_grant_xp(skill_id, skill_amount, 0)
 			_chat_toast("(admin) +%d %s XP" % [skill_amount, ProgressionRegistry.skill_display_name(skill_id)])
+		"/help":
+			_chat_toast("Player: /skills /progression /invite <user> /where  ·  Admin: /give <id> [n] /xp [n] /adminbuild /plots /plotinfo <id> /inspect /claimplot <id> <user> /unclaimplot <id> /save /announce")
+		"/adminbuild":
+			if _admin_commands_blocked():
+				return
+			building_placement_system.set_admin_bypass(not building_placement_system.admin_bypass)
+			_chat_toast("(admin) World-builder mode %s — costs, tools, land, and locks %s." % [
+				"ON" if building_placement_system.admin_bypass else "OFF",
+				"bypassed" if building_placement_system.admin_bypass else "enforced",
+			])
+		"/where":
+			var where_pos: Vector2 = get_player_position()
+			var where_tile: Vector2i = map.world_to_grid(where_pos)
+			var where_plot: Dictionary = LandRegistry.plot_at_tile(where_tile)
+			_chat_toast("Position (%d, %d) · tile (%d, %d) · %s · %s" % [
+				int(where_pos.x), int(where_pos.y), where_tile.x, where_tile.y,
+				DevToolState.area_label(where_pos),
+				String(where_plot.get("display_name", "public commons")) if not where_plot.is_empty() else "public commons",
+			])
+		"/save":
+			if _admin_commands_blocked():
+				return
+			save_system.save_save_data(save_system.load_save_data())
+			_chat_toast("(admin) Local save written.")
+			refresh_inventory_panel()
+		"/plots":
+			_admin_list_plots()
+		"/plotinfo", "/inspect":
+			_admin_plot_info(parts)
+		"/claimplot":
+			_admin_claimplot(parts)
+		"/unclaimplot":
+			_admin_unclaimplot(parts)
+		"/announce":
+			if _admin_commands_blocked():
+				return
+			_chat_toast("[Announcement] %s" % text.substr(10).strip_edges())
+		"/invite":
+			_handle_invite_command(parts)
 		"/skills", "/progression":
 			var progression: Dictionary = _get_progression_snapshot()
 			var lines: Array[String] = [PlayerProgression.progress_text(int(progression["total_xp"]))]
@@ -501,7 +1032,25 @@ func _handle_chat_command(text: String) -> void:
 				])
 			_chat_toast(" · ".join(lines))
 		_:
-			_chat_toast("Commands: /give /xp /skillxp /skills /progression (admin, offline)")
+			_chat_toast("Commands: /give /xp /skillxp /skills /progression /invite <username> /where")
+
+## Plot owner shares a plot with a friend by username. Multiplayer-only: the
+## server resolves the username to a registered profile and updates the plot's
+## member list (server-authoritative). Offline there's only your single local
+## identity, so there's no one to invite.
+func _handle_invite_command(parts: PackedStringArray) -> void:
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session == null or not bool(session.call("is_client_connected")):
+		_chat_toast("Invites need a server (connect with F8) — that's where friends register a username.")
+		return
+	if parts.size() < 2:
+		_chat_toast("Usage: /invite <username> — shares the plot you own with that player.")
+		return
+	var owned_plot_id: String = _player_owned_plot_id()
+	if owned_plot_id.is_empty():
+		_chat_toast("Claim a plot first (at a plot sign), then invite friends to build on it.")
+		return
+	session.call("request_invite", owned_plot_id, String(parts[1]))
 
 func _admin_commands_blocked() -> bool:
 	var session: Node = get_node_or_null("/root/NetworkSession")
@@ -510,16 +1059,120 @@ func _admin_commands_blocked() -> bool:
 		return true
 	return false
 
+# --- Admin plot commands (offline world-builder) -------------------------------
+
+func _admin_list_plots() -> void:
+	var plots: Dictionary = _current_land_plots()
+	var lines: Array[String] = ["Plots (id — name — bounds — status):"]
+	for plot_id in LandRegistry.definitions().keys():
+		var plot: Dictionary = LandRegistry.get_plot(String(plot_id))
+		var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
+		var state: Dictionary = LandPlot.normalized_state(plots.get(String(plot_id), {}) as Dictionary)
+		var owner: String = "npc" if bool(plot.get("npc_owned", false)) else (
+			"@%s" % String(state["owner_username"]) if String(state["status"]) == LandPlot.STATUS_OWNED else "unclaimed"
+		)
+		lines.append("· %s — %s — [%d,%d %dx%d] — %s" % [
+			String(plot_id), String(plot.get("display_name", "")),
+			rect.position.x, rect.position.y, rect.size.x, rect.size.y, owner,
+		])
+	_open_observe_panel("Plot Registry (/plots)", "\n".join(lines))
+
+func _admin_plot_info(parts: PackedStringArray) -> void:
+	var plot_id: String = String(parts[1]) if parts.size() > 1 else String(LandRegistry.plot_at_tile(map.world_to_grid(get_player_position())).get("plot_id", ""))
+	if plot_id.is_empty() or not LandRegistry.has_plot(plot_id):
+		_chat_toast("Stand on a plot or use /plotinfo <plot_id>. See /plots for ids.")
+		return
+	var plot: Dictionary = LandRegistry.get_plot(plot_id)
+	var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
+	var state: Dictionary = LandPlot.normalized_state(_current_land_plots().get(plot_id, {}) as Dictionary)
+	_open_observe_panel("Plot: %s" % String(plot.get("display_name", plot_id)), "\n".join([
+		"id: %s" % plot_id,
+		"area: %s" % String(plot.get("area_id", "")),
+		"bounds (tiles): [%d, %d] size %dx%d" % [rect.position.x, rect.position.y, rect.size.x, rect.size.y],
+		"claimable: %s · npc_owned: %s" % [str(bool(plot.get("claimable", false))), str(bool(plot.get("npc_owned", false)))],
+		"status: %s" % String(state["status"]),
+		"owner: %s" % (String(state["owner_username"]) if String(state["status"]) == LandPlot.STATUS_OWNED else "—"),
+		"members: %d" % (state["member_profile_ids"] as Array).size(),
+	]))
+
+func _admin_claimplot(parts: PackedStringArray) -> void:
+	if _admin_commands_blocked():
+		return
+	if parts.size() < 2 or not LandRegistry.has_plot(String(parts[1])):
+		_chat_toast("Usage: /claimplot <plot_id> [username]. See /plots.")
+		return
+	var plot_id: String = String(parts[1])
+	if not bool(LandRegistry.get_plot(plot_id).get("claimable", false)):
+		_chat_toast("That plot is not claimable.")
+		return
+	var profile: Dictionary = _profile_manager.get_active_profile()
+	var username: String = String(parts[2]) if parts.size() > 2 else String(profile.get("username", "admin"))
+	var plots: Dictionary = _current_land_plots()
+	var state: Dictionary = LandPlot.default_state()
+	state["status"] = LandPlot.STATUS_OWNED
+	state["owner_profile_id"] = String(profile.get("profile_id", "")) if parts.size() <= 2 else "admin_assigned_%s" % username
+	state["owner_username"] = username
+	state["claimed_at"] = Time.get_datetime_string_from_system(true)
+	plots[plot_id] = state
+	save_system.set_overworld_flag("land_plots", plots)
+	refresh_inventory_panel()
+	_refresh_minimap_plots()
+	_chat_toast("(admin) %s assigned to @%s." % [plot_id, username])
+
+func _admin_unclaimplot(parts: PackedStringArray) -> void:
+	if _admin_commands_blocked():
+		return
+	if parts.size() < 2 or not LandRegistry.has_plot(String(parts[1])):
+		_chat_toast("Usage: /unclaimplot <plot_id>. See /plots.")
+		return
+	var plots: Dictionary = _current_land_plots()
+	plots[String(parts[1])] = LandPlot.default_state()
+	save_system.set_overworld_flag("land_plots", plots)
+	refresh_inventory_panel()
+	_refresh_minimap_plots()
+	_chat_toast("(admin) %s is now unclaimed." % String(parts[1]))
+
+# --- Admin panel hooks ---------------------------------------------------------
+
+func admin_get_info() -> Dictionary:
+	return {
+		"role": "owner (offline)" if not _is_crafting_connected() else "player (server)",
+		"area": _player_area_text(),
+		"admin_build": building_placement_system.admin_bypass,
+	}
+
+func admin_teleport(destination: String) -> void:
+	if _network_player == null or not is_instance_valid(_network_player):
+		return
+	var target_tile: Vector2i
+	match destination:
+		"neighborhood":
+			target_tile = Vector2i(27, 7)
+		"town":
+			_network_player.global_position = OverworldMap.VILLAGE_OFFSET + Vector2(96, 320)
+			return
+		_:
+			target_tile = map.get_spawn_tile()
+	_network_player.global_position = map.grid_to_world(target_tile)
+
+func admin_toggle_plot_debug() -> void:
+	if _minimap != null:
+		# Reuse the minimap's admin debug outline as the plot-debug overlay.
+		_minimap.call("set_admin_debug", true)
+	_chat_toast("(admin) Plot debug overlay on the minimap toggled on.")
+
 func _on_network_place_denied(reason: String) -> void:
 	# Non-modal: a chat-log line instead of a panel, so building flow continues.
 	_chat_toast("Server: placement denied — %s." % reason.to_lower())
 
-func _on_server_materials_changed(materials: Dictionary) -> void:
-	if hud.has_method("set_materials_text"):
-		var parts: Array[String] = []
-		for material_id in ResourceIds.ALL_MATERIALS:
-			parts.append("%s %d" % [ResourceIds.display_name(material_id), int(materials.get(material_id, 0))])
-		hud.call("set_materials_text", "Server: %s" % " · ".join(parts))
+func _on_server_materials_changed(_materials: Dictionary) -> void:
+	# Keep the inventory panel + HUD (materials/tokens/level via _crafting_get_count)
+	# in step with the authoritative server pouch.
+	refresh_inventory_panel()
+
+func _on_server_plots_changed(_plots: Dictionary) -> void:
+	refresh_inventory_panel()
+	_refresh_minimap_plots()
 
 # --- Onboarding -------------------------------------------------------------------
 
