@@ -74,6 +74,11 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://ui/minimap_panel.tscn",
 	"res://ui/quick_tools_bar.tscn",
 	"res://ui/admin_panel.tscn",
+	# Build-UI / interiors / map pass.
+	"res://systems/building/build_categories.gd",
+	"res://systems/building/prefab_interiors.gd",
+	"res://ui/build_menu_panel.tscn",
+	"res://ui/interior_view.tscn",
 	"res://scenes/world/homestead.tscn",
 	"res://scenes/world/regions/homestead/homestead_region.tscn",
 	"res://scenes/world/regions/village_square/village_square_region.tscn",
@@ -83,6 +88,21 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://world/regions/village_square/village_square_region_controller.gd",
 	"res://world/regions/forest_edge/forest_edge_region_controller.gd",
 ]
+
+var _validation_placeable_ids: Array[String] = []
+var _validation_active_placeable_id: String = ""
+
+func _validation_get_placeable_ids() -> Array:
+	return _validation_placeable_ids
+
+func _validation_get_placeable_status(_placeable_id: String) -> Dictionary:
+	return {"ok": true, "reason": ""}
+
+func _validation_select_placeable(placeable_id: String) -> void:
+	_validation_active_placeable_id = placeable_id
+
+func _validation_get_active_placeable_id() -> String:
+	return _validation_active_placeable_id
 
 func _initialize() -> void:
 	for resource_path in RESOURCE_PATHS:
@@ -100,6 +120,201 @@ func _initialize() -> void:
 				quit(1)
 				return
 			instance.free()
+
+	# Build-menu / interiors pass: the menu must build its runtime controls when
+	# mounted in-tree, the close affordances must work, every menu item source id
+	# must resolve to registered content, and prefab interior metadata must fail
+	# closed when missing/invalid.
+	var object_registry: ObjectRegistry = ObjectRegistry.new()
+	get_root().add_child(object_registry)
+	var build_menu_scene: PackedScene = load("res://ui/build_menu_panel.tscn") as PackedScene
+	if build_menu_scene == null:
+		push_error("Build menu scene failed explicit load")
+		quit(1)
+		return
+	var build_menu: CanvasLayer = build_menu_scene.instantiate() as CanvasLayer
+	if build_menu == null:
+		push_error("Build menu scene failed explicit instantiate")
+		quit(1)
+		return
+	get_root().add_child(build_menu)
+	await process_frame
+	_validation_placeable_ids.clear()
+	_validation_placeable_ids.append_array(object_registry.get_placeable_ids())
+	if _validation_placeable_ids.is_empty():
+		push_error("ObjectRegistry returned no placeables for the build menu")
+		quit(1)
+		return
+	_validation_active_placeable_id = String(_validation_placeable_ids[0])
+	build_menu.call(
+		"setup",
+		Callable(self, "_validation_get_placeable_ids"),
+		Callable(self, "_validation_get_placeable_status"),
+		Callable(self, "_validation_select_placeable"),
+		Callable(self, "_validation_get_active_placeable_id")
+	)
+	build_menu.call("open_panel")
+	await process_frame
+	var categories_node: HFlowContainer = build_menu.get_node_or_null("Panel/Rows/Categories") as HFlowContainer
+	if categories_node == null:
+		push_error("Build menu is missing Panel/Rows/Categories")
+		quit(1)
+		return
+	var category_texts: Array[String] = []
+	for child in categories_node.get_children():
+		if child is Button:
+			category_texts.append(String((child as Button).text))
+	if category_texts.size() != BuildCategories.ORDER.size():
+		push_error("Build menu built %d categories, expected %d" % [category_texts.size(), BuildCategories.ORDER.size()])
+		quit(1)
+		return
+	for category_index in range(BuildCategories.ORDER.size()):
+		if category_texts[category_index] != BuildCategories.ORDER[category_index]:
+			push_error("Build menu category mismatch at index %d: got '%s', expected '%s'" % [
+				category_index, category_texts[category_index], BuildCategories.ORDER[category_index],
+			])
+			quit(1)
+			return
+	var close_button: Button = null
+	for button_variant in build_menu.find_children("*", "Button", true, false):
+		var candidate: Button = button_variant as Button
+		if candidate != null and String(candidate.text).begins_with("Close"):
+			close_button = candidate
+			break
+	if close_button == null:
+		push_error("Build menu has no Close button")
+		quit(1)
+		return
+	close_button.emit_signal("pressed")
+	if build_menu.visible:
+		push_error("Build menu close button did not hide the panel")
+		quit(1)
+		return
+	build_menu.call("open_panel")
+	var escape_event: InputEventKey = InputEventKey.new()
+	escape_event.pressed = true
+	escape_event.keycode = KEY_ESCAPE
+	build_menu.call("_input", escape_event)
+	if build_menu.visible:
+		push_error("Build menu Esc close path did not hide the panel")
+		quit(1)
+		return
+	build_menu.call("open_panel")
+	await process_frame
+	var menu_registry: Dictionary = ContentRegistry.placeables()
+	var item_list: VBoxContainer = build_menu.get_node_or_null("Panel/Rows/Scroll/Items") as VBoxContainer
+	if item_list == null:
+		push_error("Build menu is missing Panel/Rows/Scroll/Items")
+		quit(1)
+		return
+	for placeable_id_variant in _validation_placeable_ids:
+		var placeable_id: String = String(placeable_id_variant)
+		if not menu_registry.has(placeable_id):
+			push_error("Build menu references unknown content id '%s'" % placeable_id)
+			quit(1)
+			return
+	for menu_category in BuildCategories.ORDER:
+		build_menu.set("_active_category", menu_category)
+		build_menu.call("refresh")
+		await process_frame
+		var expected_ids: Array = BuildCategories.ids_in(menu_category, _validation_placeable_ids)
+		for expected_id_variant in expected_ids:
+			if not menu_registry.has(String(expected_id_variant)):
+				push_error("Build menu category '%s' includes unknown content id '%s'" % [menu_category, expected_id_variant])
+				quit(1)
+				return
+		var rendered_rows: int = 0
+		for child in item_list.get_children():
+			if child is HBoxContainer:
+				rendered_rows += 1
+		if rendered_rows != expected_ids.size():
+			push_error("Build menu category '%s' rendered %d rows, expected %d" % [
+				menu_category, rendered_rows, expected_ids.size(),
+			])
+			quit(1)
+			return
+	var new_modular_piece_ids: Array[String] = [
+		ContentIds.PLACEABLE_WOOD_WINDOW_WALL,
+		ContentIds.PLACEABLE_ROOF_CAP,
+		ContentIds.PLACEABLE_FENCE_CORNER,
+		ContentIds.PLACEABLE_FENCE_GATE,
+		ContentIds.PLACEABLE_STEPS,
+	]
+	for modular_id in new_modular_piece_ids:
+		if not ContentIds.DECOR_PLACEABLE_IDS.has(modular_id):
+			push_error("New modular piece '%s' missing from ContentIds.DECOR_PLACEABLE_IDS" % modular_id)
+			quit(1)
+			return
+		if not menu_registry.has(modular_id):
+			push_error("New modular piece '%s' missing from ContentRegistry.placeables()" % modular_id)
+			quit(1)
+			return
+		if not BuildCosts.costs().has(modular_id):
+			push_error("New modular piece '%s' missing from BuildCosts" % modular_id)
+			quit(1)
+			return
+		if not _validation_placeable_ids.has(modular_id):
+			push_error("New modular piece '%s' missing from ObjectRegistry/build menu" % modular_id)
+			quit(1)
+			return
+		var modular_scene_path: String = String((menu_registry[modular_id] as Dictionary).get("scene_path", ""))
+		var modular_scene: PackedScene = load(modular_scene_path) as PackedScene
+		if modular_scene == null:
+			push_error("New modular piece '%s' scene failed to load: %s" % [modular_id, modular_scene_path])
+			quit(1)
+			return
+	var prefab_metadata: Dictionary = PrefabInteriors.all_metadata()
+	if PrefabInteriors.parse_metadata_dict({
+		"has_interior": true,
+		"template": "bogus",
+		"interior_scene_id": "",
+		"title": "",
+	}).size() != 0:
+		push_error("PrefabInteriors.parse_metadata_dict accepted invalid metadata")
+		quit(1)
+		return
+	if not PrefabInteriors.metadata(ContentIds.PLACEABLE_GREENHOUSE_SHELL).is_empty():
+		push_error("Structure without implemented interior metadata returned non-empty PrefabInteriors metadata")
+		quit(1)
+		return
+	if PrefabInteriors.has_interior(ContentIds.PLACEABLE_GREENHOUSE_SHELL):
+		push_error("Structure without implemented interior metadata reported has_interior")
+		quit(1)
+		return
+	if not PrefabInteriors.template_of(ContentIds.PLACEABLE_GREENHOUSE_SHELL).is_empty() \
+			or not PrefabInteriors.title_of(ContentIds.PLACEABLE_GREENHOUSE_SHELL).is_empty():
+		push_error("PrefabInteriors missing-metadata fallback did not fail closed")
+		quit(1)
+		return
+	if prefab_metadata.is_empty():
+		push_error("No prefab structures have valid interior metadata")
+		quit(1)
+		return
+	for prefab_id_variant in prefab_metadata.keys():
+		var prefab_id: String = String(prefab_id_variant)
+		var parsed: Dictionary = prefab_metadata[prefab_id] as Dictionary
+		for required_field in ["has_interior", "template", "interior_scene_id", "title"]:
+			if not parsed.has(required_field):
+				push_error("PrefabInteriors metadata for '%s' missing field '%s'" % [prefab_id, required_field])
+				quit(1)
+				return
+		if not menu_registry.has(prefab_id):
+			push_error("PrefabInteriors metadata references unknown placeable '%s'" % prefab_id)
+			quit(1)
+			return
+	var interior_view_scene: PackedScene = load("res://ui/interior_view.tscn") as PackedScene
+	if interior_view_scene == null:
+		push_error("Interior view scene failed explicit load")
+		quit(1)
+		return
+	for modular_id in new_modular_piece_ids:
+		if PrefabInteriors.has_interior(modular_id) or not PrefabInteriors.metadata(modular_id).is_empty():
+			push_error("Modular/custom piece '%s' should not require an interior" % modular_id)
+			quit(1)
+			return
+	build_menu.queue_free()
+	object_registry.queue_free()
+	await process_frame
 
 	# Lightweight save-helper sanity: defaults must be returned with no save file.
 	var save_system: LocalSaveSystem = LocalSaveSystem.new()
@@ -544,6 +759,10 @@ func _initialize() -> void:
 
 	# Build costs may use raw materials, components, or crop items â€” nothing else.
 	for cost_placeable_id in BuildCosts.costs().keys():
+		if not ContentRegistry.placeables().has(String(cost_placeable_id)):
+			push_error("BuildCosts references unknown placeable '%s'" % cost_placeable_id)
+			quit(1)
+			return
 		for cost_item_id in (BuildCosts.costs()[cost_placeable_id] as Dictionary).keys():
 			if not CraftingRecipe.is_valid_craft_item(String(cost_item_id)):
 				push_error("Build cost for '%s' uses unknown id '%s'" % [cost_placeable_id, cost_item_id])
@@ -754,20 +973,45 @@ func _initialize() -> void:
 		push_error("Fewer than 4 claimable homestead plots defined")
 		quit(1)
 		return
-	# Plots must be homestead-sized (clearly larger than an object footprint).
+	# At least 4 plots must be true homestead-sized (12x12 = 144 tiles or more).
+	var large_plot_ids: Array[String] = []
 	for claim_id in LandRegistry.claimable_plot_ids():
 		var claim_rect: Rect2i = LandRegistry.get_plot(String(claim_id)).get("rect", Rect2i()) as Rect2i
-		if claim_rect.size.x * claim_rect.size.y < 30:
-			push_error("Plot '%s' is too small to be a homestead (%dx%d)" % [claim_id, claim_rect.size.x, claim_rect.size.y])
+		if claim_rect.size.x >= 12 and claim_rect.size.y >= 12:
+			large_plot_ids.append(String(claim_id))
+	if large_plot_ids.size() < 4:
+		push_error("Fewer than 4 plots are 12x12 or larger (found %d)" % large_plot_ids.size())
+		quit(1)
+		return
+	var overworld_map: OverworldMap = OverworldMap.new()
+	for large_plot_id in large_plot_ids:
+		var large_rect: Rect2i = LandRegistry.get_plot(large_plot_id).get("rect", Rect2i()) as Rect2i
+		var center_tile: Vector2i = Vector2i(
+			large_rect.position.x + large_rect.size.x / 2,
+			large_rect.position.y + large_rect.size.y / 2
+		)
+		if not large_rect.has_point(center_tile):
+			push_error("Computed center tile is not inside plot '%s'" % large_plot_id)
 			quit(1)
 			return
+		if String(LandRegistry.plot_at_tile(center_tile).get("plot_id", "")) != large_plot_id:
+			push_error("Large plot center resolved to the wrong plot for '%s'" % large_plot_id)
+			quit(1)
+			return
+		var center_result: Dictionary = overworld_map.get_place_footprint_result(center_tile, Vector2i.ONE, [])
+		if not bool(center_result.get("valid", false)):
+			push_error("Large plot center is not buildable for '%s': %s" % [large_plot_id, center_result.get("reason", "")])
+			quit(1)
+			return
+	overworld_map.free()
 	var test_plots: Dictionary = {}
 	# Use an interior tile (plot center), not the sign tile (which now sits in
 	# FRONT of the plot), so build-permission tests check the real bounds.
-	var test_rect: Rect2i = LandRegistry.get_plot("meadow_lot_1").get("rect", Rect2i()) as Rect2i
+	var test_plot_id: String = large_plot_ids[0]
+	var test_rect: Rect2i = LandRegistry.get_plot(test_plot_id).get("rect", Rect2i()) as Rect2i
 	var test_tile: Vector2i = Vector2i(test_rect.position.x + test_rect.size.x / 2, test_rect.position.y + test_rect.size.y / 2)
 	if not test_rect.has_point(test_tile):
-		push_error("Computed test tile is not inside meadow_lot_1")
+		push_error("Computed test tile is not inside %s" % test_plot_id)
 		quit(1)
 		return
 	if bool(LandClaimSystem.can_build_at(test_tile, "profile_a", test_plots)["allowed"]):
@@ -775,7 +1019,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 	var claim_no_token: Dictionary = LandClaimSystem.attempt_claim(
-		"meadow_lot_1", "profile_a", "julie", test_plots,
+		test_plot_id, "profile_a", "julie", test_plots,
 		func(_id: String, _n: int) -> bool: return false,
 		func(_id: String, _n: int) -> void: pass
 	)
@@ -784,7 +1028,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 	var claim_ok: Dictionary = LandClaimSystem.attempt_claim(
-		"meadow_lot_1", "profile_a", "julie", test_plots,
+		test_plot_id, "profile_a", "julie", test_plots,
 		func(_id: String, _n: int) -> bool: return true,
 		func(_id: String, _n: int) -> void: pass
 	)
@@ -792,7 +1036,7 @@ func _initialize() -> void:
 		push_error("Valid plot claim failed: %s" % claim_ok["reason"])
 		quit(1)
 		return
-	test_plots["meadow_lot_1"] = claim_ok["state"]
+	test_plots[test_plot_id] = claim_ok["state"]
 	if not bool(LandClaimSystem.can_build_at(test_tile, "profile_a", test_plots)["allowed"]):
 		push_error("Plot owner denied building on own plot")
 		quit(1)
@@ -807,16 +1051,16 @@ func _initialize() -> void:
 		return
 	# Shared-plot invites: only the owner may invite, and the invited member can
 	# then build; a non-owner invite is rejected.
-	if bool(LandClaimSystem.attempt_invite("meadow_lot_1", "profile_b", "profile_c", "carol", test_plots)["ok"]):
+	if bool(LandClaimSystem.attempt_invite(test_plot_id, "profile_b", "profile_c", "carol", test_plots)["ok"]):
 		push_error("Non-owner was allowed to invite to a plot")
 		quit(1)
 		return
-	var invite_result: Dictionary = LandClaimSystem.attempt_invite("meadow_lot_1", "profile_a", "profile_b", "bob", test_plots)
+	var invite_result: Dictionary = LandClaimSystem.attempt_invite(test_plot_id, "profile_a", "profile_b", "bob", test_plots)
 	if not bool(invite_result["ok"]):
 		push_error("Owner invite failed: %s" % invite_result["reason"])
 		quit(1)
 		return
-	test_plots["meadow_lot_1"] = invite_result["state"]
+	test_plots[test_plot_id] = invite_result["state"]
 	if not bool(LandClaimSystem.can_build_at(test_tile, "profile_b", test_plots)["allowed"]):
 		push_error("Invited member denied building on shared plot")
 		quit(1)
