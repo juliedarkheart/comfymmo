@@ -152,10 +152,12 @@ func paint_plot_ground(plot: Dictionary) -> Node2D:
 		for tx in range(r.position.x, r.end.x):
 			if tx >= 0 and tx < MAP_WIDTH and ty >= 0 and ty < MAP_HEIGHT:
 				continue  # don't repaint the homestead core
+			var tile := Vector2i(tx, ty)
 			var ground := Polygon2D.new()
-			ground.position = grid_to_world(Vector2i(tx, ty))
+			ground.position = grid_to_world(tile)
 			ground.polygon = _tile_diamond()
 			ground.color = base if (tx + ty) % 2 == 0 else alt
+			_add_terrain_sprite(ground, String(plot.get("biome", "meadow")), tile)
 			patch.add_child(ground)
 	return patch
 
@@ -205,6 +207,7 @@ func _paint_terrain_override(tile: Vector2i, terrain_id: String) -> void:
 	base.polygon = _tile_diamond()
 	base.color = _terrain_base_color(terrain_id, tile)
 	node.add_child(base)
+	_add_terrain_sprite(node, terrain_id, tile)
 	if terrain_id == "dirt_path" or terrain_id == "stone_path":
 		var inset := Polygon2D.new()
 		inset.polygon = PackedVector2Array([

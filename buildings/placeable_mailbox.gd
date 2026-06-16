@@ -6,6 +6,12 @@ class_name PlaceableMailbox
 
 var _has_new_mail: bool = false
 
+func _art_object_id() -> String:
+	return ContentIds.PLACEABLE_MAILBOX
+
+func _keeps_polygon_with_registry_art(node_name: String) -> bool:
+	return node_name == "SlotGlow" or node_name == "Flag"
+
 func get_interaction_type() -> String:
 	return ContentIds.INTERACTION_MAILBOX
 

@@ -29,6 +29,19 @@ that loop readable without copying 3D base-building visuals.
 - Prefab cottage/shed: authored shell, door location, warm roof, clear entry
   affordance.
 
+## Object Art Registry
+
+Game-facing object, build-piece, resource, tool, and edit-icon art paths are
+centralized in `systems/art/object_art_registry.gd`. Required entries include
+foundation/floor, walls, door/window wall, roof, fence/gate, post, workbench,
+storage chest, mailbox/sign, prefab cottage/shed, nature props, materials,
+tools, land token, build, delete, and rotate icons.
+
+Placed objects and build previews should use registry art when available.
+Decor that has not yet received mapped sprite art can keep its existing
+procedural fallback. Invalid object ids resolve to
+`art/placeholders/missing.png` so bad data is obvious but safe.
+
 ## Prefabs And Interiors
 
 Prefab buildings can opt into interiors through
@@ -47,3 +60,14 @@ ownership permissions, save data, and multiplayer sync.
 Dungeons are future separate instances, not part of this building pass.
 Player-created dungeons or adventure plots are also future work and should be
 designed separately from homestead building.
+
+## Graphics polish pass
+
+Object sprites (foundation, floor, wall, door/window walls, stone wall, roof,
+post, workbench, storage chest/crate, fence/gate, sign, mailbox, well, stairs,
+and the prefab cottage/shed) are now Pillow-rendered with soft shading, rim
+light, and contact shadows for a toy-like read. They resolve through
+`ObjectArtRegistry` (external derivative → generated → missing), and placeable
+visuals already pull from it, so build previews and placed pieces share the same
+art. Modular pieces stay exterior-only (no required interiors). Final production
+art for every piece is still deferred; these are upgraded local placeholders.

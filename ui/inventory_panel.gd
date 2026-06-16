@@ -136,12 +136,24 @@ func _add_category(title: String, ids: Array, always_show: bool = false) -> void
 func _build_inventory_slot(item_id: String, count: int, owned: bool) -> Control:
 	var slot := PanelContainer.new()
 	slot.name = "InventorySlot_%s" % item_id
-	slot.custom_minimum_size = Vector2(100, 54)
+	slot.custom_minimum_size = Vector2(104, 78)
 	CozyUITheme.apply_slot(slot, owned, not owned)
 
 	var rows := VBoxContainer.new()
 	rows.add_theme_constant_override("separation", 2)
+	rows.alignment = BoxContainer.ALIGNMENT_CENTER
 	slot.add_child(rows)
+
+	# Cozy registry icon when one resolves (never the missing-art X).
+	var icon_path: String = ObjectArtRegistry.texture_path(item_id)
+	if ObjectArtRegistry.source_of(icon_path) != "missing":
+		var icon := TextureRect.new()
+		icon.texture = load(icon_path) as Texture2D
+		icon.custom_minimum_size = Vector2(32, 32)
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.modulate.a = 1.0 if owned else 0.55
+		rows.add_child(icon)
 
 	var name_label := Label.new()
 	name_label.text = _item_label(item_id)

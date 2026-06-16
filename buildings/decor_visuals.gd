@@ -29,6 +29,8 @@ static func _shadow(parent: Node2D, rx: float = 15.0) -> void:
 	_ellipse(parent, Vector2(0, 1), rx, rx * 0.4, Color(0.16, 0.12, 0.08, 0.2))
 
 static func build(parent: Node2D, decor_id: String) -> void:
+	if ObjectArtRegistry.has_art_id(decor_id) and ObjectArtRegistry.apply_sprite(parent, decor_id):
+		return
 	_shadow(parent)
 	match decor_id:
 		ContentIds.PLACEABLE_ROUND_TABLE:

@@ -1,0 +1,150 @@
+extends RefCounted
+class_name TerrainArtRegistry
+
+## Centralized lookup for terrain and biome art. Map/rendering code asks here
+## first, then keeps its existing polygon fallback if a sprite cannot load.
+
+const FALLBACK_PATH := "res://art/placeholders/missing.png"
+const TILE_SIZE := Vector2i(64, 48)
+
+## Imported/normalized CC0 art, when present, is preferred over the generated
+## placeholder. Drop a derivative at the SAME relative path under this root (e.g.
+## res://art/generated/from_external/active/tiles/biomes/meadow.png) and the
+## registry picks it up automatically — no id-table edits. Order is therefore:
+## external-derivative -> generated placeholder -> missing fallback.
+const EXTERNAL_ACTIVE_ROOT := "res://art/generated/from_external/active/"
+
+## Resolve a mapped art path through the preference order. Always returns a path
+## that exists (falls back to the obvious-but-safe missing placeholder).
+static func resolve_path(mapped_path: String) -> String:
+	if mapped_path.begins_with("res://art/"):
+		var override_path: String = EXTERNAL_ACTIVE_ROOT + mapped_path.substr("res://art/".length())
+		if FileAccess.file_exists(override_path):
+			return override_path
+	if FileAccess.file_exists(mapped_path):
+		return mapped_path
+	return FALLBACK_PATH
+
+## Where a resolved path came from: "external", "generated", or "missing".
+static func source_of(resolved_path: String) -> String:
+	if resolved_path == FALLBACK_PATH:
+		return "missing"
+	if resolved_path.begins_with(EXTERNAL_ACTIVE_ROOT):
+		return "external"
+	return "generated"
+
+const REQUIRED_IDS: Array[String] = [
+	"meadow",
+	"forest",
+	"orchard",
+	"creekside",
+	"riverbank",
+	"hilltop",
+	"grove",
+	"town",
+	"farmland",
+	"farmer_training",
+	"dirt_path",
+	"stone_path",
+	"tilled_soil",
+	"water",
+	"creek",
+	"plot_boundary",
+	"plot_corner",
+]
+
+const TERRAIN_PATHS := {
+	"meadow": "res://art/tiles/biomes/meadow.png",
+	"forest": "res://art/tiles/biomes/forest.png",
+	"orchard": "res://art/tiles/biomes/orchard.png",
+	"creekside": "res://art/tiles/biomes/creekside.png",
+	"riverbank": "res://art/tiles/biomes/riverbank.png",
+	"hilltop": "res://art/tiles/biomes/hilltop.png",
+	"grove": "res://art/tiles/biomes/grove.png",
+	"town": "res://art/tiles/biomes/town.png",
+	"farmland": "res://art/tiles/biomes/farmland.png",
+	"farmer_training": "res://art/tiles/biomes/farmer_training.png",
+	"dirt_path": "res://art/tiles/paths/dirt_path.png",
+	"stone_path": "res://art/tiles/paths/stone_path.png",
+	"tilled_soil": "res://art/tiles/paths/tilled_soil.png",
+	"water": "res://art/tiles/water/water.png",
+	"creek": "res://art/tiles/water/creek.png",
+	"plot_boundary": "res://art/tiles/paths/plot_boundary.png",
+	"plot_corner": "res://art/tiles/paths/plot_corner.png",
+}
+
+const TRANSITION_PATHS := {
+	"grass_to_path": "res://art/tiles/terrain/grass_to_path.png",
+	"grass_to_water": "res://art/tiles/terrain/grass_to_water.png",
+	"grass_to_farmland": "res://art/tiles/terrain/grass_to_farmland.png",
+	"biome_soft_edge": "res://art/tiles/terrain/biome_soft_edge.png",
+	"path_edge": "res://art/tiles/terrain/path_edge.png",
+	"water_edge": "res://art/tiles/terrain/water_edge.png",
+}
+
+static func required_ids() -> Array[String]:
+	return REQUIRED_IDS.duplicate()
+
+static func normalize_id(terrain_id: String) -> String:
+	return String(terrain_id).strip_edges().to_lower()
+
+static func texture_path(terrain_id: String) -> String:
+	return resolve_path(String(TERRAIN_PATHS.get(normalize_id(terrain_id), FALLBACK_PATH)))
+
+static func texture(terrain_id: String) -> Texture2D:
+	return load(texture_path(terrain_id)) as Texture2D
+
+static func variation_index(terrain_id: String, tile: Vector2i) -> int:
+	var hash_value: int = hash("%s:%d:%d" % [normalize_id(terrain_id), tile.x, tile.y])
+	return absi(hash_value) % 4
+
+static func visual_for(terrain_id: String, tile: Vector2i = Vector2i.ZERO) -> Dictionary:
+	var normalized_id: String = normalize_id(terrain_id)
+	var path: String = texture_path(normalized_id)
+	return {
+		"id": normalized_id,
+		"path": path,
+		"texture": load(path) as Texture2D,
+		"fallback": path == FALLBACK_PATH,
+		"variation": variation_index(normalized_id, tile),
+		"tile_size": TILE_SIZE,
+	}
+
+static func make_tile_sprite(terrain_id: String, tile: Vector2i = Vector2i.ZERO) -> Sprite2D:
+	var visual: Dictionary = visual_for(terrain_id, tile)
+	var tex: Texture2D = visual.get("texture", null) as Texture2D
+	if tex == null:
+		return null
+	var sprite := Sprite2D.new()
+	sprite.name = "TerrainArt_%s" % String(visual.get("id", "unknown"))
+	sprite.texture = tex
+	sprite.centered = true
+	sprite.z_index = -1
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	return sprite
+
+static func transition_path(transition_id: String) -> String:
+	return resolve_path(String(TRANSITION_PATHS.get(normalize_id(transition_id), FALLBACK_PATH)))
+
+static func transition_visual(from_id: String, to_id: String) -> Dictionary:
+	var from_normalized: String = normalize_id(from_id)
+	var to_normalized: String = normalize_id(to_id)
+	var transition_id := "biome_soft_edge"
+	if _is_path(from_normalized) or _is_path(to_normalized):
+		transition_id = "grass_to_path"
+	if from_normalized == "water" or to_normalized == "water" or from_normalized == "creek" or to_normalized == "creek":
+		transition_id = "grass_to_water"
+	if from_normalized == "farmland" or to_normalized == "farmland" or from_normalized == "tilled_soil" or to_normalized == "tilled_soil":
+		transition_id = "grass_to_farmland"
+	var path: String = transition_path(transition_id)
+	return {
+		"id": transition_id,
+		"from": from_normalized,
+		"to": to_normalized,
+		"path": path,
+		"texture": load(path) as Texture2D,
+		"fallback": path == FALLBACK_PATH,
+	}
+
+static func _is_path(terrain_id: String) -> bool:
+	return terrain_id == "dirt_path" or terrain_id == "stone_path"

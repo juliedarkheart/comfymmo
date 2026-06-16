@@ -13,6 +13,7 @@ var _selection_outline: Line2D = null
 
 func _ready() -> void:
 	_ensure_selection_highlight()
+	_apply_registry_art()
 	_apply_visual_state()
 
 func set_tile_position(grid_tile: Vector2i, world_position: Vector2) -> void:
@@ -70,6 +71,33 @@ func _ensure_selection_highlight() -> void:
 		Vector2(-28, 8),
 	])
 	add_child(_selection_outline)
+
+func _art_object_id() -> String:
+	return ContentIds.PLACEABLE_CRATE
+
+func _apply_registry_art() -> void:
+	var art_id: String = _art_object_id()
+	if art_id.is_empty() or get_node_or_null("RegistryArtSprite") != null:
+		return
+	if not ObjectArtRegistry.has_art_id(art_id):
+		return
+	if ObjectArtRegistry.apply_sprite(self, art_id):
+		_hide_prototype_polygons()
+
+func _hide_prototype_polygons() -> void:
+	for child in get_children():
+		var child_node: Node = child as Node
+		if child_node == null:
+			continue
+		if child_node.name == "RegistryArtSprite" or String(child_node.name).begins_with("Selection"):
+			continue
+		if _keeps_polygon_with_registry_art(String(child_node.name)):
+			continue
+		if child_node is Polygon2D:
+			(child_node as Polygon2D).visible = false
+
+func _keeps_polygon_with_registry_art(_node_name: String) -> bool:
+	return false
 
 func _apply_visual_state() -> void:
 	_ensure_selection_highlight()

@@ -20,6 +20,8 @@ The reference mix is directional, not asset-copying:
 ## Style Rules
 
 - Use cozy 2D isometric or gentle 3/4 top-down staging.
+- Route game-facing terrain/object art through the art registries before adding
+  scene-specific paths.
 - Favor low visual noise: no harsh debug lines in normal gameplay.
 - Keep object silhouettes chunky enough to read at MMO camera distance.
 - Give every buildable item a clear footprint and recognizable outline.
@@ -48,3 +50,16 @@ The reference mix is directional, not asset-copying:
 This pass does not add combat, dungeons, economy, new world scale, or new
 gameplay systems. It establishes visual and UI conventions so existing and
 future systems can inherit a coherent Hearthvale style.
+
+See `docs/graphics_pipeline.md` for folder layout, placeholder generation,
+registry behavior, fallback art, and replacement order.
+
+## Graphics polish pass
+
+The placeholder art is now Pillow-rendered (4x supersampled, anti-aliased) so
+the cozy 2D isometric, storybook target reads in-engine: soft toy props, warm
+biome tiles with a subtle 3D lip, water that reads as water, cozy dirt/stone
+paths, and post/corner plot boundaries instead of harsh debug rectangles. UI is
+unchanged in structure but inventory slots now show registry icons. No external
+assets were imported this pass; everything is upgraded local placeholder art
+(see docs/asset_credits.md).

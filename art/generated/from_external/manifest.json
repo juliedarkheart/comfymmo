@@ -1,0 +1,14 @@
+{
+  "description": "Maps normalized derivative files (under from_external/active/) back to their verified external source files. The art registries prefer active/<mirrored path> over the generated placeholders. See docs/graphics_pipeline.md and docs/asset_credits.md.",
+  "derivatives": [],
+  "sources_imported": [
+    {
+      "source": "art/external/kenney/rpg-pack/RPGpack_sheet.png",
+      "license": "CC0-1.0",
+      "author": "Kenney (kenney.nl)",
+      "derivatives": [],
+      "status": "imported + license-verified, no derivatives sliced yet",
+      "reason": "Top-down 16px dungeon/RPG sheet does not match the cozy 64x32 isometric village; slicing the unlabeled grid into correct named sprites needs visual review. Generated placeholders remain active for all ids."
+    }
+  ]
+}

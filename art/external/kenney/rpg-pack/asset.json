@@ -1,0 +1,17 @@
+{
+  "asset_name": "Kenney RPG Pack",
+  "author": "Kenney (kenney.nl)",
+  "license": "CC0-1.0 (Creative Commons Zero / public domain)",
+  "license_file": "LICENSE.txt",
+  "attribution_required": false,
+  "attribution_courtesy": "Art by Kenney (www.kenney.nl), CC0",
+  "original_source": "https://kenney.nl/assets/rpg-pack",
+  "fetched_from": "https://github.com/iwenzhou/kenney (Art (5190 files)/RPG pack (230 assets)/Spritesheet)",
+  "fetched_url": "https://raw.githubusercontent.com/iwenzhou/kenney/master/Art%20(5190%20files)/RPG%20pack%20(230%20assets)/Spritesheet/RPGpack_sheet.png",
+  "files_imported": ["RPGpack_sheet.png", "LICENSE.txt"],
+  "modified": false,
+  "tile_size_px": 16,
+  "perspective": "top-down",
+  "status": "imported + license-verified; NOT yet wired into the game",
+  "notes": "Verified CC0 from the bundled LICENSE.txt (CC0 1.0 Universal). Kept as a real, license-tracked external import that proves the verified-CC0 pipeline. It is intentionally not wired: this is a 2014 top-down 16px dungeon/RPG sheet, which does not match Hearthvale's cozy 64x32 isometric village style, and the unlabeled grid can't be sliced into correct named sprites without visual review. To adopt: slice named cells, normalize to art/generated/from_external/active/<mirrored path>, and record in ../../../generated/from_external/manifest.json. The cozy generated placeholders remain the in-game look until an isometric-matched pack is chosen."
+}

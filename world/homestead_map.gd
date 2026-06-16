@@ -72,6 +72,7 @@ func _build_apron() -> void:
 				filler.color = Color("#c2a071")
 			else:
 				filler.color = _apron_color(tile)
+			_add_terrain_sprite(filler, _terrain_id_for_tile(tile), tile)
 			ground_layer.add_child(filler)
 
 func _apron_is_road(tile: Vector2i) -> bool:
@@ -82,6 +83,23 @@ func _apron_color(tile: Vector2i) -> Color:
 	if (tile.x + tile.y) % 2 == 0:
 		return Color("#74a25e")
 	return Color("#6c9954")
+
+func terrain_visual_for(terrain_id: String, tile: Vector2i = Vector2i.ZERO) -> Dictionary:
+	return TerrainArtRegistry.visual_for(terrain_id, tile)
+
+func _terrain_id_for_tile(tile: Vector2i) -> String:
+	if _apron_is_road(tile) or (tile.y in PATH_ROW_RANGE and tile.x >= COTTAGE_ORIGIN.x):
+		return "dirt_path"
+	if tile.x >= COTTAGE_ORIGIN.x - 1 and tile.x <= COTTAGE_ORIGIN.x + COTTAGE_FOOTPRINT.x and tile.y >= COTTAGE_ORIGIN.y - 1 and tile.y <= COTTAGE_ORIGIN.y + COTTAGE_FOOTPRINT.y:
+		return "town"
+	if tile in TREE_TILES:
+		return "forest"
+	return "meadow"
+
+func _add_terrain_sprite(parent: Node2D, terrain_id: String, tile: Vector2i) -> void:
+	var sprite := TerrainArtRegistry.make_tile_sprite(terrain_id, tile)
+	if sprite != null:
+		parent.add_child(sprite)
 
 func _build_topology() -> void:
 	# Gentle world-shape cues: a road curving toward the village exit, a shallow
@@ -420,6 +438,7 @@ func _build_ground() -> void:
 			base.polygon = _tile_diamond()
 			base.color = _tile_color(tile)
 			ground_tile.add_child(base)
+			_add_terrain_sprite(ground_tile, _terrain_id_for_tile(tile), tile)
 
 			var highlight := Polygon2D.new()
 			highlight.name = "Highlight"

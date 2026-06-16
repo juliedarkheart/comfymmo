@@ -11,6 +11,11 @@ This branch now has a first reusable Hearthvale visual direction:
   plot-boundary readability.
 - `docs/building_art_direction.md` defines the cozy survival-builder kit rules
   for modular pieces, prefabs, and interior deferrals.
+- `docs/graphics_pipeline.md` defines the generated placeholder pipeline,
+  registry routing, tile/object/icon sizes, fallback behavior, and replacement
+  order.
+- `docs/asset_credits.md` records that this pass imported no third-party art
+  and explains the CC0/public-domain metadata rules for future imports.
 
 Manual visual pass:
 
@@ -25,6 +30,11 @@ Manual visual pass:
    readable plot/player/landmark markers.
 7. Walk meadow, forest, orchard, creekside, hilltop, grove, town, and farmland
    areas and confirm terrain and HUD labels are distinguishable.
+8. Paint dirt path, stone path, water, and farmland through admin terrain tools
+   and confirm the same sprite palette appears in-world.
+9. Place crate, mailbox, fence/gate, wall, floor/foundation, roof, workbench,
+   cottage shell, and shed and confirm mapped registry sprites appear where
+   available while old procedural decor still remains readable.
 
 ## Verified automatically
 
@@ -53,6 +63,12 @@ The project validator and boot checks cover the following for this branch:
 - the shared interior scene loads
 - invalid or missing prefab interior metadata fails closed
 - modular/custom pieces are not required to have interiors
+- graphics docs and asset credits exist
+- required `art/` folders and generated PNG placeholders exist
+- terrain and object art registries load and safely resolve required ids
+- invalid terrain/object ids fall back to the missing-art placeholder
+- map renderer exposes terrain visual resolution helpers
+- external asset folders, if any, include license/source metadata
 
 ## Window controls & quitting
 
@@ -95,6 +111,8 @@ corner posts (not grey, not a debug line).
   fully local edit/remove flow
 - minimap and quick tools are intentionally lightweight UI, not full builder
   control surfaces
+- the current PNG art is placeholder foundation art, not final production art
+- terrain transitions are scaffolded assets/helpers, not full autotiling
 
 ## Manual test checklist
 
@@ -141,3 +159,22 @@ It is not claiming readiness for:
 - combat
 - player-authored adventure instances
 - full modular interior simulation
+
+## Graphics / asset pass status
+
+- Generated placeholder art was upgraded to Pillow (4x supersampled,
+  anti-aliased, cozy): biome tiles, paths, water, nature/building objects,
+  prefabs, and UI icons. Validation asserts every required PNG exists and that
+  the terrain/object registries resolve required ids and fall back safely.
+- **No external assets were imported.** Outbound HTTP reached asset homepages,
+  but a direct binary download returned HTTP 403 and no license file could be
+  fetched/verified, so per the hard rule nothing external was added. The import
+  pipeline (`art/external/` + license/source enforcement, `from_external/active`
+  derivative mirror, registry external→generated→missing order) is ready for a
+  verified CC0 drop-in later.
+- Inventory slots now show registry icons. Build-menu per-row icons and a
+  build/edit toolbar icon strip are a deferred, low-risk next step (icons +
+  registry already resolve).
+- Still placeholder / deferred: final production art for every category, a
+  player/character sprite, neighbor-aware terrain autotiling (only a simple
+  deterministic edge-hint scaffold exists today).

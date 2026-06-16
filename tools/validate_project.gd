@@ -13,6 +13,8 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://world/terrain_shapes.gd",
 	"res://world/iso_map_helpers.gd",
 	"res://world/outdoor_controller_helpers.gd",
+	"res://systems/art/terrain_art_registry.gd",
+	"res://systems/art/object_art_registry.gd",
 	"res://systems/content/content_ids.gd",
 	"res://systems/content/content_registry.gd",
 	"res://systems/world_region_manager.gd",
@@ -107,7 +109,100 @@ const VISUAL_DOC_CHECKS := {
 	"res://docs/ui_style_guide.md": ["cozy_ui_theme.gd", "Close", "selected", "unavailable"],
 	"res://docs/world_art_direction.md": ["meadow", "forest", "creekside", "terrain_color", "minimap"],
 	"res://docs/building_art_direction.md": ["foundation", "wall", "prefab", "modular", "interiors"],
+	"res://docs/graphics_pipeline.md": ["terrain_art_registry.gd", "object_art_registry.gd", "fallback", "replacement order"],
+	"res://docs/asset_credits.md": ["no third-party assets", "CC0", "art/external", "license"],
 }
+
+const REQUIRED_ART_DIRS: Array[String] = [
+	"res://art/tiles",
+	"res://art/tiles/terrain",
+	"res://art/tiles/biomes",
+	"res://art/tiles/paths",
+	"res://art/tiles/water",
+	"res://art/objects",
+	"res://art/objects/building",
+	"res://art/objects/nature",
+	"res://art/objects/decor",
+	"res://art/characters",
+	"res://art/creatures",
+	"res://art/ui",
+	"res://art/ui/icons",
+	"res://art/placeholders",
+	"res://art/generated",
+	"res://art/generated/from_external",
+	"res://art/external",
+	"res://tools/art",
+]
+
+const REQUIRED_GENERATED_PNGS: Array[String] = [
+	"res://art/placeholders/missing.png",
+	"res://art/tiles/biomes/meadow.png",
+	"res://art/tiles/biomes/forest.png",
+	"res://art/tiles/biomes/orchard.png",
+	"res://art/tiles/biomes/creekside.png",
+	"res://art/tiles/biomes/riverbank.png",
+	"res://art/tiles/biomes/hilltop.png",
+	"res://art/tiles/biomes/grove.png",
+	"res://art/tiles/biomes/town.png",
+	"res://art/tiles/biomes/farmland.png",
+	"res://art/tiles/biomes/farmer_training.png",
+	"res://art/tiles/paths/dirt_path.png",
+	"res://art/tiles/paths/stone_path.png",
+	"res://art/tiles/paths/tilled_soil.png",
+	"res://art/tiles/paths/plot_boundary.png",
+	"res://art/tiles/paths/plot_corner.png",
+	"res://art/tiles/water/water.png",
+	"res://art/tiles/water/creek.png",
+	"res://art/tiles/water/water_edge.png",
+	"res://art/tiles/terrain/grass_to_path.png",
+	"res://art/tiles/terrain/grass_to_water.png",
+	"res://art/tiles/terrain/grass_to_farmland.png",
+	"res://art/tiles/terrain/biome_soft_edge.png",
+	"res://art/tiles/terrain/path_edge.png",
+	"res://art/tiles/terrain/water_edge.png",
+	"res://art/objects/nature/tree.png",
+	"res://art/objects/nature/fruit_tree.png",
+	"res://art/objects/nature/rock.png",
+	"res://art/objects/nature/bush.png",
+	"res://art/objects/nature/flower_patch.png",
+	"res://art/objects/nature/water_edge.png",
+	"res://art/objects/nature/crop_carrot.png",
+	"res://art/objects/decor/fence.png",
+	"res://art/objects/decor/gate.png",
+	"res://art/objects/decor/sign.png",
+	"res://art/objects/decor/mailbox.png",
+	"res://art/objects/building/foundation.png",
+	"res://art/objects/building/floor.png",
+	"res://art/objects/building/wall.png",
+	"res://art/objects/building/stone_wall.png",
+	"res://art/objects/building/door_wall.png",
+	"res://art/objects/building/window_wall.png",
+	"res://art/objects/building/roof.png",
+	"res://art/objects/building/post.png",
+	"res://art/objects/building/workbench.png",
+	"res://art/objects/building/storage_chest.png",
+	"res://art/objects/building/crate.png",
+	"res://art/objects/building/prefab_cottage.png",
+	"res://art/objects/building/prefab_shed.png",
+	"res://art/objects/building/well.png",
+	"res://art/objects/building/stairs.png",
+	"res://art/ui/icons/wood.png",
+	"res://art/ui/icons/stone.png",
+	"res://art/ui/icons/fiber.png",
+	"res://art/ui/icons/clay.png",
+	"res://art/ui/icons/carrot.png",
+	"res://art/ui/icons/worn_axe.png",
+	"res://art/ui/icons/worn_pickaxe.png",
+	"res://art/ui/icons/worn_hoe.png",
+	"res://art/ui/icons/watering_can.png",
+	"res://art/ui/icons/simple_hammer.png",
+	"res://art/ui/icons/basic_shovel.png",
+	"res://art/ui/icons/land_token.png",
+	"res://art/ui/icons/build_tool.png",
+	"res://art/ui/icons/delete.png",
+	"res://art/ui/icons/rotate.png",
+	"res://art/ui/icons/paint.png",
+]
 
 var _validation_placeable_ids: Array[String] = []
 var _validation_active_placeable_id: String = ""
@@ -138,6 +233,55 @@ func _validation_get_identity() -> Dictionary:
 
 func _validation_claim_plot(_plot_id: String) -> void:
 	pass
+
+func _folder_has_any_file(folder_path: String, file_names: Array[String]) -> bool:
+	for file_name in file_names:
+		if FileAccess.file_exists("%s/%s" % [folder_path, file_name]):
+			return true
+	return false
+
+func _external_metadata_error(folder_path: String) -> String:
+	var license_names: Array[String] = ["LICENSE", "LICENSE.txt", "LICENSE.md", "COPYING", "COPYING.txt"]
+	var source_names: Array[String] = ["README.md", "README.txt", "SOURCE.txt", "CREDITS.txt", "ATTRIBUTION.txt", "NOTICE", "asset.json", "source.json"]
+	if not _folder_has_any_file(folder_path, license_names):
+		return "External asset folder missing LICENSE/COPYING metadata: %s" % folder_path
+	if not _folder_has_any_file(folder_path, source_names):
+		return "External asset folder missing README/SOURCE/CREDITS metadata: %s" % folder_path
+	return ""
+
+func _validate_external_asset_tree(root_path: String) -> String:
+	var root: DirAccess = DirAccess.open(root_path)
+	if root == null:
+		return "External asset root could not be opened: %s" % root_path
+	root.list_dir_begin()
+	var source_name: String = root.get_next()
+	while not source_name.is_empty():
+		if root.current_is_dir() and not source_name.begins_with("."):
+			var source_path := "%s/%s" % [root_path, source_name]
+			var source_dir: DirAccess = DirAccess.open(source_path)
+			if source_dir == null:
+				return "External asset source folder could not be opened: %s" % source_path
+			source_dir.list_dir_begin()
+			var asset_name: String = source_dir.get_next()
+			var found_asset_folder := false
+			while not asset_name.is_empty():
+				if source_dir.current_is_dir() and not asset_name.begins_with("."):
+					found_asset_folder = true
+					var metadata_error: String = _external_metadata_error("%s/%s" % [source_path, asset_name])
+					if not metadata_error.is_empty():
+						source_dir.list_dir_end()
+						root.list_dir_end()
+						return metadata_error
+				asset_name = source_dir.get_next()
+			source_dir.list_dir_end()
+			if not found_asset_folder:
+				var source_metadata_error: String = _external_metadata_error(source_path)
+				if not source_metadata_error.is_empty():
+					root.list_dir_end()
+					return source_metadata_error
+		source_name = root.get_next()
+	root.list_dir_end()
+	return ""
 
 func _initialize() -> void:
 	for resource_path in RESOURCE_PATHS:
@@ -175,6 +319,134 @@ func _initialize() -> void:
 				push_error("Visual identity doc '%s' is missing '%s'" % [doc_path, required_snippet])
 				quit(1)
 				return
+
+	# Graphics asset foundation: folder contract, generated placeholders,
+	# registry lookups, safe fallbacks, and renderer wiring.
+	for dir_path in REQUIRED_ART_DIRS:
+		if DirAccess.open(dir_path) == null:
+			push_error("Required art folder missing: %s" % dir_path)
+			quit(1)
+			return
+	if not FileAccess.file_exists("res://tools/art/generate_placeholder_art.py"):
+		push_error("Generated placeholder script is missing")
+		quit(1)
+		return
+	if not FileAccess.file_exists("res://art/generated/README.md"):
+		push_error("Generated placeholder README is missing")
+		quit(1)
+		return
+	for png_path in REQUIRED_GENERATED_PNGS:
+		if not FileAccess.file_exists(png_path):
+			push_error("Required generated art PNG missing: %s" % png_path)
+			quit(1)
+			return
+	var external_error: String = _validate_external_asset_tree("res://art/external")
+	if not external_error.is_empty():
+		push_error(external_error)
+		quit(1)
+		return
+	if TerrainArtRegistry.texture_path("__invalid_terrain__") != TerrainArtRegistry.FALLBACK_PATH:
+		push_error("TerrainArtRegistry invalid id did not return fallback path")
+		quit(1)
+		return
+	if TerrainArtRegistry.texture("__invalid_terrain__") == null:
+		push_error("TerrainArtRegistry fallback texture failed to load")
+		quit(1)
+		return
+	for terrain_id_variant in TerrainArtRegistry.required_ids():
+		var terrain_id: String = String(terrain_id_variant)
+		var terrain_visual: Dictionary = TerrainArtRegistry.visual_for(terrain_id, Vector2i(3, 4))
+		if bool(terrain_visual.get("fallback", true)):
+			push_error("Required terrain id resolved to fallback instead of art: %s" % terrain_id)
+			quit(1)
+			return
+		if terrain_visual.get("texture", null) == null:
+			push_error("Required terrain id resolved to null texture: %s" % terrain_id)
+			quit(1)
+			return
+		if not FileAccess.file_exists(String(terrain_visual.get("path", ""))):
+			push_error("Required terrain id resolved to missing path: %s" % terrain_id)
+			quit(1)
+			return
+	var transition_visual: Dictionary = TerrainArtRegistry.transition_visual("meadow", "water")
+	if String(transition_visual.get("id", "")) != "grass_to_water" or transition_visual.get("texture", null) == null:
+		push_error("TerrainArtRegistry transition helper did not return a safe grass_to_water visual")
+		quit(1)
+		return
+	if ObjectArtRegistry.texture_path("__invalid_object__") != ObjectArtRegistry.FALLBACK_PATH:
+		push_error("ObjectArtRegistry invalid id did not return fallback path")
+		quit(1)
+		return
+	if ObjectArtRegistry.texture("__invalid_object__") == null:
+		push_error("ObjectArtRegistry fallback texture failed to load")
+		quit(1)
+		return
+	for object_id_variant in ObjectArtRegistry.required_ids():
+		var object_id: String = String(object_id_variant)
+		var object_visual: Dictionary = ObjectArtRegistry.visual_for(object_id)
+		if bool(object_visual.get("fallback", true)):
+			push_error("Required object/icon id resolved to fallback instead of art: %s" % object_id)
+			quit(1)
+			return
+		if object_visual.get("texture", null) == null:
+			push_error("Required object/icon id resolved to null texture: %s" % object_id)
+			quit(1)
+			return
+		if not FileAccess.file_exists(String(object_visual.get("path", ""))):
+			push_error("Required object/icon id resolved to missing path: %s" % object_id)
+			quit(1)
+			return
+	var registry_sprite := ObjectArtRegistry.make_sprite(ContentIds.PLACEABLE_WOOD_WALL)
+	if registry_sprite == null or registry_sprite.texture == null:
+		push_error("ObjectArtRegistry.make_sprite failed for wood wall")
+		if registry_sprite != null:
+			registry_sprite.free()
+		quit(1)
+		return
+	registry_sprite.free()
+	# External-preference resolver: with no imported derivative, a real id must
+	# resolve to the generated placeholder (not missing); an unknown id resolves
+	# to missing. This proves the external -> generated -> missing order is wired.
+	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow")) != "generated":
+		push_error("Terrain external-preference resolver did not classify meadow as generated")
+		quit(1)
+		return
+	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("__nope__")) != "missing":
+		push_error("Terrain external-preference resolver did not classify an unknown id as missing")
+		quit(1)
+		return
+	if ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(ContentIds.PLACEABLE_WOOD_WALL)) != "generated":
+		push_error("Object external-preference resolver did not classify wood wall as generated")
+		quit(1)
+		return
+	var map_probe := HomesteadMap.new()
+	if not map_probe.has_method("terrain_visual_for"):
+		push_error("Map renderer is missing terrain_visual_for helper")
+		map_probe.free()
+		quit(1)
+		return
+	var map_visual: Dictionary = map_probe.call("terrain_visual_for", "meadow", Vector2i(0, 0)) as Dictionary
+	map_probe.free()
+	if map_visual.is_empty() or bool(map_visual.get("fallback", true)) or map_visual.get("texture", null) == null:
+		push_error("Map renderer terrain_visual_for did not resolve meadow art")
+		quit(1)
+		return
+	var graphics_homestead_map_source: String = FileAccess.get_file_as_string("res://world/homestead_map.gd")
+	var graphics_overworld_map_source: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	if not graphics_homestead_map_source.contains("TerrainArtRegistry.make_tile_sprite"):
+		push_error("HomesteadMap does not use TerrainArtRegistry for tile sprites")
+		quit(1)
+		return
+	if not graphics_overworld_map_source.contains("_add_terrain_sprite"):
+		push_error("OverworldMap does not route plot/terrain override sprites through the map helper")
+		quit(1)
+		return
+	var graphics_decor_visual_source: String = FileAccess.get_file_as_string("res://buildings/decor_visuals.gd")
+	var graphics_crate_visual_source: String = FileAccess.get_file_as_string("res://buildings/placeable_crate.gd")
+	if not graphics_decor_visual_source.contains("ObjectArtRegistry.has_art_id") or not graphics_crate_visual_source.contains("ObjectArtRegistry.apply_sprite"):
+		push_error("Placeable visuals are not wired to ObjectArtRegistry")
+		quit(1)
+		return
 	if CozyUITheme.panel_style() == null or CozyUITheme.slot_style(true) == null or CozyUITheme.hud_panel_style() == null:
 		push_error("CozyUITheme style factories returned null")
 		quit(1)

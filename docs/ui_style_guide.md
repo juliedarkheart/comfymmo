@@ -9,6 +9,8 @@ The reusable helper is `ui/cozy_ui_theme.gd`.
 
 - Main panels use warm parchment with a thick wood border.
 - HUD/minimap frames can use darker wood, but text must stay cream and readable.
+- Item/tool/resource icons should come from `systems/art/object_art_registry.gd`
+  or a future UI-specific registry, not panel-local hardcoded paths.
 - Buttons use parchment slots with honey hover/pressed states.
 - Category tabs use the same button style, with a stronger selected state.
 - Item slots use pale parchment; selected slots use honey; unavailable slots are
@@ -53,3 +55,11 @@ Keep the HUD compact. It should orient the player without covering the world.
 - Prefer item slots or grouped rows over long walls of text.
 - Use clear denial feedback when an action is blocked.
 - Use consistent selected state rather than relying on text alone.
+
+## Icons
+
+Inventory slots now show a cozy `ObjectArtRegistry` icon above the name/count
+when one resolves (materials, crops, tools, land token); items with no icon keep
+text only, and the missing-art X never appears (slots check `source_of != missing`).
+Toolbar icons exist and resolve (`build_tool`, `delete`, `rotate`, `paint`) for a
+later, low-risk build/edit toolbar adoption — text labels stay either way.
