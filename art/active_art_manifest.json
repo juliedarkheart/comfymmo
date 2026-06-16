@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "description": "Activation manifest for external art. Keys are art ids/paths relative to res://art/ (e.g. 'ui/icons/wood.png'); values point at the activated, normalized derivative (relative to res://art/, normally under generated/from_external/active/...). The art registries (via ArtActivation) only use an external derivative when it is listed here. An empty 'active' map means the game uses the cozy generated placeholders everywhere — the safe default. Do NOT add entries for unreviewed or mismatched assets; review the contact sheets under art/review/ and the in-editor preview (tools/art/asset_preview.tscn) first. See docs/asset_review_workflow.md.",
+  "active": {}
+}

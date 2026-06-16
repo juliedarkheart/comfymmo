@@ -15,6 +15,8 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://world/outdoor_controller_helpers.gd",
 	"res://systems/art/terrain_art_registry.gd",
 	"res://systems/art/object_art_registry.gd",
+	"res://systems/art/art_activation.gd",
+	"res://tools/art/asset_preview.tscn",
 	"res://systems/content/content_ids.gd",
 	"res://systems/content/content_registry.gd",
 	"res://systems/world_region_manager.gd",
@@ -111,6 +113,7 @@ const VISUAL_DOC_CHECKS := {
 	"res://docs/building_art_direction.md": ["foundation", "wall", "prefab", "modular", "interiors"],
 	"res://docs/graphics_pipeline.md": ["terrain_art_registry.gd", "object_art_registry.gd", "fallback", "replacement order"],
 	"res://docs/asset_credits.md": ["no third-party assets", "CC0", "art/external", "license"],
+	"res://docs/asset_review_workflow.md": ["contact sheet", "active_art_manifest.json", "art/review", "not auto-wired"],
 }
 
 const REQUIRED_ART_DIRS: Array[String] = [
@@ -131,6 +134,7 @@ const REQUIRED_ART_DIRS: Array[String] = [
 	"res://art/generated",
 	"res://art/generated/from_external",
 	"res://art/external",
+	"res://art/review",
 	"res://tools/art",
 ]
 
@@ -419,6 +423,37 @@ func _initialize() -> void:
 		push_error("Object external-preference resolver did not classify wood wall as generated")
 		quit(1)
 		return
+	# Manifest-driven activation: the activation manifest must exist + parse, and
+	# with no activated entries the resolver must return generated art (proving an
+	# imported pack can't blind-replace art just by sitting in the active folder).
+	if not FileAccess.file_exists("res://art/active_art_manifest.json"):
+		push_error("art/active_art_manifest.json is missing")
+		quit(1)
+		return
+	var activation_file: FileAccess = FileAccess.open("res://art/active_art_manifest.json", FileAccess.READ)
+	var activation_parsed: Variant = JSON.parse_string(activation_file.get_as_text())
+	if typeof(activation_parsed) != TYPE_DICTIONARY or typeof((activation_parsed as Dictionary).get("active", null)) != TYPE_DICTIONARY:
+		push_error("active_art_manifest.json must be an object with an 'active' map")
+		quit(1)
+		return
+	ArtActivation.reload()
+	if ArtActivation.active_count() != (activation_parsed as Dictionary)["active"].size():
+		push_error("ArtActivation did not load the manifest's active entries")
+		quit(1)
+		return
+	# An id that is NOT in the manifest must get no override (so it stays generated).
+	if not ArtActivation.override_for("res://art/tiles/biomes/meadow.png").is_empty() and not (activation_parsed as Dictionary)["active"].has("tiles/biomes/meadow.png"):
+		push_error("ArtActivation returned an override for an un-activated id")
+		quit(1)
+		return
+	# The downloaded-but-unwired Kenney sheet must NOT be active anywhere.
+	if (activation_parsed as Dictionary)["active"].size() > 0:
+		for active_key in (activation_parsed as Dictionary)["active"].keys():
+			var active_value: String = String((activation_parsed as Dictionary)["active"][active_key])
+			if not active_value.is_empty() and not FileAccess.file_exists("res://art/" + active_value.trim_prefix("res://art/")):
+				push_error("active_art_manifest entry points at a missing derivative: %s" % active_value)
+				quit(1)
+				return
 	var map_probe := HomesteadMap.new()
 	if not map_probe.has_method("terrain_visual_for"):
 		push_error("Map renderer is missing terrain_visual_for helper")

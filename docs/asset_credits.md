@@ -87,5 +87,15 @@ automatically (see docs/graphics_pipeline.md).
 
 ## Known Credit Gaps
 
-None for this pass, because no external assets were imported. Final-production
-art for every category is still deferred (placeholders only).
+No CC-BY/CC-BY-SA attribution is currently owed: the only import (Kenney RPG
+pack) is CC0, and it is not wired. Final-production art for every category is
+still deferred (placeholders only).
+
+## Review + activation
+
+External art only becomes live after human review and an explicit entry in
+`art/active_art_manifest.json` (see docs/asset_review_workflow.md). Contact sheets
+live in `art/review/`; the in-editor preview is `tools/art/asset_preview.tscn`.
+The Kenney sheet is reviewable (`art/review/kenney_rpg-pack_contactsheet.png`,
+64×64 cells) but **not activated** — it is top-down medieval/RPG art that does
+not fit the cozy isometric world.

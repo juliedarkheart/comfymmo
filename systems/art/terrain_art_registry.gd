@@ -7,20 +7,18 @@ class_name TerrainArtRegistry
 const FALLBACK_PATH := "res://art/placeholders/missing.png"
 const TILE_SIZE := Vector2i(64, 48)
 
-## Imported/normalized CC0 art, when present, is preferred over the generated
-## placeholder. Drop a derivative at the SAME relative path under this root (e.g.
-## res://art/generated/from_external/active/tiles/biomes/meadow.png) and the
-## registry picks it up automatically — no id-table edits. Order is therefore:
-## external-derivative -> generated placeholder -> missing fallback.
+## Activated external derivatives live under this root, but are only used when
+## ALSO listed in art/active_art_manifest.json (see ArtActivation). A derivative
+## just sitting in the folder is NOT used until activated — this is what prevents
+## blind full-pack replacement. Order: activated external -> generated -> missing.
 const EXTERNAL_ACTIVE_ROOT := "res://art/generated/from_external/active/"
 
 ## Resolve a mapped art path through the preference order. Always returns a path
 ## that exists (falls back to the obvious-but-safe missing placeholder).
 static func resolve_path(mapped_path: String) -> String:
-	if mapped_path.begins_with("res://art/"):
-		var override_path: String = EXTERNAL_ACTIVE_ROOT + mapped_path.substr("res://art/".length())
-		if FileAccess.file_exists(override_path):
-			return override_path
+	var override_path: String = ArtActivation.override_for(mapped_path)
+	if not override_path.is_empty():
+		return override_path
 	if FileAccess.file_exists(mapped_path):
 		return mapped_path
 	return FALLBACK_PATH

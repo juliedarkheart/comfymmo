@@ -178,3 +178,16 @@ It is not claiming readiness for:
 - Still placeholder / deferred: final production art for every category, a
   player/character sprite, neighbor-aware terrain autotiling (only a simple
   deterministic edge-hint scaffold exists today).
+
+## Asset review workflow
+
+- There is now a review-before-wiring pipeline: `tools/art/` slicer +
+  contact-sheet + importer, contact sheets under `art/review/`, an in-editor
+  preview scene (`tools/art/asset_preview.tscn`, F6), and a manifest-driven
+  activation layer (`art/active_art_manifest.json` + `ArtActivation`). The
+  registries only use an external derivative when it's listed in the manifest, so
+  imported packs can't blind-replace the cozy generated art.
+- The Kenney CC0 RPG sheet has a review contact sheet (64×64 cells) but is **not
+  activated** (top-down/medieval, not cozy-iso). No external art is active; the
+  generated placeholders remain the in-game look. Validation asserts the review
+  docs/dir, the activation manifest parses, and the safe (generated) default.

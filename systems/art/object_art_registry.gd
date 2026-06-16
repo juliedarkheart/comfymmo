@@ -8,16 +8,15 @@ const FALLBACK_PATH := "res://art/placeholders/missing.png"
 const OBJECT_SPRITE_SIZE := Vector2i(96, 96)
 const ICON_SIZE := Vector2i(64, 64)
 
-## Prefer an imported/normalized CC0 derivative mirrored under this root over the
-## generated placeholder. Resolution order: external-derivative -> generated ->
-## missing. See systems/art/terrain_art_registry.gd for the mirroring convention.
+## Activated external derivatives live under this root, but are only used when
+## ALSO listed in art/active_art_manifest.json (see ArtActivation). Resolution
+## order: activated external derivative -> generated placeholder -> missing.
 const EXTERNAL_ACTIVE_ROOT := "res://art/generated/from_external/active/"
 
 static func resolve_path(mapped_path: String) -> String:
-	if mapped_path.begins_with("res://art/"):
-		var override_path: String = EXTERNAL_ACTIVE_ROOT + mapped_path.substr("res://art/".length())
-		if FileAccess.file_exists(override_path):
-			return override_path
+	var override_path: String = ArtActivation.override_for(mapped_path)
+	if not override_path.is_empty():
+		return override_path
 	if FileAccess.file_exists(mapped_path):
 		return mapped_path
 	return FALLBACK_PATH

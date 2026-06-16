@@ -159,3 +159,14 @@ Recommended final-art pass order:
 
 Keep replacement changes data-only where possible: swap PNGs and registry paths
 before touching gameplay code.
+
+## Review + activation workflow
+
+External packs are never wired on download. They go through a review path —
+contact sheets in `art/review/`, an in-editor preview (`tools/art/asset_preview.tscn`,
+F6), then manual normalize + activation. The registries resolve **activated
+external derivative → generated placeholder → missing fallback**, where
+"activated" means listed in `art/active_art_manifest.json` (via `ArtActivation`),
+not merely present on disk. Empty manifest = all generated. Full details and the
+`tools/art/` helpers (`import_asset_pack.py`, `make_asset_contact_sheet.py`,
+`slice_spritesheet.py`) are in `docs/asset_review_workflow.md`.
