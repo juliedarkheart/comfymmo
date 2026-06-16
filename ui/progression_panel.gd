@@ -28,7 +28,9 @@ func is_open() -> bool:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	if event is InputEventKey and event.echo:
+		return
+	if event.is_action_pressed("cancel_action"):
 		visible = false
 		var viewport: Viewport = get_viewport()
 		if viewport != null:

@@ -17,6 +17,7 @@ signal close_requested()
 
 func _ready() -> void:
 	visible = false
+	_apply_style()
 	$Dim/Panel/Rows/ResumeButton.pressed.connect(_request_close)
 	$Dim/Panel/Rows/FullscreenButton.pressed.connect(_on_fullscreen)
 	$Dim/Panel/Rows/SettingsButton.pressed.connect(_on_settings)
@@ -24,6 +25,16 @@ func _ready() -> void:
 	$Dim/Panel/Rows/CloseButton.pressed.connect(_request_close)
 	_vsync_button.pressed.connect(_on_vsync)
 	_refresh_vsync_label()
+
+func _apply_style() -> void:
+	CozyUITheme.apply_panel($Dim/Panel)
+	CozyUITheme.apply_heading_label($Dim/Panel/Rows/Title, 24)
+	CozyUITheme.apply_secondary_label(_mode_label, 13)
+	CozyUITheme.apply_secondary_label($Dim/Panel/Rows/SettingsBox/DisplayInfo, 11)
+	for button_variant in $Dim/Panel/Rows.find_children("*", "Button", true, false):
+		CozyUITheme.apply_button(button_variant as Button)
+	CozyUITheme.apply_danger_button($Dim/Panel/Rows/QuitButton)
+	CozyUITheme.apply_close_button($Dim/Panel/Rows/CloseButton)
 
 func open() -> void:
 	visible = true
@@ -39,11 +50,11 @@ func is_open() -> bool:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
+	if event is InputEventKey and event.echo:
+		return
 	if (
-		event is InputEventKey
-		and event.pressed
-		and not event.echo
-		and event.is_action_pressed("toggle_system_menu")
+		event.is_action_pressed("toggle_system_menu")
+		or event.is_action_pressed("cancel_action")
 	):
 		_request_close()
 		var viewport: Viewport = get_viewport()

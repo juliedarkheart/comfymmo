@@ -21,6 +21,10 @@ var _chips: Dictionary = {}
 
 @onready var _strip: VBoxContainer = $Panel/Strip
 
+func _ready() -> void:
+	CozyUITheme.apply_hud_panel($Panel)
+	CozyUITheme.apply_secondary_label($Panel/Strip/ToolsTitle, 11, true)
+
 func setup(get_count: Callable) -> void:
 	_get_count = get_count
 	_build_chips()
@@ -32,7 +36,7 @@ func _build_chips() -> void:
 		chip.custom_minimum_size = Vector2(72, 26)
 		chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		chip.add_theme_font_size_override("font_size", 13)
+		CozyUITheme.apply_body_label(chip, 13, true)
 		_strip.add_child(chip)
 		_chips[tool_id] = chip
 
@@ -43,4 +47,5 @@ func refresh() -> void:
 		var owned: bool = int(_get_count.call(tool_id)) > 0
 		var chip: Label = _chips[tool_id]
 		chip.text = String(TOOL_GLYPHS.get(tool_id, tool_id))
-		chip.add_theme_color_override("font_color", Color("#f5f0e6") if owned else Color(0.6, 0.56, 0.5, 0.6))
+		chip.add_theme_stylebox_override("normal", CozyUITheme.slot_style(owned, not owned))
+		chip.add_theme_color_override("font_color", CozyUITheme.INK if owned else CozyUITheme.INK_SOFT)

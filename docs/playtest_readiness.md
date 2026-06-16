@@ -1,5 +1,31 @@
 # Playtest Readiness
 
+## Visual/UI foundation checks
+
+This branch now has a first reusable Hearthvale visual direction:
+
+- `docs/visual_identity.md` defines the cozy 2D isometric storybook target.
+- `docs/ui_style_guide.md` defines shared parchment/wood/honey panel styling,
+  slots, tabs, selected states, and close-path expectations.
+- `docs/world_art_direction.md` defines terrain, biome, path, water, road, and
+  plot-boundary readability.
+- `docs/building_art_direction.md` defines the cozy survival-builder kit rules
+  for modular pieces, prefabs, and interior deferrals.
+
+Manual visual pass:
+
+1. Open the system menu, inventory, build menu, land panel, admin panel, edit
+   toolbar, quick tools, and minimap.
+2. Confirm the panels share parchment/wood/honey styling and readable text.
+3. Confirm important panels have visible Close/Resume/Cancel paths.
+4. Confirm inventory categories read as item slots rather than a plain text dump.
+5. Confirm build-menu tabs, selected item info, costs, unavailable states, and
+   controls are visible.
+6. Confirm the minimap is clipped, styled like a small map object, and uses
+   readable plot/player/landmark markers.
+7. Walk meadow, forest, orchard, creekside, hilltop, grove, town, and farmland
+   areas and confirm terrain and HUD labels are distinguishable.
+
 ## Verified automatically
 
 The project validator and boot checks cover the following for this branch:

@@ -1,11 +1,8 @@
 extends CanvasLayer
 
-## Full player inventory (I): identity header + every item category (materials,
-## crops, components, tools, tokens, weapons, wearables). Snapshot-driven like
-## the crafting/progression panels — the controller supplies a per-item count
-## getter and an identity getter, so the same panel serves offline (local
-## InventorySystem) and connected (server pouch). Esc or I closes. Unknown ids
-## degrade to a capitalized label rather than crashing.
+## Full player inventory (I): identity header plus item categories. Snapshot
+## driven like the crafting/progression panels, so the same panel serves offline
+## and connected sessions. Esc, I, or the Close button hides it.
 
 var _get_count: Callable = Callable()       # (item_id) -> int
 var _get_identity: Callable = Callable()    # () -> Dictionary
@@ -13,6 +10,7 @@ var _get_identity: Callable = Callable()    # () -> Dictionary
 var _identity_label: Label = null
 var _body: VBoxContainer = null
 
+@onready var _panel: PanelContainer = $Panel
 @onready var _root_rows: VBoxContainer = $Panel/Rows
 @onready var _scroll_body: VBoxContainer = $Panel/Rows/Scroll/Body
 
@@ -23,17 +21,28 @@ func setup(get_count: Callable, get_identity: Callable) -> void:
 func _ready() -> void:
 	visible = false
 	_body = _scroll_body
-	var title: Label = Label.new()
-	title.text = "Inventory  —  I or Esc to close"
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color("#f8de9a"))
-	_root_rows.add_child(title)
-	_root_rows.move_child(title, 0)
+	CozyUITheme.apply_panel(_panel)
+
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	_root_rows.add_child(header)
+	_root_rows.move_child(header, 0)
+
+	var title := Label.new()
+	title.text = "Inventory"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	CozyUITheme.apply_heading_label(title, 20)
+	header.add_child(title)
+
+	var close_button := Button.new()
+	close_button.text = "Close (Esc)"
+	close_button.pressed.connect(close_panel)
+	CozyUITheme.apply_close_button(close_button)
+	header.add_child(close_button)
 
 	_identity_label = Label.new()
 	_identity_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_identity_label.add_theme_font_size_override("font_size", 14)
-	_identity_label.add_theme_color_override("font_color", Color("#bfe0ff"))
+	CozyUITheme.apply_body_label(_identity_label, 14)
 	_root_rows.add_child(_identity_label)
 	_root_rows.move_child(_identity_label, 1)
 
@@ -56,7 +65,9 @@ func toggle_panel() -> void:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	if event is InputEventKey and event.echo:
+		return
+	if event.is_action_pressed("cancel_action"):
 		close_panel()
 		var viewport: Viewport = get_viewport()
 		if viewport != null:
@@ -80,44 +91,69 @@ func _refresh_identity() -> void:
 		return
 	var identity: Dictionary = _get_identity.call() if _get_identity.is_valid() else {}
 	var short_id: String = String(identity.get("profile_id", "")).substr(0, 10)
-	_identity_label.text = "%s (@%s)  ·  %s  ·  Plot: %s\nProfile %s" % [
+	_identity_label.text = "%s (@%s) | %s | Plot: %s\nProfile %s" % [
 		String(identity.get("display_name", "Villager")),
 		String(identity.get("username", "villager")),
 		String(identity.get("mode", "Offline")),
-		String(identity.get("plot_status", "—")),
+		String(identity.get("plot_status", "-")),
 		short_id,
 	]
 
-## One category section: a header plus a line per id. `always_show` lists every
-## id even at 0 (tools/tokens); otherwise only owned items show, with "None"
-## when the category is empty.
 func _add_category(title: String, ids: Array, always_show: bool = false) -> void:
-	var header: Label = Label.new()
+	var header := Label.new()
 	header.text = title
-	header.add_theme_font_size_override("font_size", 15)
-	header.add_theme_color_override("font_color", Color("#f8de9a"))
+	CozyUITheme.apply_heading_label(header, 15)
 	_body.add_child(header)
 
-	var shown: int = 0
+	var entries: Array = []
 	for id_variant in ids:
 		var item_id: String = String(id_variant)
 		var count: int = int(_get_count.call(item_id)) if _get_count.is_valid() else 0
 		if count <= 0 and not always_show:
 			continue
-		shown += 1
-		var line: Label = Label.new()
-		var mark: String = ("✓ " if count > 0 else "·  ") if always_show else ""
-		line.text = "  %s%s × %d" % [mark, _item_label(item_id), count]
-		line.add_theme_font_size_override("font_size", 14)
-		line.add_theme_color_override("font_color", Color(0.96, 0.93, 0.85, 1.0) if count > 0 else Color(0.96, 0.93, 0.85, 0.5))
-		_body.add_child(line)
+		entries.append({"item_id": item_id, "count": count, "owned": count > 0})
 
-	if shown == 0:
-		var none_line: Label = Label.new()
-		none_line.text = "  None yet"
-		none_line.add_theme_font_size_override("font_size", 14)
-		none_line.add_theme_color_override("font_color", Color(0.96, 0.93, 0.85, 0.5))
+	if entries.is_empty():
+		var none_line := Label.new()
+		none_line.text = "None yet"
+		CozyUITheme.apply_secondary_label(none_line, 13)
 		_body.add_child(none_line)
+		return
+
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	_body.add_child(grid)
+	for entry_variant in entries:
+		var entry: Dictionary = entry_variant as Dictionary
+		grid.add_child(_build_inventory_slot(
+			String(entry["item_id"]),
+			int(entry["count"]),
+			bool(entry["owned"])
+		))
+
+func _build_inventory_slot(item_id: String, count: int, owned: bool) -> Control:
+	var slot := PanelContainer.new()
+	slot.name = "InventorySlot_%s" % item_id
+	slot.custom_minimum_size = Vector2(100, 54)
+	CozyUITheme.apply_slot(slot, owned, not owned)
+
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 2)
+	slot.add_child(rows)
+
+	var name_label := Label.new()
+	name_label.text = _item_label(item_id)
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	CozyUITheme.apply_body_label(name_label, 12)
+	rows.add_child(name_label)
+
+	var count_label := Label.new()
+	count_label.text = "x%d" % count if owned else "Missing"
+	CozyUITheme.apply_secondary_label(count_label, 11)
+	rows.add_child(count_label)
+	return slot
 
 func _item_label(item_id: String) -> String:
 	if ItemIds.is_storable(item_id):

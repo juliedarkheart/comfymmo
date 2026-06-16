@@ -101,19 +101,35 @@ Quick tools:
 Minimap:
 
 - schematic world readout (bounds widened to fit the spread-out lots)
-- live player marker
+- clipped to its frame so the bands/markers stay inside the panel
+- live player marker while moving
 - plot ownership coloring (built-in AND editor-made plots)
 - landmark dots
+- `M` still toggles it
 
 ## World-builder panel + overlay (F7)
 
 `F7` opens the admin / world-builder panel: role/area/admin-build status, Give
 helpers, **Toggle World Overlay**, and grouped world-builder controls — a biome
 picker + Create/Grow/Shrink/Remove for plots, a marker-type picker +
-Place/Remove for world markers, and teleport buttons for Landing/Neighborhood/
-Town plus every plot. The overlay (also `/overlay`) draws plot bounds, names,
-sizes, corners, the training-core grid, and authored markers in-world. Full
-reference in docs/world_builder_tools.md.
+Place/Remove for world markers, a terrain picker with **Brush Here / Fill Area /
+Reset Here**, and teleport buttons for Landing/Neighborhood/Town plus every
+plot. The overlay (also `/overlay`) draws plot bounds, names, sizes, corners,
+the training-core grid, and authored markers in-world. Full reference in
+docs/world_builder_tools.md.
+
+## Edit / delete toolbar
+
+`E` still enters the existing edit flow, but it now surfaces a dedicated
+bottom-center toolbar instead of relying on hidden key knowledge:
+
+- clear **Edit Mode** / **Move Mode** labels
+- selected-object summary text
+- feedback / denial text
+- visible **Select / Move / Rotate / Delete / Cancel** buttons
+
+Current limitation: **Rotate** is exposed as a button/action, but it still
+reports "coming later" for prototype placed pieces instead of rotating them.
 
 ## Manual UI checklist
 

@@ -8,6 +8,12 @@ var record_id: String = ""
 var _is_preview: bool = false
 var _is_preview_valid: bool = true
 var _is_selected: bool = false
+var _selection_fill: Polygon2D = null
+var _selection_outline: Line2D = null
+
+func _ready() -> void:
+	_ensure_selection_highlight()
+	_apply_visual_state()
 
 func set_tile_position(grid_tile: Vector2i, world_position: Vector2) -> void:
 	tile = grid_tile
@@ -35,7 +41,42 @@ func set_placed_visual() -> void:
 	collision_shape.disabled = false
 	_apply_visual_state()
 
+func _ensure_selection_highlight() -> void:
+	if _selection_fill != null and _selection_outline != null:
+		return
+	_selection_fill = Polygon2D.new()
+	_selection_fill.name = "SelectionFill"
+	_selection_fill.polygon = PackedVector2Array([
+		Vector2(0, -6),
+		Vector2(28, 8),
+		Vector2(0, 22),
+		Vector2(-28, 8),
+	])
+	_selection_fill.color = Color(1.0, 0.9, 0.45, 0.24)
+	_selection_fill.visible = false
+	_selection_fill.z_index = -1
+	add_child(_selection_fill)
+	_selection_outline = Line2D.new()
+	_selection_outline.name = "SelectionOutline"
+	_selection_outline.width = 2.0
+	_selection_outline.default_color = Color(1.0, 0.95, 0.62, 0.95)
+	_selection_outline.closed = true
+	_selection_outline.visible = false
+	_selection_outline.z_index = -1
+	_selection_outline.points = PackedVector2Array([
+		Vector2(0, -6),
+		Vector2(28, 8),
+		Vector2(0, 22),
+		Vector2(-28, 8),
+	])
+	add_child(_selection_outline)
+
 func _apply_visual_state() -> void:
+	_ensure_selection_highlight()
+	if _selection_fill != null:
+		_selection_fill.visible = _is_selected and not _is_preview
+	if _selection_outline != null:
+		_selection_outline.visible = _is_selected and not _is_preview
 	if _is_preview:
 		if _is_preview_valid:
 			modulate = Color(0.6, 1.0, 0.7, 0.8)

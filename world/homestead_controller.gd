@@ -201,12 +201,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_mark_input_handled()
 		return
 
-	if (
-		event is InputEventKey
-		and event.pressed
-		and not event.echo
-		and event.is_action_pressed("toggle_system_menu")
-	):
+	if event is InputEventKey and event.echo:
+		return
+
+	if event.is_action_pressed("toggle_system_menu"):
 		# Esc with no panel open: mailbox closes first; otherwise (when not in
 		# build/edit mode, which the placement system handles) open the system
 		# menu. While decorating, don't consume Esc — let placement exit its mode.
@@ -895,12 +893,14 @@ func _enter_prefab_interior(record_id: String) -> void:
 	if _interior_view == null:
 		return
 	var object_id: String = building_placement_system.get_placed_object_id(record_id)
-	if not PrefabInteriors.has_interior(object_id):
+	var metadata: Dictionary = PrefabInteriors.metadata(object_id)
+	if metadata.is_empty():
+		_open_observe_panel("Interior", "Interior coming later.")
 		return
 	interactable_system.set_interactions_enabled(false)
 	if _local_player != null and is_instance_valid(_local_player):
 		_local_player.set_movement_enabled(false)
-	_interior_view.call("open_interior", PrefabInteriors.template_of(object_id), PrefabInteriors.title_of(object_id))
+	_interior_view.call("open_interior", String(metadata.get("template", "")), String(metadata.get("title", "Interior")))
 
 func _on_interior_closed() -> void:
 	if _local_player != null and is_instance_valid(_local_player):
@@ -914,6 +914,7 @@ func _open_help_panel() -> void:
 		+ "Interact / talk / gather / claim: F (when a prompt shows)\n"
 		+ "Inventory: I    Craft: K    Skills: P    Help: H    Minimap: M\n"
 		+ "Build: B (Tab switches item)    Edit/move/remove: E\n"
+		+ "Controller: left stick move    A interact/confirm    B cancel    Start menu\n"
 		+ "Eat carrot: C    Cycle time: T    Zoom: PgUp/PgDn (R reset)\n"
 		+ "Chat: Enter    Multiplayer/profile: F8    Wardrobe: F9\n"
 		+ "Dev: F10    Admin/world-builder: F7    Fullscreen/windowed: F11\n"

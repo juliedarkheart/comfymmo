@@ -6,10 +6,17 @@ Run `scenes/main.tscn`. Everything works with no server: gathering, material-
 gated building, farming, mailbox, rest, wardrobe, villagers, creatures.
 
 First boot shows a welcome panel with the controls. Key reference:
-- WASD/arrows move · F interact · Esc close panels
+- WASD/arrows move · F interact · M minimap · Esc close panels/menu
 - B build (Tab switches item, cost shown in the mode line) · E edit/move/remove
-- I inventory · C eat carrot · T cycle time · R reset zoom
+- Edit mode now shows Select / Move / Rotate / Delete / Cancel buttons
+- I inventory · C eat carrot · T cycle time · R reset zoom · F11 fullscreen
 - Mirror by the cottage = wardrobe · F9 dev creator · F10 dev tools · F8 multiplayer
+
+Controller pass:
+- left stick move
+- A interact / confirm
+- B cancel / close
+- Start menu
 
 What to do first: walk to a gather pile (wood logs SW of the cottage, stone
 to the east, fiber/clay to the north-east), press F — you get a "+2 Wood"

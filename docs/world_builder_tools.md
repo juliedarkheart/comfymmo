@@ -17,6 +17,8 @@ into sections:
   Token, Give Starter Materials, Toggle World Overlay.
 - **World Builder · Plots:** a biome picker + **Create Plot Here**, then
   **Grow +2 / Shrink -2 / Remove Here** for the editor plot you're standing in.
+- **World Builder · Terrain:** a terrain picker + **Brush Here / Fill Area /
+  Reset Here** for first-pass visual biome/path/water painting.
 - **World Builder · Markers:** a marker-type picker + **Place Marker Here** /
   **Remove Marker Here**.
 - **Teleport:** Landing / Neighborhood / Town, plus a button for **every plot**
@@ -47,6 +49,34 @@ Editor plots live in a runtime overlay on `LandRegistry` and are saved to the
 On boot they're reloaded **before** plot signs are drawn, so a custom lot comes
 back looking exactly like a built-in one. A corrupt record is skipped, never
 fatal.
+
+## Terrain paint (first pass)
+
+The branch now includes a lightweight, admin-only visual terrain painter. It is
+still intentionally simple:
+
+- **Brush Here** paints the tile under your feet.
+- **Fill Area** fills the current plot, or the authored fixed area you stand in.
+- **Reset Here** clears paint from the current plot/area, or just the current
+  tile when you're not inside one.
+
+Supported paint ids:
+
+- `meadow`
+- `forest`
+- `orchard`
+- `creekside`
+- `hilltop`
+- `grove`
+- `town`
+- `farmland`
+- `dirt_path`
+- `stone_path`
+- `water`
+
+This is a **visual ground override only** for now. It does not change plot
+ownership rules, protection, pathfinding, or generation. Overrides persist to
+the offline save's `terrain_overrides` flag and are replayed on boot.
 
 ## World markers (decor / resource / NPC / sign / landmark hints)
 

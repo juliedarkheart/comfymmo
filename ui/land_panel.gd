@@ -1,15 +1,12 @@
 extends CanvasLayer
 
-## Plot info + claim panel (opened from a plot sign). Shows the plot's name,
-## status, owner, member count, cost, the player's land tokens, and whether
-## they can build — with a Claim button when claimable and an Invite hint for
-## owners. The controller passes a plot-info dict and a claim callback, so the
-## panel stays presentation-only and works the same offline and connected.
-## Keyboard claim still works at the sign; this adds the mouse-friendly button.
+## Plot info + claim panel (opened from a plot sign). Shows name, status,
+## owner, members, cost, current land tokens, and whether the player can build.
 
 var _claim_callback: Callable = Callable()
 var _current_plot_id: String = ""
 
+@onready var _panel: PanelContainer = $Panel
 @onready var _rows: VBoxContainer = $Panel/Rows
 var _title_label: Label = null
 var _info_label: Label = null
@@ -20,29 +17,31 @@ func setup(claim_callback: Callable) -> void:
 
 func _ready() -> void:
 	visible = false
+	CozyUITheme.apply_panel(_panel)
+
 	_title_label = Label.new()
-	_title_label.add_theme_font_size_override("font_size", 18)
-	_title_label.add_theme_color_override("font_color", Color("#f8de9a"))
+	CozyUITheme.apply_heading_label(_title_label, 20)
 	_rows.add_child(_title_label)
 
 	_info_label = Label.new()
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_info_label.add_theme_font_size_override("font_size", 14)
-	_info_label.add_theme_color_override("font_color", Color(0.96, 0.93, 0.85, 1.0))
+	CozyUITheme.apply_body_label(_info_label, 14)
 	_rows.add_child(_info_label)
 
-	var buttons: HBoxContainer = HBoxContainer.new()
+	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 10)
 	_rows.add_child(buttons)
 
 	_claim_button = Button.new()
 	_claim_button.text = "Claim Plot"
 	_claim_button.pressed.connect(_on_claim_pressed)
+	CozyUITheme.apply_button(_claim_button)
 	buttons.add_child(_claim_button)
 
-	var close_button: Button = Button.new()
+	var close_button := Button.new()
 	close_button.text = "Close"
 	close_button.pressed.connect(close_panel)
+	CozyUITheme.apply_close_button(close_button)
 	buttons.add_child(close_button)
 
 func open_for_plot(info: Dictionary) -> void:
@@ -50,7 +49,7 @@ func open_for_plot(info: Dictionary) -> void:
 	_title_label.text = String(info.get("display_name", "Plot"))
 	var lines: Array[String] = [
 		String(info.get("size_text", "")),
-		"Status: %s" % String(info.get("status_text", "—")),
+		"Status: %s" % String(info.get("status_text", "-")),
 		"Owner: %s" % String(info.get("owner", "Unclaimed")),
 		"Members: %d friend(s)" % int(info.get("members", 0)),
 		"Cost: %d Land Token" % int(info.get("cost", 1)),
@@ -59,7 +58,7 @@ func open_for_plot(info: Dictionary) -> void:
 		String(info.get("permission_text", "")),
 	]
 	if bool(info.get("is_owner", false)):
-		lines.append("You own this plot. Build with B; invite a friend with /invite <username> (server).")
+		lines.append("You own this plot. Build with B; invite a friend with /invite <username> on a server.")
 	_info_label.text = "\n".join(lines)
 	_claim_button.visible = bool(info.get("can_claim", false))
 	_claim_button.disabled = not bool(info.get("can_claim", false))
@@ -74,7 +73,9 @@ func is_open() -> bool:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	if event is InputEventKey and event.echo:
+		return
+	if event.is_action_pressed("cancel_action"):
 		close_panel()
 		var viewport: Viewport = get_viewport()
 		if viewport != null:

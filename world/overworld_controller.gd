@@ -54,8 +54,13 @@ const PARCEL_PREVIEW_SCENE := preload("res://systems/parcel_preview.gd")
 const DAY_NIGHT_SCENE := preload("res://systems/world/day_night_cycle.gd")
 const BUILDER_BIOMES: Array[String] = ["meadow", "orchard", "creekside", "hilltop", "grove", "brook", "forest", "farmland"]
 const MARKER_TYPES: Array[String] = ["spawn", "resource", "npc", "sign", "landmark", "decor"]
+const TERRAIN_PAINT_IDS: Array[String] = [
+	"meadow", "forest", "orchard", "creekside", "hilltop", "grove",
+	"town", "farmland", "dirt_path", "stone_path", "water",
+]
 var _plot_furniture: Dictionary = {}        # plot_id -> [Node, ...] (signs, posts, ground)
 var _world_markers: Array = []              # [{type, tile:[x,y], label, _node}]
+var _terrain_overrides: Dictionary = {}     # "x,y" -> terrain_id
 var _marker_layer: Node2D = null
 var _world_overlay: Node2D = null
 var _day_night: DayNightCycle = null
@@ -89,6 +94,7 @@ func _ready() -> void:
 	_load_runtime_plots()       # restore in-game-authored plots BEFORE drawing markers
 	_setup_plot_markers()
 	_setup_world_builder()      # marker layer, persisted markers, admin overlay
+	_load_terrain_overrides()   # restore visual terrain paint over authored ground
 	_setup_day_night()          # cozy world lighting tint (world layer only)
 	_setup_town_services()
 	_setup_network(player)
@@ -127,7 +133,10 @@ func _setup_overworld_ui() -> void:
 	_refresh_minimap_plots()
 
 func _process(delta: float) -> void:
-	# Throttled HUD area + minimap player marker updates as the player walks.
+	if _minimap != null:
+		_minimap.call("set_player_position", get_player_position())
+	_update_parcel_preview()
+	# Throttled HUD area updates while the player walks.
 	_hud_tick += delta
 	if _hud_tick < 0.25:
 		return
@@ -137,9 +146,6 @@ func _process(delta: float) -> void:
 		if _day_night != null:
 			area_line += "   ·   %s %s" % [_day_night.phase_label(), _day_night.clock_label()]
 		hud.call("set_area_line", area_line)
-	if _minimap != null:
-		_minimap.call("set_player_position", get_player_position())
-	_update_parcel_preview()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_minimap"):
@@ -175,8 +181,12 @@ func _refresh_minimap_setup() -> void:
 		return
 	var plot_centers: Dictionary = {}
 	for plot_id in LandRegistry.claimable_plot_ids():
-		var rect: Rect2i = LandRegistry.get_plot(String(plot_id)).get("rect", Rect2i()) as Rect2i
-		plot_centers[plot_id] = map.grid_to_world(Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2))
+		var plot: Dictionary = LandRegistry.get_plot(String(plot_id))
+		var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
+		plot_centers[plot_id] = {
+			"center": map.grid_to_world(Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2)),
+			"biome": String(plot.get("biome", "meadow")),
+		}
 	var world_bounds := Rect2(map.get_camera_limits())
 	_minimap.call("setup", _overworld_landmarks(), plot_centers, world_bounds)
 	_refresh_minimap_plots()
@@ -598,8 +608,8 @@ func _read_welcome_board() -> void:
 		"Welcome to Hearthvale Landing",
 		"You're on Farmer Rowan's training farm — learn here, then make a place of your own.\n\n"
 		+ "GATHER branches/pebbles/fiber/clay: F   ·   INVENTORY: I   ·   CRAFT: K\n"
-		+ "BUILD: B (needs your hammer)   ·   SKILLS: P   ·   FULL HELP: H\n"
-		+ "MENU: Esc   ·   CHAT: Enter   ·   MULTIPLAYER/PROFILE: F8   ·   WARDROBE: F9   ·   FULLSCREEN: F11\n\n"
+		+ "BUILD: B (needs your hammer)   ·   MAP: M   ·   SKILLS: P   ·   FULL HELP: H\n"
+		+ "MENU: Esc / Start   ·   CHAT: Enter   ·   MULTIPLAYER/PROFILE: F8   ·   WARDROBE: F9   ·   FULLSCREEN: F11\n\n"
 		+ "Plot signs east and north mark claimable lots — talk to Farmer Rowan for a Land Token, "
 		+ "then press F at a sign to Claim it. The village square (east) has the town stalls and notice board."
 	)
@@ -823,7 +833,9 @@ func _build_plot_boundary(plot_id: String, parent: Node2D = null) -> void:
 	var corners: Array = LandRegistry.corner_tiles(plot_id)
 	var boundary: Line2D = Line2D.new()
 	boundary.width = 3.0
-	boundary.default_color = Color(0.94, 0.86, 0.55, 0.55)
+	var boundary_color: Color = BiomeRegistry.terrain_color("plot_boundary")
+	boundary_color.a = 0.52
+	boundary.default_color = boundary_color
 	boundary.z_index = -5
 	for corner_tile in corners:
 		boundary.add_point(map.grid_to_world(corner_tile as Vector2i))
@@ -839,7 +851,7 @@ func _build_plot_boundary(plot_id: String, parent: Node2D = null) -> void:
 		post.add_child(stake)
 		var cap: Polygon2D = Polygon2D.new()
 		cap.polygon = TerrainShapes.ellipse(Vector2(0, -23), 4.5, 2.5, 8)
-		cap.color = Color("#d8b572")
+		cap.color = BiomeRegistry.terrain_detail_color("plot_boundary")
 		post.add_child(cap)
 
 ## A large, readable plot/area sign with a title plate. `parent` defaults to the
@@ -1005,6 +1017,125 @@ func _load_runtime_plots() -> void:
 
 func _save_runtime_plots() -> void:
 	save_system.set_overworld_flag("runtime_plots", LandRegistry.runtime_plots_save_data())
+
+# --- Terrain paint persistence --------------------------------------------------
+
+func _terrain_tile_key(tile: Vector2i) -> String:
+	return "%d,%d" % [tile.x, tile.y]
+
+func _terrain_tile_from_key(key: String) -> Variant:
+	var parts: PackedStringArray = key.split(",")
+	if parts.size() != 2 or not parts[0].is_valid_int() or not parts[1].is_valid_int():
+		return null
+	return Vector2i(int(parts[0]), int(parts[1]))
+
+func _normalize_terrain_paint_id(terrain_id: String) -> String:
+	var normalized: String = terrain_id.strip_edges().to_lower()
+	return normalized if TERRAIN_PAINT_IDS.has(normalized) else ""
+
+func _terrain_paint_label(terrain_id: String) -> String:
+	if BiomeRegistry.has_biome(terrain_id):
+		return BiomeRegistry.display_name(terrain_id)
+	match terrain_id:
+		"dirt_path":
+			return "Dirt Path"
+		"stone_path":
+			return "Stone Path"
+		"water":
+			return "Water"
+		_:
+			return terrain_id.capitalize()
+
+func _load_terrain_overrides() -> void:
+	_terrain_overrides.clear()
+	var raw: Variant = save_system.get_overworld_flag("terrain_overrides", {})
+	if typeof(raw) == TYPE_DICTIONARY:
+		for key_variant in (raw as Dictionary).keys():
+			var terrain_id: String = _normalize_terrain_paint_id(String((raw as Dictionary).get(key_variant, "")))
+			if terrain_id.is_empty():
+				continue
+			var tile_variant: Variant = _terrain_tile_from_key(String(key_variant))
+			if not (tile_variant is Vector2i):
+				continue
+			_terrain_overrides[_terrain_tile_key(tile_variant as Vector2i)] = terrain_id
+	_apply_terrain_overrides()
+
+func _save_terrain_overrides() -> void:
+	save_system.set_overworld_flag("terrain_overrides", _terrain_overrides)
+
+func _apply_terrain_overrides() -> void:
+	if map != null and map.has_method("set_terrain_overrides"):
+		map.call("set_terrain_overrides", _terrain_overrides)
+
+func _terrain_fill_rect_here(allow_tile_fallback: bool = false) -> Rect2i:
+	var tile: Vector2i = map.world_to_grid(get_player_position())
+	var plot: Dictionary = LandRegistry.plot_at_tile(tile)
+	if not plot.is_empty():
+		return plot.get("rect", Rect2i()) as Rect2i
+	var area: Dictionary = WorldAreaRegistry.area_at(get_player_position())
+	if not area.is_empty():
+		var area_rect: Rect2 = area.get("rect", Rect2()) as Rect2
+		var a: Vector2i = map.world_to_grid(area_rect.position)
+		var b: Vector2i = map.world_to_grid(area_rect.end)
+		return Rect2i(
+			mini(a.x, b.x),
+			mini(a.y, b.y),
+			absi(b.x - a.x) + 1,
+			absi(b.y - a.y) + 1
+		)
+	return Rect2i(tile, Vector2i.ONE) if allow_tile_fallback else Rect2i()
+
+func admin_paint_terrain_brush(terrain_id: String) -> void:
+	if _admin_commands_blocked():
+		return
+	var normalized_id: String = _normalize_terrain_paint_id(terrain_id)
+	if normalized_id.is_empty():
+		_chat_toast("(builder) Unknown terrain '%s'." % terrain_id)
+		return
+	var tile: Vector2i = map.world_to_grid(get_player_position())
+	_terrain_overrides[_terrain_tile_key(tile)] = normalized_id
+	_apply_terrain_overrides()
+	_save_terrain_overrides()
+	_chat_toast("(builder) Painted tile (%d,%d) as %s." % [tile.x, tile.y, _terrain_paint_label(normalized_id)])
+
+func admin_paint_terrain_fill(terrain_id: String) -> void:
+	if _admin_commands_blocked():
+		return
+	var normalized_id: String = _normalize_terrain_paint_id(terrain_id)
+	if normalized_id.is_empty():
+		_chat_toast("(builder) Unknown terrain '%s'." % terrain_id)
+		return
+	var rect: Rect2i = _terrain_fill_rect_here(false)
+	if rect.size.x <= 0 or rect.size.y <= 0:
+		_chat_toast("(builder) Stand in a plot or authored area to fill it.")
+		return
+	for ty in range(rect.position.y, rect.end.y):
+		for tx in range(rect.position.x, rect.end.x):
+			_terrain_overrides[_terrain_tile_key(Vector2i(tx, ty))] = normalized_id
+	_apply_terrain_overrides()
+	_save_terrain_overrides()
+	_chat_toast("(builder) Filled %dx%d tiles with %s." % [rect.size.x, rect.size.y, _terrain_paint_label(normalized_id)])
+
+func admin_reset_terrain_here() -> void:
+	if _admin_commands_blocked():
+		return
+	var rect: Rect2i = _terrain_fill_rect_here(true)
+	var removed: int = 0
+	for ty in range(rect.position.y, rect.end.y):
+		for tx in range(rect.position.x, rect.end.x):
+			var key: String = _terrain_tile_key(Vector2i(tx, ty))
+			if _terrain_overrides.erase(key):
+				removed += 1
+	_apply_terrain_overrides()
+	_save_terrain_overrides()
+	if rect.size == Vector2i.ONE:
+		var tile: Vector2i = rect.position
+		if removed > 0:
+			_chat_toast("(builder) Reset tile (%d,%d)." % [tile.x, tile.y])
+		else:
+			_chat_toast("(builder) No painted override on tile (%d,%d)." % [tile.x, tile.y])
+		return
+	_chat_toast("(builder) Cleared %d painted tiles in this area." % removed)
 
 ## Create a claimable plot centered on the player's tile. Rejects overlaps so all
 ## plot queries (claim, build permission, bounds) stay unambiguous.
@@ -1723,7 +1854,7 @@ func _show_welcome_if_first_boot() -> void:
 		"Gather wood, stone, fiber, and clay from the piles around your homestead (walk up, press F). "
 		+ "Build with B — Tab switches items and shows their cost — and edit with E. "
 		+ "Tend the farm plots, check the mailbox, and rest at the cottage door at dusk. "
-		+ "Inventory is I, help is H, Esc opens the menu, and F11 switches fullscreen/windowed. "
+		+ "Inventory is I, the minimap is M, help is H, Esc/Start opens the menu, and F11 switches fullscreen/windowed. "
 		+ "The mirror by the cottage opens your wardrobe (F9 works too). "
 		+ "F8 opens multiplayer, F10 opens dev tools."
 	)

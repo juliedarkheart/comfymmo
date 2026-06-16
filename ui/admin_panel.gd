@@ -10,9 +10,11 @@ var _controller: Node = null
 var _info_label: Label = null
 var _build_button: Button = null
 var _biome_picker: OptionButton = null
+var _terrain_picker: OptionButton = null
 var _marker_picker: OptionButton = null
 var _plot_teleport_box: VBoxContainer = null
 
+@onready var _panel: PanelContainer = $Panel
 @onready var _rows: VBoxContainer = $Panel/Scroll/Rows
 
 func setup(controller: Node) -> void:
@@ -20,16 +22,15 @@ func setup(controller: Node) -> void:
 
 func _ready() -> void:
 	visible = false
+	CozyUITheme.apply_panel(_panel)
 	var title: Label = Label.new()
 	title.text = "World Builder (F7)"
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", CozyUITheme.HONEY)
+	CozyUITheme.apply_heading_label(title, 18)
 	_rows.add_child(title)
 
 	_info_label = Label.new()
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_info_label.add_theme_font_size_override("font_size", 13)
-	_info_label.add_theme_color_override("font_color", CozyUITheme.INK)
+	CozyUITheme.apply_body_label(_info_label, 13)
 	_rows.add_child(_info_label)
 
 	_build_button = _add_button("Toggle Admin Build", func() -> void:
@@ -51,6 +52,7 @@ func _ready() -> void:
 	_biome_picker = OptionButton.new()
 	for biome in ["meadow", "orchard", "creekside", "hilltop", "grove", "brook", "forest", "farmland"]:
 		_biome_picker.add_item(String(biome).capitalize())
+	CozyUITheme.apply_button(_biome_picker)
 	_rows.add_child(_biome_picker)
 	_add_button("Create Plot Here (24x24)", func() -> void:
 		_call("admin_create_plot", [_picked_biome(), 24]))
@@ -60,13 +62,24 @@ func _ready() -> void:
 	_row_button(plot_edit_row, "Remove Here", func() -> void: _call("admin_remove_plot_here", []))
 	_add_button("Recolor Plot Here (biome)", func() -> void: _call("admin_set_plot_biome_here", [_picked_biome()]))
 
+	# --- World-builder: terrain paint ------------------------------------------
+	_add_heading("World Builder · Terrain")
+	_terrain_picker = OptionButton.new()
+	for terrain_id in ["meadow", "forest", "orchard", "creekside", "hilltop", "grove", "town", "farmland", "dirt_path", "stone_path", "water"]:
+		_terrain_picker.add_item(String(terrain_id).replace("_", " ").capitalize())
+	CozyUITheme.apply_button(_terrain_picker)
+	_rows.add_child(_terrain_picker)
+	var terrain_row: HBoxContainer = _add_row()
+	_row_button(terrain_row, "Brush Here", func() -> void: _call("admin_paint_terrain_brush", [_picked_terrain()]))
+	_row_button(terrain_row, "Fill Area", func() -> void: _call("admin_paint_terrain_fill", [_picked_terrain()]))
+	_row_button(terrain_row, "Reset Here", func() -> void: _call("admin_reset_terrain_here", []))
+
 	# --- Visual parcel tool: stake two corners, see a preview, confirm ---------
 	_add_heading("Visual Parcel Tool")
 	var help: Label = Label.new()
 	help.text = "Stand at corner A → Start. Walk to the far corner (preview follows) → Confirm."
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	help.add_theme_font_size_override("font_size", 11)
-	help.add_theme_color_override("font_color", CozyUITheme.INK_SOFT)
+	CozyUITheme.apply_secondary_label(help, 11)
 	_rows.add_child(help)
 	var parcel_row: HBoxContainer = _add_row()
 	_row_button(parcel_row, "Start", func() -> void: _call("admin_parcel_start", []))
@@ -79,6 +92,7 @@ func _ready() -> void:
 	_marker_picker = OptionButton.new()
 	for marker_type in ["spawn", "resource", "npc", "sign", "landmark", "decor"]:
 		_marker_picker.add_item(String(marker_type).capitalize())
+	CozyUITheme.apply_button(_marker_picker)
 	_rows.add_child(_marker_picker)
 	var marker_row: HBoxContainer = _add_row()
 	_row_button(marker_row, "Place Marker Here", func() -> void:
@@ -108,14 +122,17 @@ func _add_button(text: String, on_press: Callable) -> Button:
 	var button: Button = Button.new()
 	button.text = text
 	button.pressed.connect(on_press)
+	if text == "Close":
+		CozyUITheme.apply_close_button(button)
+	else:
+		CozyUITheme.apply_button(button)
 	_rows.add_child(button)
 	return button
 
 func _add_heading(text: String) -> void:
 	var heading: Label = Label.new()
 	heading.text = text
-	heading.add_theme_font_size_override("font_size", 14)
-	heading.add_theme_color_override("font_color", CozyUITheme.HONEY)
+	CozyUITheme.apply_heading_label(heading, 14)
 	_rows.add_child(heading)
 
 ## The biome currently chosen in the picker (lowercased id).
@@ -123,6 +140,11 @@ func _picked_biome() -> String:
 	if _biome_picker == null:
 		return "meadow"
 	return _biome_picker.get_item_text(_biome_picker.selected).to_lower()
+
+func _picked_terrain() -> String:
+	if _terrain_picker == null:
+		return "meadow"
+	return _terrain_picker.get_item_text(_terrain_picker.selected).to_lower().replace(" ", "_")
 
 func _add_row() -> HBoxContainer:
 	var row: HBoxContainer = HBoxContainer.new()
@@ -134,6 +156,7 @@ func _row_button(row: HBoxContainer, text: String, on_press: Callable) -> void:
 	var button: Button = Button.new()
 	button.text = text
 	button.pressed.connect(on_press)
+	CozyUITheme.apply_button(button)
 	row.add_child(button)
 
 ## Call a controller method by name with an argument array (no-op if absent).
@@ -187,7 +210,9 @@ func _refresh() -> void:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	if event is InputEventKey and event.echo:
+		return
+	if event.is_action_pressed("cancel_action"):
 		close_panel()
 		var viewport: Viewport = get_viewport()
 		if viewport != null:

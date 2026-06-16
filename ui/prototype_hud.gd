@@ -11,11 +11,11 @@ extends CanvasLayer
 @onready var _mode_label: Label = $Panel/Rows/ModeLabel
 @onready var _controls_label: Label = $Panel/Rows/ControlsLabel
 
-var _controls_text: String = "Move WASD · Interact F · Menu Esc · Inventory I · Craft K · Build B · Help H · Fullscreen F11"
+var _controls_text: String = "Move WASD/Left Stick | Interact F/A | Menu Esc/Start | Inventory I | Build B | Help H | Map M | Fullscreen F11"
 var _mood_display: String = "Morning"
 var _day_number: int = 1
 var _current_mode_name: String = "Explore"
-var _current_help_text: String = "Move with WASD or arrow keys. B to place. E to edit."
+var _current_help_text: String = "Move with WASD or arrows. B to build. E to edit."
 var _survival_text: String = "Comfort: 100"
 var _interaction_prompt_text: String = ""
 var _inventory_text: String = "Carrots: 0 | Turnips: 0 | Berries: 0"
@@ -29,15 +29,26 @@ var _message_panel_open: bool = false
 var _inventory_panel_open: bool = false
 
 func _ready() -> void:
+	_apply_style()
 	set_mood(WorldMood.DEFAULT_MOOD)
 	_hide_interaction_prompt()
 	hide_mailbox()
-	# Restore the saved window mode (boots windowed if never set).
 	DisplaySettings.apply_saved()
 
-## Global F11 fullscreen toggle. Handled in the HUD's _input (runs before
-## _unhandled_input gameplay handlers) so it works in every mode, even while a
-## panel is open. Never traps the player — F11 always flips back.
+func _apply_style() -> void:
+	CozyUITheme.apply_hud_panel($Panel)
+	CozyUITheme.apply_hud_panel($InteractionPrompt)
+	CozyUITheme.apply_hud_panel($MailboxPanel)
+	CozyUITheme.apply_hud_panel($InventoryPanel)
+	for label in [
+		_day_label, _comfort_label, _carrot_label, _turnip_label, _berry_label,
+		_materials_label, _identity_label, _area_label, _mode_label, _controls_label,
+		$InteractionPrompt/Label, $MailboxPanel/Margin/MailboxLabel,
+		$InventoryPanel/Margin/InventoryLabel,
+	]:
+		CozyUITheme.apply_body_label(label as Label, 14, true)
+	CozyUITheme.apply_heading_label($Panel/Rows/TitleLabel, 22)
+
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_fullscreen"):
 		var fullscreen: bool = DisplaySettings.toggle_fullscreen()
@@ -59,16 +70,13 @@ func _flash_controls(text: String) -> void:
 				_controls_label.text = _controls_text
 		)
 
-## Identity/plot summary line (username · tools · tokens · current plot).
-## Additive HUD API; callers guard with has_method.
 func set_identity_line(text: String) -> void:
 	if _identity_label != null:
 		_identity_label.text = text
 
-## Current area/plot feedback line ("📍 Meadow Lot 1 — Your Plot").
 func set_area_line(text: String) -> void:
 	if _area_label != null:
-		_area_label.text = "📍 %s" % text
+		_area_label.text = "Area: %s" % text
 
 func set_mood(mood_id: String) -> void:
 	_mood_display = WorldMood.display_name(mood_id)
@@ -118,8 +126,6 @@ func set_survival_text(survival_text: String) -> void:
 	_survival_text = survival_text
 	_refresh_text()
 
-## Building materials line (wood/stone/fiber/clay). Additive HUD API — callers
-## guard with has_method, so older controllers keep working unchanged.
 func set_materials_text(materials_text: String) -> void:
 	if _materials_label != null:
 		_materials_label.text = materials_text
@@ -128,7 +134,6 @@ func toggle_inventory_panel() -> void:
 	if _inventory_panel_open:
 		hide_inventory_panel()
 		return
-
 	show_inventory_panel()
 
 func show_inventory_panel() -> void:
@@ -179,17 +184,14 @@ func is_mailbox_open() -> bool:
 	return _mailbox_open
 
 func _refresh_text() -> void:
-	# The status panel is icon rows now: day/time, comfort, and per-crop counts
-	# each have their own labeled row, then the active mode + help, then the
-	# dimmer global controls reference at the bottom.
 	if _day_label == null:
 		return
-	_day_label.text = "Day %d  ·  %s" % [_day_number, _mood_display]
+	_day_label.text = "Day %d | %s" % [_day_number, _mood_display]
 	_comfort_label.text = _survival_text
 	_carrot_label.text = str(int(_inventory_counts.get("carrot", 0)))
 	_turnip_label.text = str(int(_inventory_counts.get("turnip", 0)))
 	_berry_label.text = str(int(_inventory_counts.get("berry", 0)))
-	_mode_label.text = "Mode: %s — %s" % [_current_mode_name, _current_help_text]
+	_mode_label.text = "Mode: %s - %s" % [_current_mode_name, _current_help_text]
 	_controls_label.text = _controls_text
 
 func _hide_interaction_prompt() -> void:
@@ -225,5 +227,5 @@ func _format_inventory_panel_text() -> String:
 		"Turnips: %d" % int(_inventory_counts.get("turnip", 0)),
 		"Berries: %d" % int(_inventory_counts.get("berry", 0)),
 		"",
-		"I to close",
+		"I or Esc to close",
 	])

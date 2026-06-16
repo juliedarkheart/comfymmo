@@ -31,6 +31,7 @@ offset_top = 16.0
 offset_right = -16.0
 offset_bottom = 168.0
 grow_horizontal = 0
+clip_contents = true
 theme_override_styles/panel = SubResource("StyleBoxFlat_minimap")
 
 [node name="Margin" type="VBoxContainer" parent="Panel"]
@@ -46,3 +47,4 @@ text = "Map  (M)"
 [node name="MapRect" type="Control" parent="Panel/Margin"]
 custom_minimum_size = Vector2(184, 120)
 layout_mode = 2
+clip_contents = true

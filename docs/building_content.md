@@ -94,8 +94,9 @@ fortress."
 ## Plots and scale
 
 The modular and prefab kit is sized around the claimable lots in
-`systems/land/land_registry.gd`. There are 4 claimable neighborhood plots, and
-each one is `16x16` tiles (256 tiles). That larger footprint is important:
+`systems/land/land_registry.gd`. There are 6 claimable neighborhood plots, and
+each one is currently `28x28` to `32x32` tiles. That larger footprint is
+important:
 
 - prefab structures need room for paths, fences, and work areas
 - modular builds need space for custom exterior shapes

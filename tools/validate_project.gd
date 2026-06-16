@@ -81,6 +81,7 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://ui/inventory_panel.tscn",
 	"res://ui/land_panel.tscn",
 	# Land/HUD/admin repair pass.
+	"res://ui/prototype_hud.tscn",
 	"res://ui/minimap_panel.tscn",
 	"res://ui/quick_tools_bar.tscn",
 	"res://ui/admin_panel.tscn",
@@ -88,6 +89,7 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/building/build_categories.gd",
 	"res://systems/building/prefab_interiors.gd",
 	"res://ui/build_menu_panel.tscn",
+	"res://ui/build_edit_toolbar.tscn",
 	"res://ui/interior_view.tscn",
 	"res://ui/system_menu.tscn",
 	"res://scenes/world/homestead.tscn",
@@ -99,6 +101,13 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://world/regions/village_square/village_square_region_controller.gd",
 	"res://world/regions/forest_edge/forest_edge_region_controller.gd",
 ]
+
+const VISUAL_DOC_CHECKS := {
+	"res://docs/visual_identity.md": ["cozy 2D isometric", "storybook", "plot boundary", "no harsh debug"],
+	"res://docs/ui_style_guide.md": ["cozy_ui_theme.gd", "Close", "selected", "unavailable"],
+	"res://docs/world_art_direction.md": ["meadow", "forest", "creekside", "terrain_color", "minimap"],
+	"res://docs/building_art_direction.md": ["foundation", "wall", "prefab", "modular", "interiors"],
+}
 
 var _validation_placeable_ids: Array[String] = []
 var _validation_active_placeable_id: String = ""
@@ -114,6 +123,21 @@ func _validation_select_placeable(placeable_id: String) -> void:
 
 func _validation_get_active_placeable_id() -> String:
 	return _validation_active_placeable_id
+
+func _validation_get_inventory_count(_item_id: String) -> int:
+	return 1
+
+func _validation_get_identity() -> Dictionary:
+	return {
+		"display_name": "Validator",
+		"username": "validator",
+		"profile_id": "validation-profile",
+		"mode": "Offline",
+		"plot_status": "Your plot",
+	}
+
+func _validation_claim_plot(_plot_id: String) -> void:
+	pass
 
 func _initialize() -> void:
 	for resource_path in RESOURCE_PATHS:
@@ -131,6 +155,38 @@ func _initialize() -> void:
 				quit(1)
 				return
 			instance.free()
+
+	# Visual/UI foundation pass: required direction docs must exist and mention
+	# the concrete style rules this branch is standardizing around.
+	for doc_path in VISUAL_DOC_CHECKS.keys():
+		if not FileAccess.file_exists(String(doc_path)):
+			push_error("Visual identity doc missing: %s" % doc_path)
+			quit(1)
+			return
+		var doc_text: String = FileAccess.get_file_as_string(String(doc_path))
+		if doc_text.is_empty():
+			push_error("Visual identity doc is empty: %s" % doc_path)
+			quit(1)
+			return
+		var doc_text_lower: String = doc_text.to_lower()
+		var doc_snippets: Array = VISUAL_DOC_CHECKS[doc_path] as Array
+		for required_snippet in doc_snippets:
+			if not doc_text_lower.contains(String(required_snippet).to_lower()):
+				push_error("Visual identity doc '%s' is missing '%s'" % [doc_path, required_snippet])
+				quit(1)
+				return
+	if CozyUITheme.panel_style() == null or CozyUITheme.slot_style(true) == null or CozyUITheme.hud_panel_style() == null:
+		push_error("CozyUITheme style factories returned null")
+		quit(1)
+		return
+	var style_probe_button := Button.new()
+	CozyUITheme.apply_button(style_probe_button)
+	if style_probe_button.get_theme_stylebox("normal") == null or style_probe_button.get_theme_stylebox("hover") == null:
+		push_error("CozyUITheme.apply_button did not attach button styles")
+		style_probe_button.free()
+		quit(1)
+		return
+	style_probe_button.free()
 
 	# Build-menu / interiors pass: the menu must build its runtime controls when
 	# mounted in-tree, the close affordances must work, every menu item source id
@@ -218,6 +274,15 @@ func _initialize() -> void:
 		push_error("Build menu is missing Panel/Rows/Scroll/Items")
 		quit(1)
 		return
+	var selected_info: Label = build_menu.get_node_or_null("Panel/Rows/SelectedInfo") as Label
+	if selected_info == null:
+		push_error("Build menu is missing selected item info label")
+		quit(1)
+		return
+	if not selected_info.text.contains("Selected:") or not selected_info.text.contains("Cost:"):
+		push_error("Build menu selected item info does not expose selection/cost details")
+		quit(1)
+		return
 	for placeable_id_variant in _validation_placeable_ids:
 		var placeable_id: String = String(placeable_id_variant)
 		if not menu_registry.has(placeable_id):
@@ -236,7 +301,7 @@ func _initialize() -> void:
 				return
 		var rendered_rows: int = 0
 		for child in item_list.get_children():
-			if child is HBoxContainer:
+			if child is HBoxContainer or (child is PanelContainer and String((child as Node).name).begins_with("BuildItemCard_")):
 				rendered_rows += 1
 		if rendered_rows != expected_ids.size():
 			push_error("Build menu category '%s' rendered %d rows, expected %d" % [
@@ -318,11 +383,93 @@ func _initialize() -> void:
 		push_error("Interior view scene failed explicit load")
 		quit(1)
 		return
+	var interior_view: CanvasLayer = interior_view_scene.instantiate() as CanvasLayer
+	if interior_view == null:
+		push_error("Interior view scene failed explicit instantiate")
+		quit(1)
+		return
+	get_root().add_child(interior_view)
+	await process_frame
+	interior_view.call("open_interior", PrefabInteriors.TEMPLATE_COTTAGE, "Cozy Cottage")
+	if not interior_view.visible:
+		push_error("Interior view open_interior() did not show the overlay")
+		quit(1)
+		return
+	var interior_cancel: InputEventAction = InputEventAction.new()
+	interior_cancel.action = "cancel_action"
+	interior_cancel.pressed = true
+	interior_view.call("_input", interior_cancel)
+	if interior_view.visible:
+		push_error("Interior view cancel action did not close the overlay")
+		quit(1)
+		return
+	interior_view.queue_free()
+	await process_frame
 	for modular_id in new_modular_piece_ids:
 		if PrefabInteriors.has_interior(modular_id) or not PrefabInteriors.metadata(modular_id).is_empty():
 			push_error("Modular/custom piece '%s' should not require an interior" % modular_id)
 			quit(1)
 			return
+	var build_toolbar_scene: PackedScene = load("res://ui/build_edit_toolbar.tscn") as PackedScene
+	if build_toolbar_scene == null:
+		push_error("Build edit toolbar scene failed to load")
+		quit(1)
+		return
+	var build_toolbar: CanvasLayer = build_toolbar_scene.instantiate() as CanvasLayer
+	if build_toolbar == null:
+		push_error("Build edit toolbar scene failed to instantiate")
+		quit(1)
+		return
+	get_root().add_child(build_toolbar)
+	await process_frame
+	for required_method in ["set_active", "set_mode_text", "set_selection_text", "set_feedback_text", "set_button_states"]:
+		if not build_toolbar.has_method(required_method):
+			push_error("Build edit toolbar is missing method '%s'" % required_method)
+			quit(1)
+			return
+	for required_node_path in [
+		"Panel/Margin/Rows/ModeLabel",
+		"Panel/Margin/Rows/SelectionLabel",
+		"Panel/Margin/Rows/FeedbackLabel",
+		"Panel/Margin/Rows/ControlsLabel",
+		"Panel/Margin/Rows/ButtonsTop/SelectButton",
+		"Panel/Margin/Rows/ButtonsTop/MoveButton",
+		"Panel/Margin/Rows/ButtonsTop/RotateButton",
+		"Panel/Margin/Rows/ButtonsBottom/DeleteButton",
+		"Panel/Margin/Rows/ButtonsBottom/CancelButton",
+	]:
+		if build_toolbar.get_node_or_null(required_node_path) == null:
+			push_error("Build edit toolbar is missing '%s'" % required_node_path)
+			quit(1)
+			return
+	build_toolbar.call("set_active", true)
+	build_toolbar.call("set_mode_text", "Edit Mode")
+	build_toolbar.call("set_selection_text", "Selected: Cozy Cottage")
+	build_toolbar.call("set_feedback_text", "Ready", false)
+	build_toolbar.call("set_button_states", true, true, true, true, true)
+	if not build_toolbar.visible:
+		push_error("Build edit toolbar set_active(true) did not show the toolbar")
+		quit(1)
+		return
+	build_toolbar.queue_free()
+	await process_frame
+	var building_placement_source: String = FileAccess.get_file_as_string("res://systems/building_placement_system.gd")
+	for required_snippet in [
+		"EDIT_TOOLBAR_SCENE := preload(\"res://ui/build_edit_toolbar.tscn\")",
+		"event.is_action_pressed(\"confirm_action\")",
+		"event.is_action_pressed(\"edit_move\")",
+		"event.is_action_pressed(\"edit_rotate\")",
+		"event.is_action_pressed(\"edit_delete\")",
+		"_attempt_rotate_selected_object()",
+	]:
+		if not building_placement_source.contains(required_snippet):
+			push_error("BuildingPlacementSystem is missing edit-toolbar/input snippet '%s'" % required_snippet)
+			quit(1)
+			return
+	if building_placement_source.contains("if _selected_record_id == _hovered_record_id:\n\t\t_remove_selected_object()"):
+		push_error("Edit click flow still deletes an already-selected object on a second click")
+		quit(1)
+		return
 	build_menu.queue_free()
 	object_registry.queue_free()
 	await process_frame
@@ -407,7 +554,198 @@ func _initialize() -> void:
 		push_error("System menu Esc close path did not hide the menu")
 		quit(1)
 		return
+	system_menu.call("open")
+	var system_cancel_event: InputEventAction = InputEventAction.new()
+	system_cancel_event.action = "cancel_action"
+	system_cancel_event.pressed = true
+	system_menu.call("_input", system_cancel_event)
+	if bool(system_menu.call("is_open")):
+		push_error("System menu cancel action did not hide the menu")
+		quit(1)
+		return
 	system_menu.queue_free()
+	await process_frame
+
+	# Cozy UI foundation: inventory and land panels should instantiate, show
+	# visible close paths, and render their core readable content.
+	var inventory_panel_scene: PackedScene = load("res://ui/inventory_panel.tscn") as PackedScene
+	if inventory_panel_scene == null:
+		push_error("Inventory panel scene failed explicit load")
+		quit(1)
+		return
+	var inventory_panel: CanvasLayer = inventory_panel_scene.instantiate() as CanvasLayer
+	if inventory_panel == null:
+		push_error("Inventory panel failed explicit instantiate")
+		quit(1)
+		return
+	get_root().add_child(inventory_panel)
+	await process_frame
+	inventory_panel.call("setup", Callable(self, "_validation_get_inventory_count"), Callable(self, "_validation_get_identity"))
+	inventory_panel.call("open_panel")
+	await process_frame
+	var inventory_close_button: Button = null
+	for button_variant in inventory_panel.find_children("*", "Button", true, false):
+		var inventory_button: Button = button_variant as Button
+		if inventory_button != null and String(inventory_button.text).begins_with("Close"):
+			inventory_close_button = inventory_button
+			break
+	if inventory_close_button == null:
+		push_error("Inventory panel is missing a visible Close button")
+		quit(1)
+		return
+	if inventory_panel.find_children("InventorySlot_*", "PanelContainer", true, false).is_empty():
+		push_error("Inventory panel did not render cozy item slots")
+		quit(1)
+		return
+	inventory_close_button.emit_signal("pressed")
+	await process_frame
+	if inventory_panel.visible:
+		push_error("Inventory panel Close button did not hide the panel")
+		quit(1)
+		return
+	inventory_panel.queue_free()
+	await process_frame
+
+	var land_panel_scene: PackedScene = load("res://ui/land_panel.tscn") as PackedScene
+	if land_panel_scene == null:
+		push_error("Land panel scene failed explicit load")
+		quit(1)
+		return
+	var land_panel: CanvasLayer = land_panel_scene.instantiate() as CanvasLayer
+	if land_panel == null:
+		push_error("Land panel failed explicit instantiate")
+		quit(1)
+		return
+	get_root().add_child(land_panel)
+	await process_frame
+	land_panel.call("setup", Callable(self, "_validation_claim_plot"))
+	land_panel.call("open_for_plot", {
+		"plot_id": "validator_plot",
+		"display_name": "Validator Meadow",
+		"size_text": "30x30 tiles",
+		"status_text": "Unclaimed",
+		"owner": "Unclaimed",
+		"members": 0,
+		"cost": 1,
+		"tokens": 1,
+		"permission_text": "You can claim this plot.",
+		"can_claim": true,
+	})
+	await process_frame
+	var land_close_button: Button = null
+	for button_variant in land_panel.find_children("*", "Button", true, false):
+		var land_button: Button = button_variant as Button
+		if land_button != null and land_button.text == "Close":
+			land_close_button = land_button
+			break
+	if land_close_button == null:
+		push_error("Land panel is missing a visible Close button")
+		quit(1)
+		return
+	land_close_button.emit_signal("pressed")
+	await process_frame
+	if land_panel.visible:
+		push_error("Land panel Close button did not hide the panel")
+		quit(1)
+		return
+	land_panel.queue_free()
+	await process_frame
+
+	var hud_scene: PackedScene = load("res://ui/prototype_hud.tscn") as PackedScene
+	if hud_scene == null:
+		push_error("Prototype HUD scene failed explicit load")
+		quit(1)
+		return
+	var prototype_hud: CanvasLayer = hud_scene.instantiate() as CanvasLayer
+	if prototype_hud == null:
+		push_error("Prototype HUD scene failed explicit instantiate")
+		quit(1)
+		return
+	get_root().add_child(prototype_hud)
+	await process_frame
+	for required_method in ["set_identity_line", "set_area_line", "set_mode_text", "set_materials_text"]:
+		if not prototype_hud.has_method(required_method):
+			push_error("Prototype HUD is missing method '%s'" % required_method)
+			quit(1)
+			return
+	var controls_label: Label = prototype_hud.get_node_or_null("Panel/Rows/ControlsLabel") as Label
+	if controls_label == null:
+		push_error("Prototype HUD is missing ControlsLabel")
+		quit(1)
+		return
+	for required_hint in ["Esc/Start", "Inventory I", "Build B", "Help H", "Map M", "Fullscreen F11"]:
+		if not controls_label.text.contains(required_hint):
+			push_error("Prototype HUD controls line is missing '%s'" % required_hint)
+			quit(1)
+			return
+	var prototype_hud_source: String = FileAccess.get_file_as_string("res://ui/prototype_hud.gd")
+	if not prototype_hud_source.contains("CozyUITheme.apply_hud_panel"):
+		push_error("Prototype HUD no longer applies the shared cozy HUD style")
+		quit(1)
+		return
+	prototype_hud.queue_free()
+	await process_frame
+
+	# Admin/world-builder panel: terrain paint controls must exist for the first
+	# pass terrain authoring workflow.
+	var admin_panel_scene: PackedScene = load("res://ui/admin_panel.tscn") as PackedScene
+	if admin_panel_scene == null:
+		push_error("Admin panel scene failed to load")
+		quit(1)
+		return
+	var admin_panel: CanvasLayer = admin_panel_scene.instantiate() as CanvasLayer
+	if admin_panel == null:
+		push_error("Admin panel scene failed to instantiate")
+		quit(1)
+		return
+	get_root().add_child(admin_panel)
+	await process_frame
+	for required_method in ["setup", "toggle_panel", "close_panel"]:
+		if not admin_panel.has_method(required_method):
+			push_error("Admin panel is missing method '%s'" % required_method)
+			quit(1)
+			return
+	var terrain_picker: OptionButton = null
+	var terrain_buttons_found: Dictionary = {"Brush Here": false, "Fill Area": false, "Reset Here": false}
+	var admin_close_button: Button = null
+	for child_variant in admin_panel.find_children("*", "OptionButton", true, false):
+		var option_button: OptionButton = child_variant as OptionButton
+		if option_button != null and option_button.item_count >= 11:
+			terrain_picker = option_button
+	for button_variant in admin_panel.find_children("*", "Button", true, false):
+		var button: Button = button_variant as Button
+		if button != null and terrain_buttons_found.has(button.text):
+			terrain_buttons_found[button.text] = true
+		if button != null and button.text == "Close":
+			admin_close_button = button
+	if terrain_picker == null:
+		push_error("Admin panel is missing the terrain paint picker")
+		quit(1)
+		return
+	var required_terrain_labels: Array[String] = [
+		"Meadow", "Forest", "Orchard", "Creekside", "Hilltop", "Grove",
+		"Town", "Farmland", "Dirt Path", "Stone Path", "Water",
+	]
+	for terrain_label in required_terrain_labels:
+		var found_label: bool = false
+		for index in range(terrain_picker.item_count):
+			if terrain_picker.get_item_text(index) == terrain_label:
+				found_label = true
+				break
+		if not found_label:
+			push_error("Admin terrain picker is missing '%s'" % terrain_label)
+			quit(1)
+			return
+	for button_text in terrain_buttons_found.keys():
+		if not bool(terrain_buttons_found[button_text]):
+			push_error("Admin terrain paint control '%s' is missing" % button_text)
+			quit(1)
+			return
+	if admin_close_button == null:
+		push_error("Admin panel is missing a visible Close button")
+		quit(1)
+		return
+	admin_panel.queue_free()
 	await process_frame
 
 	# Parcel/world-builder helpers: scripts parse, expose their expected APIs,
@@ -763,9 +1101,14 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# Usability pass: the fullscreen toggle action must exist so the player is
-	# never trapped in fullscreen, plus the inventory/help action ids.
-	for required_action in ["toggle_fullscreen", "toggle_inventory", "toggle_help", "toggle_minimap", "toggle_admin_panel", "toggle_system_menu"]:
+	# Usability/input pass: the fullscreen/menu/minimap actions must exist, plus
+	# the controller-ready interact/confirm/cancel/edit actions added for this
+	# playtest repair pass.
+	for required_action in [
+		"toggle_fullscreen", "toggle_inventory", "toggle_help", "toggle_minimap",
+		"toggle_admin_panel", "toggle_system_menu", "interact_primary",
+		"confirm_action", "cancel_action", "edit_move", "edit_rotate", "edit_delete",
+	]:
 		if not InputMap.has_action(required_action):
 			push_error("InputMap action '%s' is missing from project.godot" % required_action)
 			quit(1)
@@ -782,6 +1125,31 @@ func _initialize() -> void:
 		push_error("InputMap action 'toggle_fullscreen' is missing an F11 binding")
 		quit(1)
 		return
+	var controller_move_actions: Array[String] = ["move_up", "move_down", "move_left", "move_right"]
+	for move_action in controller_move_actions:
+		var has_joypad_motion: bool = false
+		for event_variant in InputMap.action_get_events(move_action):
+			if event_variant is InputEventJoypadMotion:
+				has_joypad_motion = true
+				break
+		if not has_joypad_motion:
+			push_error("Movement action '%s' is missing a joypad axis binding" % move_action)
+			quit(1)
+			return
+	var controller_button_actions: Array[String] = [
+		"interact_primary", "confirm_action", "cancel_action",
+		"edit_move", "edit_rotate", "edit_delete", "toggle_system_menu",
+	]
+	for button_action in controller_button_actions:
+		var has_joypad_button: bool = false
+		for event_variant in InputMap.action_get_events(button_action):
+			if event_variant is InputEventJoypadButton:
+				has_joypad_button = true
+				break
+		if not has_joypad_button:
+			push_error("Action '%s' is missing a controller button binding" % button_action)
+			quit(1)
+			return
 	var display_settings_source: String = FileAccess.get_file_as_string("res://ui/display_settings.gd")
 	for required_snippet in [
 		"WINDOW_FLAG_BORDERLESS",
@@ -799,11 +1167,17 @@ func _initialize() -> void:
 		"_system_menu = SYSTEM_MENU_SCENE.instantiate()",
 		"_system_menu.connect(\"close_requested\", _on_system_menu_closed)",
 		"event.is_action_pressed(\"toggle_system_menu\")",
+		"Interior coming later.",
 	]:
 		if not homestead_controller_source.contains(required_snippet):
 			push_error("HomesteadController is missing system-menu wiring snippet '%s'" % required_snippet)
 			quit(1)
 			return
+	var interactable_source: String = FileAccess.get_file_as_string("res://systems/interactable_system.gd")
+	if not interactable_source.contains("event.is_action_pressed(\"interact_primary\")"):
+		push_error("InteractableSystem no longer uses the interact_primary action")
+		quit(1)
+		return
 
 	# --- Server run/external-access pass ----------------------------------------
 	for required_file in [
@@ -818,6 +1192,10 @@ func _initialize() -> void:
 		"res://docs/run_local_server.md",
 		"res://docs/run_local_playtest.md",
 		"res://docs/playtest_readiness.md",
+		"res://docs/visual_identity.md",
+		"res://docs/ui_style_guide.md",
+		"res://docs/world_art_direction.md",
+		"res://docs/building_art_direction.md",
 		"res://docs/interiors_plan.md",
 	]:
 		if not FileAccess.file_exists(required_file):
@@ -1467,6 +1845,21 @@ func _initialize() -> void:
 			push_error("Reserved future biome '%s' has no registry entry" % future_biome)
 			quit(1)
 			return
+	for required_terrain_style in ["meadow", "forest", "dirt_path", "stone_path", "tilled_soil", "water", "road", "plot_boundary"]:
+		if not BiomeRegistry.terrain_ids().has(required_terrain_style):
+			push_error("BiomeRegistry.terrain_ids() is missing '%s'" % required_terrain_style)
+			quit(1)
+			return
+		var terrain_color: Color = BiomeRegistry.terrain_color(required_terrain_style)
+		var terrain_detail: Color = BiomeRegistry.terrain_detail_color(required_terrain_style)
+		if terrain_color.a <= 0.0 or terrain_detail.a <= 0.0:
+			push_error("Terrain style '%s' returned an invisible color" % required_terrain_style)
+			quit(1)
+			return
+	if BiomeRegistry.path_color("dirt_path").a <= 0.0 or BiomeRegistry.water_color().a <= 0.0:
+		push_error("BiomeRegistry path/water helpers returned invisible colors")
+		quit(1)
+		return
 
 	# --- Large-world: plots big enough + roads never cross a plot ----------------
 	# At least 4 default claimable plots must hit the new homestead target (24x24).
@@ -1514,25 +1907,50 @@ func _initialize() -> void:
 		return
 	get_root().add_child(minimap)
 	await process_frame
+	var minimap_panel: Control = minimap.get_node_or_null("Panel") as Control
 	var minimap_rect: Control = minimap.get_node_or_null("Panel/Margin/MapRect") as Control
 	if minimap_rect == null or minimap_rect.size.x <= 0.0 or minimap_rect.size.y <= 0.0:
 		push_error("Minimap is missing a valid MapRect")
 		road_map.free()
 		quit(1)
 		return
+	if minimap_panel == null or not minimap_panel.clip_contents or not minimap_rect.clip_contents:
+		push_error("Minimap panel/map rect no longer clips custom drawing to its frame")
+		road_map.free()
+		quit(1)
+		return
 	var plot_centers: Dictionary = {}
 	for plot_id in LandRegistry.claimable_plot_ids():
-		var rect: Rect2i = LandRegistry.get_plot(String(plot_id)).get("rect", Rect2i()) as Rect2i
-		plot_centers[plot_id] = road_map.grid_to_world(Vector2i(
+		var plot: Dictionary = LandRegistry.get_plot(String(plot_id))
+		var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
+		plot_centers[plot_id] = {
+			"center": road_map.grid_to_world(Vector2i(
 			rect.position.x + rect.size.x / 2,
 			rect.position.y + rect.size.y / 2
-		))
+			)),
+			"biome": String(plot.get("biome", "meadow")),
+		}
 	minimap.call("setup", [], plot_centers, Rect2(road_map.get_camera_limits()))
-	minimap.call("set_player_position", Vector2.ZERO)
+	var minimap_plots: Dictionary = minimap.get("_plots") as Dictionary
+	for plot_id in LandRegistry.claimable_plot_ids():
+		if not minimap_plots.has(plot_id) or String((minimap_plots[plot_id] as Dictionary).get("biome", "")).is_empty():
+			push_error("Minimap did not preserve biome metadata for plot '%s'" % plot_id)
+			minimap.queue_free()
+			road_map.free()
+			quit(1)
+			return
+	minimap.call("set_player_position", Vector2(42, 84))
+	if minimap.get("_player_pos") != Vector2(42, 84):
+		push_error("Minimap set_player_position() did not update the tracked player marker position")
+		minimap.queue_free()
+		road_map.free()
+		quit(1)
+		return
 	minimap.call("set_plot_states", {})
 	minimap.call("set_admin_debug", true)
 	for center_variant in plot_centers.values():
-		var minimap_point: Vector2 = minimap.call("_world_to_map", center_variant as Vector2)
+		var center_record: Dictionary = center_variant as Dictionary
+		var minimap_point: Vector2 = minimap.call("_world_to_map", center_record["center"] as Vector2)
 		if minimap_point.x < -0.01 or minimap_point.y < -0.01 \
 				or minimap_point.x > minimap_rect.size.x + 0.01 or minimap_point.y > minimap_rect.size.y + 0.01:
 			push_error("Minimap bounds do not include an expanded plot center at %s" % minimap_point)
@@ -1544,6 +1962,83 @@ func _initialize() -> void:
 	minimap.queue_free()
 	await process_frame
 	road_map.free()
+	var overworld_controller_source: String = FileAccess.get_file_as_string("res://world/overworld_controller.gd")
+	if overworld_controller_source.find("_minimap.call(\"set_player_position\", get_player_position())") == -1:
+		push_error("OverworldController no longer updates the minimap player marker")
+		quit(1)
+		return
+	if overworld_controller_source.find("_minimap.call(\"set_player_position\", get_player_position())") > overworld_controller_source.find("_hud_tick += delta"):
+		push_error("OverworldController still updates the minimap only inside the throttled HUD block")
+		quit(1)
+		return
+	var minimap_source: String = FileAccess.get_file_as_string("res://ui/minimap_panel.gd")
+	for required_snippet in ["CozyUITheme.apply_hud_panel", "BiomeRegistry.minimap_tint", "\"biome\""]:
+		if not minimap_source.contains(required_snippet):
+			push_error("Minimap visual foundation is missing snippet '%s'" % required_snippet)
+			quit(1)
+			return
+
+	# First-pass terrain paint: the map must accept override ids, draw them, and
+	# clear them safely; the controller keeps the admin paint/fill/reset API.
+	var overworld_scene: PackedScene = load("res://scenes/world/overworld.tscn") as PackedScene
+	if overworld_scene == null:
+		push_error("Overworld scene failed explicit load for terrain-paint validation")
+		quit(1)
+		return
+	var overworld_runtime: Node = overworld_scene.instantiate()
+	if overworld_runtime == null:
+		push_error("Overworld scene failed explicit instantiate for terrain-paint validation")
+		quit(1)
+		return
+	get_root().add_child(overworld_runtime)
+	await process_frame
+	var terrain_map: Node = overworld_runtime.get_node_or_null("Map")
+	if terrain_map == null or not terrain_map.has_method("terrain_paint_ids") or not terrain_map.has_method("set_terrain_overrides"):
+		push_error("Overworld map is missing the terrain paint API")
+		quit(1)
+		return
+	for required_terrain_id in ["meadow", "forest", "orchard", "creekside", "hilltop", "grove", "town", "farmland", "dirt_path", "stone_path", "water"]:
+		if not (terrain_map.call("terrain_paint_ids") as Array).has(required_terrain_id):
+			push_error("Terrain paint palette is missing '%s'" % required_terrain_id)
+			quit(1)
+			return
+		if not OverworldMap.supports_terrain_paint_id(required_terrain_id):
+			push_error("Overworld map does not support terrain paint id '%s'" % required_terrain_id)
+			quit(1)
+			return
+	var overworld_map_source: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	for required_snippet in ["BiomeRegistry.path_color", "BiomeRegistry.water_color", "BiomeRegistry.terrain_color", "BiomeRegistry.terrain_detail_color"]:
+		if not overworld_map_source.contains(required_snippet):
+			push_error("OverworldMap is not using shared visual palette helper '%s'" % required_snippet)
+			quit(1)
+			return
+	terrain_map.call("set_terrain_overrides", {
+		"10,10": "water",
+		"11,10": "dirt_path",
+		"bad_key": "forest",
+		"12,10": "not_real",
+	})
+	if int(terrain_map.call("terrain_override_count")) != 2:
+		push_error("Terrain paint override application did not filter invalid keys/ids safely")
+		quit(1)
+		return
+	terrain_map.call("clear_terrain_overrides")
+	if int(terrain_map.call("terrain_override_count")) != 0:
+		push_error("Terrain paint clear_terrain_overrides() did not remove painted tiles")
+		quit(1)
+		return
+	for required_snippet in [
+		"admin_paint_terrain_brush",
+		"admin_paint_terrain_fill",
+		"admin_reset_terrain_here",
+		"terrain_overrides",
+	]:
+		if not overworld_controller_source.contains(required_snippet):
+			push_error("OverworldController is missing terrain-paint wiring '%s'" % required_snippet)
+			quit(1)
+			return
+	overworld_runtime.queue_free()
+	await process_frame
 
 	# --- Chunk / world generation scaffolding -----------------------------------
 	if WorldChunk.chunk_id(Vector2i(-2, 3)) != "chunk_-2_3":

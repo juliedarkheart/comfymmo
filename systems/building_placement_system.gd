@@ -3,6 +3,7 @@ class_name BuildingPlacementSystem
 
 const PLACEABLE_CRATE_SCENE := preload("res://scenes/buildings/placeable_crate.tscn")
 const WORLD_SPACE_HINT_SCENE := preload("res://ui/world_space_hint.tscn")
+const EDIT_TOOLBAR_SCENE := preload("res://ui/build_edit_toolbar.tscn")
 
 signal decorating_mode_changed(active: bool)
 signal decorating_mode_label_changed(mode_name: String, help_text: String)
@@ -43,6 +44,9 @@ var _next_record_id: int = 1
 var _moving_record_id: String = ""
 var _move_origin_tile: Vector2i = Vector2i.ZERO
 var _world_space_hint: WorldSpaceHint
+var _edit_toolbar: CanvasLayer
+var _edit_feedback_text: String = "Click a placed object to select it."
+var _edit_feedback_is_error: bool = false
 var _mailbox_has_new_mail: bool = false
 var _region_id: String = "homestead"
 
@@ -55,6 +59,7 @@ func configure(target_map: HomesteadMap, target_gameplay_layer: Node2D, target_s
 	_region_id = region_id
 	_sync_placeable_ids()
 	_ensure_world_space_hint()
+	_ensure_edit_toolbar()
 	_load_placed_objects()
 	_emit_mode_label_changed()
 
@@ -98,33 +103,31 @@ func _unhandled_input(event: InputEvent) -> void:
 			_cycle_active_placeable()
 			_mark_input_handled()
 			return
-
-		# Only consume Esc when actually in a build/edit/move mode, so in plain
-		# explore Esc passes through to the controller's system-menu handler.
-		if event.keycode == KEY_ESCAPE and _interaction_mode != InteractionMode.NONE:
-			_exit_current_mode()
-			_mark_input_handled()
-			return
-
-		if _interaction_mode == InteractionMode.PLACEMENT and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER):
-			_try_place_active_object()
-			_mark_input_handled()
-			return
-
-		if _interaction_mode == InteractionMode.EDIT and (event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE):
-			_remove_selected_object()
-			_mark_input_handled()
-			return
-
-		if _interaction_mode == InteractionMode.EDIT and event.keycode == KEY_M:
-			_start_move_selected_object()
-			_mark_input_handled()
-			return
-
-		if _interaction_mode == InteractionMode.MOVE and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER):
-			_confirm_move_selected_object()
-			_mark_input_handled()
-			return
+	if _interaction_mode != InteractionMode.NONE and event.is_action_pressed("cancel_action"):
+		_exit_current_mode()
+		_set_edit_feedback("Edit controls closed.", false)
+		_mark_input_handled()
+		return
+	if _interaction_mode == InteractionMode.PLACEMENT and event.is_action_pressed("confirm_action"):
+		_try_place_active_object()
+		_mark_input_handled()
+		return
+	if _interaction_mode == InteractionMode.EDIT and event.is_action_pressed("edit_delete"):
+		_remove_selected_object()
+		_mark_input_handled()
+		return
+	if _interaction_mode == InteractionMode.EDIT and event.is_action_pressed("edit_move"):
+		_start_move_selected_object()
+		_mark_input_handled()
+		return
+	if _interaction_mode == InteractionMode.EDIT and event.is_action_pressed("edit_rotate"):
+		_attempt_rotate_selected_object()
+		_mark_input_handled()
+		return
+	if _interaction_mode == InteractionMode.MOVE and event.is_action_pressed("confirm_action"):
+		_confirm_move_selected_object()
+		_mark_input_handled()
+		return
 
 	if _interaction_mode == InteractionMode.NONE:
 		return
@@ -150,6 +153,7 @@ func _enter_placement_mode() -> void:
 	_interaction_mode = InteractionMode.PLACEMENT
 	_current_tile = map.world_to_grid(map.get_global_mouse_position())
 	_spawn_preview()
+	_set_edit_feedback("Placement preview active.", false)
 	_emit_decorating_mode_changed()
 	_emit_mode_label_changed()
 
@@ -237,6 +241,7 @@ func _enter_edit_mode() -> void:
 	_interaction_mode = InteractionMode.EDIT
 	_clear_selection()
 	_current_tile = map.world_to_grid(map.get_global_mouse_position())
+	_set_edit_feedback("Click a placed object to select it.", false)
 	_update_hovered_selection()
 	_emit_decorating_mode_changed()
 	_emit_mode_label_changed()
@@ -512,19 +517,29 @@ func _update_hovered_selection() -> void:
 
 func _select_hovered_object() -> void:
 	if _hovered_record_id.is_empty():
+		if not _selected_record_id.is_empty():
+			_set_edit_feedback("Selection cleared.", false)
+		else:
+			_set_edit_feedback("No placed object here. Click a placed object to select it.", true)
 		_clear_selection()
+		_refresh_edit_toolbar()
 		return
 
 	if _selected_record_id == _hovered_record_id:
-		_remove_selected_object()
+		_set_edit_feedback("Selected %s. Use Move or Delete below." % _record_summary(_selected_record_id), false)
+		_refresh_edit_toolbar()
 		return
 
 	_set_record_highlight(_selected_record_id, false)
 	_selected_record_id = _hovered_record_id
 	_set_record_highlight(_selected_record_id, true)
+	_set_edit_feedback("Selected %s." % _record_summary(_selected_record_id), false)
+	_refresh_edit_toolbar()
 
 func _start_move_selected_object() -> void:
 	if _selected_record_id.is_empty():
+		_set_edit_feedback("Select a placed object before moving it.", true)
+		_refresh_edit_toolbar()
 		return
 
 	var moving_record: Dictionary = _find_record_by_id(_selected_record_id)
@@ -540,6 +555,7 @@ func _start_move_selected_object() -> void:
 	_rebuild_occupied_tiles_excluding(_moving_record_id)
 	moving_node.set_selected(false)
 	moving_node.set_preview_mode(true)
+	_set_edit_feedback("Move %s to a new tile, then click or confirm." % _record_summary(_moving_record_id), false)
 	_update_move_preview()
 	_emit_decorating_mode_changed()
 	_emit_mode_label_changed()
@@ -592,12 +608,16 @@ func _confirm_move_selected_object() -> void:
 		if moving_node != null:
 			var move_result: Dictionary = _get_move_result(_current_tile)
 			moving_node.set_preview_valid(false)
-			_show_world_space_hint(false, String(move_result.get("reason", "Blocked")), moving_node.position)
+			var denial_reason: String = String(move_result.get("reason", "Blocked"))
+			_show_world_space_hint(false, denial_reason, moving_node.position)
+			_set_edit_feedback(denial_reason, true)
+			_refresh_edit_toolbar()
 		return
 
 	var moving_record: Dictionary = _find_record_by_id(_moving_record_id)
 	if moving_record.is_empty():
 		return
+	var moved_summary: String = _record_summary(_moving_record_id)
 
 	_update_record_tile(_moving_record_id, _current_tile)
 
@@ -615,6 +635,7 @@ func _confirm_move_selected_object() -> void:
 	_moving_record_id = ""
 	_current_tile = map.world_to_grid(map.get_global_mouse_position())
 	_update_hovered_selection()
+	_set_edit_feedback("Moved %s." % moved_summary, false)
 	_emit_decorating_mode_changed()
 	_emit_mode_label_changed()
 	_hide_world_space_hint()
@@ -643,12 +664,15 @@ func _cancel_move_selected_object() -> void:
 	_move_origin_tile = Vector2i.ZERO
 	_current_tile = map.world_to_grid(map.get_global_mouse_position())
 	_update_hovered_selection()
+	_set_edit_feedback("Move cancelled.", false)
 	_emit_decorating_mode_changed()
 	_emit_mode_label_changed()
 	_hide_world_space_hint()
 
 func _remove_selected_object() -> void:
 	if _selected_record_id.is_empty():
+		_set_edit_feedback("Select a placed object before deleting it.", true)
+		_refresh_edit_toolbar()
 		return
 
 	var index_to_remove: int = -1
@@ -658,10 +682,13 @@ func _remove_selected_object() -> void:
 			break
 
 	if index_to_remove == -1:
+		_set_edit_feedback("That object could not be found anymore.", true)
+		_refresh_edit_toolbar()
 		return
 
 	var placed_node: PlaceableCrate = _placed_nodes.get(_selected_record_id) as PlaceableCrate
 	var removed_object_id: String = String(_placed_objects[index_to_remove].get("object_id", ""))
+	var removed_summary: String = _record_summary(_selected_record_id)
 	if placed_node != null:
 		placed_node.queue_free()
 
@@ -676,6 +703,8 @@ func _remove_selected_object() -> void:
 	if _hovered_record_id == removed_record_id:
 		_hovered_record_id = ""
 	_update_hovered_selection()
+	_set_edit_feedback("Deleted %s." % removed_summary, false)
+	_refresh_edit_toolbar()
 
 func _rebuild_occupied_tiles() -> void:
 	_occupied_tiles.clear()
@@ -774,23 +803,24 @@ func _emit_mode_label_changed() -> void:
 			var cost_suffix: String = "" if cost_text.is_empty() else " (Cost: %s)" % cost_text
 			decorating_mode_label_changed.emit(
 				"Placement Mode",
-				"%s selected%s. Tab to switch. Click or Enter to place. Esc to cancel." % [placeable_data.display_name, cost_suffix]
+				"%s selected%s. Tab to switch. Click or confirm to place. Cancel exits placement." % [placeable_data.display_name, cost_suffix]
 			)
 		InteractionMode.EDIT:
 			decorating_mode_label_changed.emit(
 				"Edit Mode",
-				"Click object to select. M to move. Delete to remove. Esc to cancel."
+				"Click object to select. Use Move/Delete below. Q checks rotate. Cancel exits edit."
 			)
 		InteractionMode.MOVE:
 			decorating_mode_label_changed.emit(
 				"Move Mode",
-				"Click or Enter to confirm. Esc to cancel."
+				"Move the selected object. Click or confirm to place it. Cancel reverts."
 			)
 		_:
 			decorating_mode_label_changed.emit(
 				"Explore",
 				"Move with WASD or arrow keys. B to place. E to edit."
 			)
+	_refresh_edit_toolbar()
 
 func _ensure_world_space_hint() -> void:
 	if _world_space_hint != null:
@@ -798,6 +828,99 @@ func _ensure_world_space_hint() -> void:
 
 	_world_space_hint = WORLD_SPACE_HINT_SCENE.instantiate() as WorldSpaceHint
 	gameplay_layer.add_child(_world_space_hint)
+
+func _ensure_edit_toolbar() -> void:
+	if _edit_toolbar != null:
+		return
+	_edit_toolbar = EDIT_TOOLBAR_SCENE.instantiate() as CanvasLayer
+	add_child(_edit_toolbar)
+	_edit_toolbar.connect("select_requested", _toolbar_select_mode)
+	_edit_toolbar.connect("move_requested", _toolbar_move_selected_object)
+	_edit_toolbar.connect("rotate_requested", _toolbar_rotate_selected_object)
+	_edit_toolbar.connect("delete_requested", _toolbar_delete_selected_object)
+	_edit_toolbar.connect("cancel_requested", _toolbar_cancel)
+	_refresh_edit_toolbar()
+
+func _toolbar_select_mode() -> void:
+	if _interaction_mode == InteractionMode.MOVE:
+		_cancel_move_selected_object()
+		return
+	if _interaction_mode != InteractionMode.EDIT:
+		_exit_placement_mode()
+		_enter_edit_mode()
+		return
+	_set_edit_feedback("Click a placed object to select it.", false)
+	_refresh_edit_toolbar()
+
+func _toolbar_move_selected_object() -> void:
+	_start_move_selected_object()
+
+func _toolbar_rotate_selected_object() -> void:
+	_attempt_rotate_selected_object()
+
+func _toolbar_delete_selected_object() -> void:
+	_remove_selected_object()
+
+func _toolbar_cancel() -> void:
+	if _interaction_mode == InteractionMode.NONE:
+		return
+	_exit_current_mode()
+	_set_edit_feedback("Edit controls closed.", false)
+	_refresh_edit_toolbar()
+
+func _attempt_rotate_selected_object() -> void:
+	if _selected_record_id.is_empty():
+		_set_edit_feedback("Select a placed object before trying to rotate it.", true)
+		_refresh_edit_toolbar()
+		return
+	_set_edit_feedback("Rotation is not wired for placed pieces yet.", true)
+	_refresh_edit_toolbar()
+
+func _record_summary(record_id: String) -> String:
+	var record: Dictionary = _find_record_by_id(record_id)
+	if record.is_empty():
+		return "object"
+	var object_id: String = String(record.get("object_id", ""))
+	var display_name: String = String((ContentRegistry.placeables().get(object_id, {}) as Dictionary).get("display_name", object_id))
+	return "%s @ (%d,%d)" % [
+		display_name,
+		int(record.get("tile_x", 0)),
+		int(record.get("tile_y", 0)),
+	]
+
+func _refresh_edit_toolbar() -> void:
+	if _edit_toolbar == null:
+		return
+	var toolbar_active: bool = _interaction_mode == InteractionMode.EDIT or _interaction_mode == InteractionMode.MOVE
+	_edit_toolbar.call("set_active", toolbar_active)
+	if not toolbar_active:
+		return
+	var selected_summary: String = "No placed object selected yet."
+	if not _selected_record_id.is_empty():
+		selected_summary = "Selected: %s" % _record_summary(_selected_record_id)
+	elif not _hovered_record_id.is_empty():
+		selected_summary = "Hovering: %s" % _record_summary(_hovered_record_id)
+	var controls_text: String = ""
+	if _interaction_mode == InteractionMode.MOVE:
+		controls_text = "Mouse: click a tile to confirm. Keyboard/controller: confirm places, cancel reverts."
+	else:
+		controls_text = "Mouse: click an object to select. Buttons or M/Q/Delete handle move/rotate/delete."
+	_edit_toolbar.call("set_mode_text", "Move Mode" if _interaction_mode == InteractionMode.MOVE else "Edit Mode")
+	_edit_toolbar.call("set_selection_text", selected_summary)
+	_edit_toolbar.call("set_feedback_text", _edit_feedback_text, _edit_feedback_is_error)
+	_edit_toolbar.call("set_controls_text", controls_text)
+	_edit_toolbar.call(
+		"set_button_states",
+		true,
+		_interaction_mode == InteractionMode.EDIT and not _selected_record_id.is_empty(),
+		_interaction_mode == InteractionMode.EDIT and not _selected_record_id.is_empty(),
+		_interaction_mode == InteractionMode.EDIT and not _selected_record_id.is_empty(),
+		_interaction_mode != InteractionMode.NONE
+	)
+
+func _set_edit_feedback(text: String, is_error: bool) -> void:
+	_edit_feedback_text = text
+	_edit_feedback_is_error = is_error
 
 func _show_world_space_hint(is_valid: bool, reason_text: String, world_position: Vector2) -> void:
 	if _world_space_hint == null:

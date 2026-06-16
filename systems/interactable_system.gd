@@ -28,8 +28,10 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _interactions_enabled or _nearest_interactable_id.is_empty():
 		return
+	if event is InputEventKey and event.echo:
+		return
 
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F:
+	if event.is_action_pressed("interact_primary"):
 		var interaction_type: String = get_interaction_type(_nearest_interactable_id)
 		if interaction_type.is_empty():
 			return
