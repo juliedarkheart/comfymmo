@@ -20,6 +20,7 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/game_state_manager.gd",
 	"res://systems/dev_tool_state.gd",
 	"res://systems/overworld_editor_system.gd",
+	"res://systems/world_builder_overlay.gd",
 	"res://systems/dev_world_marker.gd",
 	"res://systems/admin/moderation_models.gd",
 	"res://systems/admin/audit_log.gd",
@@ -79,6 +80,7 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/building/prefab_interiors.gd",
 	"res://ui/build_menu_panel.tscn",
 	"res://ui/interior_view.tscn",
+	"res://ui/system_menu.tscn",
 	"res://scenes/world/homestead.tscn",
 	"res://scenes/world/regions/homestead/homestead_region.tscn",
 	"res://scenes/world/regions/village_square/village_square_region.tscn",
@@ -315,6 +317,22 @@ func _initialize() -> void:
 	build_menu.queue_free()
 	object_registry.queue_free()
 	await process_frame
+
+	# System/pause menu: scene instantiates and exposes open/close + a quit
+	# handler so the player always has an in-game way to control the window/quit.
+	var system_menu_scene: PackedScene = load("res://ui/system_menu.tscn") as PackedScene
+	if system_menu_scene == null:
+		push_error("System menu scene failed to load")
+		quit(1)
+		return
+	var system_menu: Node = system_menu_scene.instantiate()
+	for required_method in ["open", "close", "is_open", "_on_quit", "_on_fullscreen"]:
+		if not system_menu.has_method(required_method):
+			push_error("System menu is missing method '%s'" % required_method)
+			system_menu.free()
+			quit(1)
+			return
+	system_menu.free()
 
 	# Lightweight save-helper sanity: defaults must be returned with no save file.
 	var save_system: LocalSaveSystem = LocalSaveSystem.new()
@@ -634,7 +652,7 @@ func _initialize() -> void:
 
 	# Usability pass: the fullscreen toggle action must exist so the player is
 	# never trapped in fullscreen, plus the inventory/help action ids.
-	for required_action in ["toggle_fullscreen", "toggle_inventory", "toggle_help", "toggle_minimap", "toggle_admin_panel"]:
+	for required_action in ["toggle_fullscreen", "toggle_inventory", "toggle_help", "toggle_minimap", "toggle_admin_panel", "toggle_system_menu"]:
 		if not InputMap.has_action(required_action):
 			push_error("InputMap action '%s' is missing from project.godot" % required_action)
 			quit(1)
@@ -973,14 +991,14 @@ func _initialize() -> void:
 		push_error("Fewer than 4 claimable homestead plots defined")
 		quit(1)
 		return
-	# At least 4 plots must be true homestead-sized (12x12 = 144 tiles or more).
+	# At least 4 plots must be true homestead-sized (16x16 = 256 tiles or more).
 	var large_plot_ids: Array[String] = []
 	for claim_id in LandRegistry.claimable_plot_ids():
 		var claim_rect: Rect2i = LandRegistry.get_plot(String(claim_id)).get("rect", Rect2i()) as Rect2i
-		if claim_rect.size.x >= 12 and claim_rect.size.y >= 12:
+		if claim_rect.size.x >= 16 and claim_rect.size.y >= 16:
 			large_plot_ids.append(String(claim_id))
 	if large_plot_ids.size() < 4:
-		push_error("Fewer than 4 plots are 12x12 or larger (found %d)" % large_plot_ids.size())
+		push_error("Fewer than 4 plots are 16x16 or larger (found %d)" % large_plot_ids.size())
 		quit(1)
 		return
 	var overworld_map: OverworldMap = OverworldMap.new()
@@ -998,11 +1016,21 @@ func _initialize() -> void:
 			push_error("Large plot center resolved to the wrong plot for '%s'" % large_plot_id)
 			quit(1)
 			return
-		var center_result: Dictionary = overworld_map.get_place_footprint_result(center_tile, Vector2i.ONE, [])
-		if not bool(center_result.get("valid", false)):
-			push_error("Large plot center is not buildable for '%s': %s" % [large_plot_id, center_result.get("reason", "")])
-			quit(1)
-			return
+		# The center AND all four corners must be in the expanded buildable bounds,
+		# so the owner can build right up to the edges of the homestead lot.
+		var check_tiles: Array = LandRegistry.corner_tiles(large_plot_id)
+		check_tiles.append(center_tile)
+		for build_tile_variant in check_tiles:
+			var build_tile: Vector2i = build_tile_variant as Vector2i
+			if not overworld_map.is_tile_in_bounds(build_tile):
+				push_error("Plot '%s' tile (%d,%d) is outside the buildable bounds" % [large_plot_id, build_tile.x, build_tile.y])
+				quit(1)
+				return
+			var build_result: Dictionary = overworld_map.get_place_footprint_result(build_tile, Vector2i.ONE, [])
+			if not bool(build_result.get("valid", false)):
+				push_error("Plot '%s' tile (%d,%d) is not buildable: %s" % [large_plot_id, build_tile.x, build_tile.y, build_result.get("reason", "")])
+				quit(1)
+				return
 	overworld_map.free()
 	var test_plots: Dictionary = {}
 	# Use an interior tile (plot center), not the sign tile (which now sits in
@@ -1041,6 +1069,12 @@ func _initialize() -> void:
 		push_error("Plot owner denied building on own plot")
 		quit(1)
 		return
+	# Owner can build at every corner of the claimed plot (full-bounds permission).
+	for corner_tile_variant in LandRegistry.corner_tiles(test_plot_id):
+		if not bool(LandClaimSystem.can_build_at(corner_tile_variant as Vector2i, "profile_a", test_plots)["allowed"]):
+			push_error("Plot owner denied building at a corner of their plot")
+			quit(1)
+			return
 	if bool(LandClaimSystem.can_build_at(test_tile, "profile_b", test_plots)["allowed"]):
 		push_error("Non-owner allowed building on someone's plot")
 		quit(1)
@@ -1132,6 +1166,61 @@ func _initialize() -> void:
 		push_error("Land token missing from quest items (inventory tokens category)")
 		quit(1)
 		return
+
+	# --- World-builder runtime plot overlay -------------------------------------
+	# Editor-authored plots must merge into every plot query and round-trip through
+	# the save data, and clearing must restore the static catalog exactly (so the
+	# in-game world-builder can add/remove lots without corrupting the built-ins).
+	var static_claimable_count: int = LandRegistry.claimable_plot_ids().size()
+	LandRegistry.add_runtime_plot("wb_test_plot", "WB Test Lot", Rect2i(80, 80, 12, 12), "grove")
+	if not LandRegistry.is_runtime_plot("wb_test_plot"):
+		push_error("Runtime plot was not recorded as a runtime plot")
+		quit(1)
+		return
+	if not LandRegistry.has_plot("wb_test_plot") or not LandRegistry.definitions().has("wb_test_plot"):
+		push_error("Runtime plot did not merge into LandRegistry.definitions()")
+		quit(1)
+		return
+	if not LandRegistry.claimable_plot_ids().has("wb_test_plot"):
+		push_error("Runtime plot is not claimable")
+		quit(1)
+		return
+	if String(LandRegistry.plot_at_tile(Vector2i(85, 85)).get("plot_id", "")) != "wb_test_plot":
+		push_error("plot_at_tile did not resolve a runtime plot")
+		quit(1)
+		return
+	var wb_save_data: Dictionary = LandRegistry.runtime_plots_save_data()
+	if not wb_save_data.has("wb_test_plot") or (wb_save_data["wb_test_plot"]["rect"] as Array) != [80, 80, 12, 12]:
+		push_error("Runtime plot save data did not serialize rect as [x,y,w,h]")
+		quit(1)
+		return
+	LandRegistry.load_runtime_plots(wb_save_data)
+	if not LandRegistry.is_runtime_plot("wb_test_plot"):
+		push_error("Runtime plot did not survive a save round-trip")
+		quit(1)
+		return
+	# A corrupt record must be skipped, never crash the loader.
+	LandRegistry.load_runtime_plots({"bad_rec": {"rect": [1, 2]}, "wb_test_plot": wb_save_data["wb_test_plot"]})
+	if LandRegistry.is_runtime_plot("bad_rec"):
+		push_error("Runtime plot loader accepted a malformed rect")
+		quit(1)
+		return
+	# Clearing the overlay must restore the static catalog with no leakage.
+	LandRegistry.load_runtime_plots({})
+	if LandRegistry.is_runtime_plot("wb_test_plot") or LandRegistry.claimable_plot_ids().size() != static_claimable_count:
+		push_error("Clearing the runtime overlay did not restore the static plot catalog")
+		quit(1)
+		return
+
+	# Spread-biome layout: each built-in claimable plot must declare a known biome,
+	# and biome_color must resolve a distinct tint for the overlay/ground drawing.
+	var known_biomes: Array = ["meadow", "orchard", "creekside", "hilltop", "grove", "brook"]
+	for biome_plot_id in LandRegistry.claimable_plot_ids():
+		var biome_name: String = String(LandRegistry.get_plot(String(biome_plot_id)).get("biome", ""))
+		if not known_biomes.has(biome_name):
+			push_error("Plot '%s' has unknown biome '%s'" % [biome_plot_id, biome_name])
+			quit(1)
+			return
 
 	print("Project smoke test passed.")
 	quit(0)

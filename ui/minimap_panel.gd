@@ -6,8 +6,11 @@ extends CanvasLayer
 ## scaled into the map rect from a fixed world bounds, so it stays truthful to
 ## the real layout without per-frame cost beyond a queue_redraw.
 
-const WORLD_MIN := Vector2(-840, -200)
-const WORLD_MAX := Vector2(3400, 1560)
+## World bounds the minimap maps into its rect. Widened west + south so the
+## spread-out homestead lots (creekside/brook to the west, orchard/grove to the
+## south) all fit on the readout alongside the town and forest to the east.
+const WORLD_MIN := Vector2(-1480, -300)
+const WORLD_MAX := Vector2(3400, 1820)
 
 var _player_pos: Vector2 = Vector2.ZERO
 var _plots: Dictionary = {}            # plot_id -> {rect_center_world, owned_state}

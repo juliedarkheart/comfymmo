@@ -43,6 +43,7 @@ const CRAFTING_PANEL_SCENE := preload("res://ui/crafting_panel.tscn")
 const INVENTORY_PANEL_SCENE := preload("res://ui/inventory_panel.tscn")
 const BUILD_MENU_SCENE := preload("res://ui/build_menu_panel.tscn")
 const INTERIOR_VIEW_SCENE := preload("res://ui/interior_view.tscn")
+const SYSTEM_MENU_SCENE := preload("res://ui/system_menu.tscn")
 const STATION_RADIUS := 110.0
 
 var _farm_plots: Dictionary = {}
@@ -51,6 +52,7 @@ var _progression_panel: CanvasLayer = null
 var _inventory_panel: CanvasLayer = null
 var _build_menu: CanvasLayer = null
 var _interior_view: CanvasLayer = null
+var _system_menu: CanvasLayer = null
 var _local_player: AvatarController = null
 var _local_nameplate: Node2D = null
 # Session-once XP marks (e.g. "talk_ow_maribel") so social/exploration XP
@@ -200,8 +202,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		_close_mailbox()
-		_mark_input_handled()
+		# Esc with no panel open: mailbox closes first; otherwise (when not in
+		# build/edit mode, which the placement system handles) open the system
+		# menu. While decorating, don't consume Esc — let placement exit its mode.
+		if _is_mailbox_open():
+			_close_mailbox()
+			_mark_input_handled()
+		elif not _decorating_mode_active:
+			_toggle_system_menu()
+			_mark_input_handled()
 
 func _on_decorating_mode_changed(is_active: bool, player: AvatarController) -> void:
 	_decorating_mode_active = is_active
@@ -414,6 +423,30 @@ func _setup_build_menu() -> void:
 	_interior_view.name = "InteriorView"
 	add_child(_interior_view)
 	_interior_view.connect("interior_closed", _on_interior_closed)
+
+	_system_menu = SYSTEM_MENU_SCENE.instantiate() as CanvasLayer
+	_system_menu.name = "SystemMenu"
+	add_child(_system_menu)
+	_system_menu.connect("close_requested", _on_system_menu_closed)
+
+## Esc when nothing else is open opens the system/pause menu (Resume, fullscreen
+## toggle, Quit to Desktop). Movement + interactions pause while it's open.
+func _toggle_system_menu() -> void:
+	if _system_menu == null:
+		return
+	if bool(_system_menu.call("is_open")):
+		_system_menu.call("close")
+		_on_system_menu_closed()
+	else:
+		_system_menu.call("open")
+		if _local_player != null and is_instance_valid(_local_player):
+			_local_player.set_movement_enabled(false)
+		interactable_system.set_interactions_enabled(false)
+
+func _on_system_menu_closed() -> void:
+	if _local_player != null and is_instance_valid(_local_player):
+		_local_player.set_movement_enabled(true)
+	interactable_system.set_interactions_enabled(not _is_mailbox_open())
 
 ## Identity snapshot for the inventory panel + HUD. Base (offline homestead)
 ## has no profile/plot; OverworldController overrides this with username,
@@ -877,7 +910,9 @@ func _open_help_panel() -> void:
 		+ "Build: B (Tab switches item)    Edit/move/remove: E\n"
 		+ "Eat carrot: C    Cycle time: T    Zoom: PgUp/PgDn (R reset)\n"
 		+ "Chat: Enter    Multiplayer/profile: F8    Wardrobe: F9\n"
-		+ "Dev: F10    Admin/world-builder: F7    Fullscreen/windowed: F11\n\n"
+		+ "Dev: F10    Admin/world-builder: F7    Fullscreen/windowed: F11\n"
+		+ "System menu (Resume / Quit to Desktop): Esc (when no panel is open)\n\n"
+		+ "Esc closes any open panel first; with nothing open it opens the system menu.\n\n"
 		+ "Getting started: gather branches/pebbles/fiber/clay (F), craft tools (K), "
 		+ "claim a plot at a plot sign, then build (B). Talk to Farmer Rowan for help."
 	)

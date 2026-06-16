@@ -21,8 +21,8 @@ func _ready() -> void:
 
 func get_camera_limits() -> Rect2i:
 	# Broad MMO-style framing spanning the whole strip; the backdrop is sized to
-	# it. Extended south to show the expanded neighborhood (12x12 homestead lots).
-	return Rect2i(-840, -460, 4660, 2120)
+	# it. Extended south + west to show the spread-out homestead lots.
+	return Rect2i(-1560, -460, 5380, 2440)
 
 func get_camera_zoom() -> Vector2:
 	# Slightly closer than 1.0 for readable detail on high-DPI / 4K monitors. Players
@@ -46,49 +46,61 @@ func _build_overworld() -> void:
 ## (the original homestead grid stays Rowan's training land). is_tile_in_bounds
 ## treats both the core AND these rects as placeable; tiles outside both remain
 ## structurally unbuildable (so town/forest can never be built on).
-func neighborhood_rects() -> Array:
-	# One large region south-east of the core holding the 12x12 homestead lots
-	# (2x2 grid: x[22,47], y[20,45], with path gaps between lots). Sized so the
-	# far corner (x+y=92 -> world_y 1472) stays inside the expanded south wall.
-	return [Rect2i(22, 20, 26, 26)]
+## Build margin around plots so there's walkable/buildable path access.
+const PLOT_BOUNDS_MARGIN := 2
 
 func is_tile_in_bounds(tile: Vector2i) -> bool:
 	if tile.x >= 0 and tile.x < MAP_WIDTH and tile.y >= 0 and tile.y < MAP_HEIGHT:
 		return true
-	for rect in neighborhood_rects():
-		if (rect as Rect2i).has_point(tile):
+	# Any plot rect (static OR runtime/editor), grown by a path margin, is
+	# buildable. Querying LandRegistry means editor-created plots are placeable
+	# the moment they exist.
+	for rect_variant in LandRegistry.all_plot_rects():
+		if (rect_variant as Rect2i).grow(PLOT_BOUNDS_MARGIN).has_point(tile):
 			return true
 	return false
 
-## Draw cozy ground tiles for the neighborhood region so it's not bare backdrop,
-## plus a soft road from the core out to it. Visual only — placement validity is
-## governed by is_tile_in_bounds + the land plot rules.
+## Draw cozy biome-tinted ground for each plot region (so the spread-out lots
+## read as real yards on the green backdrop), plus dirt roads linking them to
+## the core. Visual only — placement validity is governed by is_tile_in_bounds.
 func _build_neighborhood_ground() -> void:
-	for rect in neighborhood_rects():
-		var r: Rect2i = rect as Rect2i
-		for ty in range(r.position.y, r.end.y):
-			for tx in range(r.position.x, r.end.x):
-				var tile := Vector2i(tx, ty)
-				var ground := Polygon2D.new()
-				ground.position = grid_to_world(tile)
-				ground.polygon = _tile_diamond()
-				ground.color = Color("#83b06b") if (tx + ty) % 2 == 0 else Color("#7aa663")
-				ground_layer.add_child(ground)
-	# A dirt road from the core south-east down into the neighborhood, plus a
-	# path along the gap between the four lots.
-	TerrainShapes.add_ribbon(
-		ground_layer,
-		PackedVector2Array([
-			grid_to_world(Vector2i(12, 15)), grid_to_world(Vector2i(16, 18)),
-			grid_to_world(Vector2i(22, 20)), grid_to_world(Vector2i(28, 22)),
-		]),
-		18.0, 18.0, Color("#c2a071")
-	)
-	TerrainShapes.add_ribbon(
-		ground_layer,
-		PackedVector2Array([grid_to_world(Vector2i(34, 21)), grid_to_world(Vector2i(35, 45))]),
-		14.0, 14.0, Color("#bfa074")
-	)
+	for plot in LandRegistry.definitions().values():
+		paint_plot_ground(plot as Dictionary)
+	# Dirt roads from the core out toward the lot clusters (south and west).
+	for road in [
+		[Vector2i(14, 16), Vector2i(20, 20), Vector2i(28, 28), Vector2i(32, 40)],
+		[Vector2i(10, 14), Vector2i(8, 22), Vector2i(10, 34), Vector2i(14, 44)],
+	]:
+		var pts: PackedVector2Array = PackedVector2Array()
+		for t in road:
+			pts.append(grid_to_world(t as Vector2i))
+		TerrainShapes.add_ribbon(ground_layer, pts, 18.0, 18.0, Color("#c2a071"))
+
+## Paint one plot's biome-tinted ground patch (a 1-tile skirt around the rect).
+## Public so the in-game world-builder can draw a plot the moment it's created,
+## not just at boot. Core homestead tiles are never repainted (they keep their
+## detailed yard art). Returns the container node so callers can free it later.
+func paint_plot_ground(plot: Dictionary) -> Node2D:
+	var rect_variant: Variant = plot.get("rect", null)
+	if not (rect_variant is Rect2i):
+		return null
+	var r: Rect2i = (rect_variant as Rect2i).grow(1)
+	var base: Color = LandRegistry.biome_color(String(plot.get("biome", "meadow")))
+	var alt: Color = base.darkened(0.06)
+	var patch := Node2D.new()
+	patch.name = "PlotGround_%s" % String(plot.get("plot_id", "plot"))
+	patch.z_index = -8
+	ground_layer.add_child(patch)
+	for ty in range(r.position.y, r.end.y):
+		for tx in range(r.position.x, r.end.x):
+			if tx >= 0 and tx < MAP_WIDTH and ty >= 0 and ty < MAP_HEIGHT:
+				continue  # don't repaint the homestead core
+			var ground := Polygon2D.new()
+			ground.position = grid_to_world(Vector2i(tx, ty))
+			ground.polygon = _tile_diamond()
+			ground.color = base if (tx + ty) % 2 == 0 else alt
+			patch.add_child(ground)
+	return patch
 
 func _build_overworld_backdrop() -> void:
 	var limits: Rect2i = get_camera_limits()
@@ -118,10 +130,15 @@ func _build_natural_borders() -> void:
 		var x: float = -700.0 + i * 560.0
 		TerrainShapes.add_disc(ground_layer, Vector2(x, -360), 270, 7, Color("#84899e"), 0.5)
 		TerrainShapes.add_disc(ground_layer, Vector2(x + 130, -300), 190, 7, Color("#9aa1b4"), 0.5)
+	# River: a soft blue water ribbon. Kept WELL SOUTH of the play area (the
+	# south wall is at y=1880) so it reads as a distant border, not a grey stripe
+	# cutting through the neighborhood. (Root cause of the old "grey line": when
+	# the south wall moved down to fit the lots, this border ribbon — at y~980
+	# and a desaturated blue-grey — ended up mid-map. Moved + bluer now.)
 	TerrainShapes.add_ribbon(
 		ground_layer,
-		PackedVector2Array([Vector2(-760, 980), Vector2(700, 940), Vector2(1700, 1010), Vector2(2700, 950), Vector2(3800, 1010)]),
-		48.0, 54.0, Color(0.4, 0.55, 0.62, 0.85)
+		PackedVector2Array([Vector2(-1100, 1980), Vector2(700, 1940), Vector2(1700, 2000), Vector2(2700, 1950), Vector2(3800, 2000)]),
+		60.0, 66.0, Color(0.46, 0.66, 0.78, 0.9)
 	)
 	TerrainShapes.add_disc(ground_layer, Vector2(3780, 320), 440, 12, Color("#3f6a3c"), 0.7)
 	TerrainShapes.add_disc(ground_layer, Vector2(-760, 320), 300, 8, Color("#8b8780"), 0.62)
@@ -237,12 +254,13 @@ func _build_overworld_wilderness() -> void:
 			_add_decor_tree(ground_layer, p)
 
 func _build_overworld_bounds() -> void:
-	# Walls overlap at corners so the player can't slip out. South pushed down
-	# and west/east extended to enclose the expanded neighborhood.
-	_add_boundary("OW_North", Vector2(1500, -120), Vector2(5400, 80))
-	_add_boundary("OW_South", Vector2(1500, 1600), Vector2(5400, 80))
-	_add_boundary("OW_West", Vector2(-820, 560), Vector2(80, 2640))
-	_add_boundary("OW_East", Vector2(3760, 560), Vector2(80, 2640))
+	# Walls overlap at corners so the player can't slip out. South pushed to
+	# 1880 and west to -1080 to enclose the four 16x16 lots (whose far/SW corners
+	# reach world_y ~1760 and world_x ~-928).
+	_add_boundary("OW_North", Vector2(1500, -120), Vector2(6800, 80))
+	_add_boundary("OW_South", Vector2(1500, 1820), Vector2(6800, 80))
+	_add_boundary("OW_West", Vector2(-1500, 700), Vector2(80, 3600))
+	_add_boundary("OW_East", Vector2(3760, 700), Vector2(80, 3600))
 
 func _add_overworld_fountain(world_pos: Vector2) -> void:
 	# Soft round stone fountain: ellipse basin, rim, water, sparkles, and a

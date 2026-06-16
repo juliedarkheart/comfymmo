@@ -99,7 +99,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_mark_input_handled()
 			return
 
-		if event.keycode == KEY_ESCAPE:
+		# Only consume Esc when actually in a build/edit/move mode, so in plain
+		# explore Esc passes through to the controller's system-menu handler.
+		if event.keycode == KEY_ESCAPE and _interaction_mode != InteractionMode.NONE:
 			_exit_current_mode()
 			_mark_input_handled()
 			return

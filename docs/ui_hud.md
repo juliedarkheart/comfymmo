@@ -13,6 +13,22 @@ The shared HUD still carries the core status lines:
 The minimap and quick tools continue to live as lightweight side panels rather
 than full-screen systems.
 
+## System / pause menu (Esc)
+
+`ui/system_menu.tscn` is the player-facing window/quit control. **Esc** opens it
+whenever no other panel is open and the player isn't mid-build (Esc closes
+panels and exits build/edit first). It offers:
+
+- **Resume** / **Close** — hide the menu (movement and interactions resume)
+- **Toggle Fullscreen / Windowed** — same as **F11**, persisted by
+  `ui/display_settings.gd`
+- **Quit to Desktop** — `get_tree().quit()`, works in borderless mode too
+
+While the menu is open, player movement and world interactions pause; it never
+traps input (Esc/Resume always closes it). This means a playtester can always
+close or quit the game without Alt+F4. The help overlay (`H`) and welcome board
+list Esc/F11/Quit.
+
 ## Build menu panel
 
 The biggest UI addition in this branch is `ui/build_menu_panel.tscn`.
@@ -84,10 +100,20 @@ Quick tools:
 
 Minimap:
 
-- schematic world readout
+- schematic world readout (bounds widened to fit the spread-out lots)
 - live player marker
-- plot ownership coloring
+- plot ownership coloring (built-in AND editor-made plots)
 - landmark dots
+
+## World-builder panel + overlay (F7)
+
+`F7` opens the admin / world-builder panel: role/area/admin-build status, Give
+helpers, **Toggle World Overlay**, and grouped world-builder controls — a biome
+picker + Create/Grow/Shrink/Remove for plots, a marker-type picker +
+Place/Remove for world markers, and teleport buttons for Landing/Neighborhood/
+Town plus every plot. The overlay (also `/overlay`) draws plot bounds, names,
+sizes, corners, the training-core grid, and authored markers in-world. Full
+reference in docs/world_builder_tools.md.
 
 ## Manual UI checklist
 

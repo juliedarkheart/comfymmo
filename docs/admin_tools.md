@@ -26,17 +26,21 @@ Bad input prints usage; commands while connected answer "offline-only for
 now" — the server intentionally ignores chat commands, so connected players
 cannot self-grant.
 
-## World-builder panel + plot commands
+## World-builder panel + plot/marker commands
 
-There is now an **F7 admin panel** and plot commands (`/plots`, `/plotinfo`,
-`/inspect`, `/claimplot`, `/unclaimplot`) — full reference in
-docs/world_builder_tools.md. The panel reuses these commands so behavior is
-identical whether clicked or typed.
+There is an **F7 admin panel** and a full in-game world-builder: plot commands
+(`/plots`, `/plotinfo`, `/inspect`, `/claimplot`, `/unclaimplot`), live plot
+authoring (`/newplot`, `/resizeplot`, `/delplot`), persistent world markers
+(`/marker`, `/delmarker`), an in-world overlay (`/overlay`), and teleport
+navigation (`/tp <plot_id>`). Editor-made plots and markers persist to the
+offline save (`runtime_plots` / `world_markers` flags). Full reference in
+docs/world_builder_tools.md. The panel reuses these so behavior is identical
+whether clicked or typed.
 
 ## Deferred (documented, not built)
 
-A dedicated F7 admin panel UI; server-side command routing with role checks
-(`/role`, `/kick`, `/players`, server `/announce`); admin-only world-marker
-placeables (spawn/region/NPC markers — the F10 dev marker tools cover the
-inspection half today); audit-log surfacing (AuditLog already records dev
-marker actions).
+Server-side command routing with role checks (`/role`, `/kick`, `/players`,
+server `/announce`); wiring authored world markers to live resource-node / NPC
+spawners (today they record placement intent and show on the overlay);
+free-form / draggable plot bounds and plot moving; audit-log surfacing
+(AuditLog already records dev marker actions).

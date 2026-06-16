@@ -2,24 +2,46 @@
 
 ## Plot layout
 
-The claimable neighborhood now uses 4 large homestead lots, not the older small
-strip of mini-plots.
+The claimable neighborhood is now **6 lots spread across distinct biome spots**,
+not a tight cluster. Each has its own size, look (biome ground tint, sign
+accent, and light decor), and place in the world.
 
 Current claimable lots in `systems/land/land_registry.gd`:
 
-- Meadow Lot 1
-- Meadow Lot 2
-- Orchard Lot 1
-- Orchard Lot 2
+| lot | biome | tile rect | size |
+|---|---|---|---|
+| Meadow Lot | meadow | `(24,15)` | 16×16 |
+| Orchard Lot | orchard | `(26,37)` | 20×20 |
+| Creekside Lot | creekside | `(10,40)` | 14×14 |
+| Hilltop Lot | hilltop | `(24,-6)` | 16×16 |
+| Grove Lot | grove | `(46,28)` | 16×16 |
+| Brook Lot | brook | `(2,22)` | 14×14 |
 
-Each claimable lot is `12x12` tiles, or 144 build tiles.
+The lots are pairwise disjoint and scattered (north hilltop, western
+brook/creekside, southern orchard, eastern grove) so the neighborhood feels
+varied rather than gridded. The player can walk and build across an entire lot,
+right up to all four corners (validated). To fit the spread the overworld
+movement walls and camera were pushed out: south to ~world_y 1820, west to
+~world_x -1500, with the camera framing `Rect2i(-1560,-460,5380,2440)`.
 
 Farmer Rowan's Training Farm remains a separate non-claimable tutorial plot in
 the original homestead core.
 
+### Editor-made (runtime) plots
+
+The in-game world-builder can add, resize, and remove **runtime plots** live
+(see docs/world_builder_tools.md). These behave exactly like built-in lots —
+claimable, buildable, drawn, on the minimap — and persist to the offline save's
+`runtime_plots` flag. They're kept in a runtime overlay on `LandRegistry` that
+merges into every plot query; project validation only sees the static built-in
+catalog.
+
 ## Large plot requirement
 
-This branch treats "homestead-sized" as at least `12x12`.
+This branch treats "homestead-sized" as at least `16x16` (256 tiles). Four of
+the six built-in lots meet that bar (meadow, orchard 20×20, hilltop, grove); the
+creekside and brook lots are cozier `14x14` for variety. The validator requires
+at least four claimable lots `16x16` or larger.
 
 That requirement matters because the building kit is no longer just stools and
 mailboxes. A real player lot now needs room for:

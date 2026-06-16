@@ -45,6 +45,17 @@ var _minimap: CanvasLayer = null
 var _quick_tools: CanvasLayer = null
 var _admin_panel: CanvasLayer = null
 var _hud_tick: float = 0.0
+# World-builder authoring state (offline / admin). Runtime plots are authored
+# in-game and persisted to the save's "runtime_plots" flag; world markers (decor,
+# resource/NPC/sign hints) are persisted to "world_markers". The overlay is an
+# in-world debug layer drawing every plot's bounds/name/corners on an admin toggle.
+const WORLD_BUILDER_OVERLAY_SCENE := preload("res://systems/world_builder_overlay.gd")
+const BUILDER_BIOMES: Array[String] = ["meadow", "orchard", "creekside", "hilltop", "grove", "brook"]
+const MARKER_TYPES: Array[String] = ["spawn", "resource", "npc", "sign", "landmark", "decor"]
+var _plot_furniture: Dictionary = {}        # plot_id -> [Node, ...] (signs, posts, ground)
+var _world_markers: Array = []              # [{type, tile:[x,y], label, _node}]
+var _marker_layer: Node2D = null
+var _world_overlay: Node2D = null
 
 func _ready() -> void:
 	# Load profiles BEFORE super._ready(): the base spawns the avatar and reads
@@ -67,7 +78,9 @@ func _ready() -> void:
 	_setup_wardrobe()
 	_setup_cottage_sign()
 	_setup_landing_area()
+	_load_runtime_plots()       # restore in-game-authored plots BEFORE drawing markers
 	_setup_plot_markers()
+	_setup_world_builder()      # marker layer, persisted markers, admin overlay
 	_setup_town_services()
 	_setup_network(player)
 	_show_welcome_if_first_boot.call_deferred()
@@ -88,17 +101,7 @@ func _setup_overworld_ui() -> void:
 	_minimap = MINIMAP_SCENE.instantiate() as CanvasLayer
 	_minimap.name = "MinimapPanel"
 	add_child(_minimap)
-	var landmarks: Array = [
-		{"pos": map.grid_to_world(Vector2i(3, 8)), "color": Color("#bfe6a0")},   # Rowan
-		{"pos": map.grid_to_world(Vector2i(29, 19)), "color": Color("#9fc4e8")},  # Clerk Hazel
-		{"pos": OverworldMap.VILLAGE_OFFSET + Vector2(96, 272), "color": Color("#f2d469")}, # town fountain
-		{"pos": OverworldMap.FOREST_OFFSET + Vector2(136, 166), "color": Color("#c0a0e0")}, # shrine
-	]
-	var plot_centers: Dictionary = {}
-	for plot_id in LandRegistry.claimable_plot_ids():
-		var rect: Rect2i = LandRegistry.get_plot(String(plot_id)).get("rect", Rect2i()) as Rect2i
-		plot_centers[plot_id] = map.grid_to_world(Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2))
-	_minimap.call("setup", landmarks, plot_centers)
+	_refresh_minimap_setup()
 
 	_admin_panel = ADMIN_PANEL_SCENE.instantiate() as CanvasLayer
 	_admin_panel.name = "AdminPanel"
@@ -134,6 +137,28 @@ func _unhandled_input(event: InputEvent) -> void:
 func _refresh_quick_tools() -> void:
 	if _quick_tools != null:
 		_quick_tools.call("refresh")
+
+## Static minimap landmark dots (Rowan, the land clerk, town fountain, shrine).
+func _overworld_landmarks() -> Array:
+	return [
+		{"pos": map.grid_to_world(Vector2i(3, 8)), "color": Color("#bfe6a0")},    # Rowan
+		{"pos": map.grid_to_world(Vector2i(30, 31)), "color": Color("#9fc4e8")},  # Clerk Hazel
+		{"pos": OverworldMap.VILLAGE_OFFSET + Vector2(96, 272), "color": Color("#f2d469")}, # town fountain
+		{"pos": OverworldMap.FOREST_OFFSET + Vector2(136, 166), "color": Color("#c0a0e0")}, # shrine
+	]
+
+## (Re)seed the minimap with current landmark + plot-center geometry, then reapply
+## ownership tints. Called at boot and whenever the world-builder adds/removes/
+## resizes a plot so editor-made lots appear on the minimap immediately.
+func _refresh_minimap_setup() -> void:
+	if _minimap == null:
+		return
+	var plot_centers: Dictionary = {}
+	for plot_id in LandRegistry.claimable_plot_ids():
+		var rect: Rect2i = LandRegistry.get_plot(String(plot_id)).get("rect", Rect2i()) as Rect2i
+		plot_centers[plot_id] = map.grid_to_world(Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2))
+	_minimap.call("setup", _overworld_landmarks(), plot_centers)
+	_refresh_minimap_plots()
 
 func _refresh_minimap_plots() -> void:
 	if _minimap == null:
@@ -212,11 +237,12 @@ func _player_area_text() -> String:
 		return "Town Square — Public, protected"
 	if pos.x >= 2550.0:
 		return "Forest Edge — Wilderness"
-	for rect in (map as OverworldMap).neighborhood_rects():
-		if (rect as Rect2i).has_point(tile):
-			return "Neighborhood — Public path"
-	if map.is_tile_in_bounds(tile):
+	# Inside the original homestead core grid = Rowan's training land; any other
+	# in-bounds tile (path margins around the spread-out lots) is neighborhood.
+	if tile.x >= 0 and tile.x < map.MAP_WIDTH and tile.y >= 0 and tile.y < map.MAP_HEIGHT:
 		return "Rowan's Training Farm — Tutorial"
+	if map.is_tile_in_bounds(tile):
+		return "Neighborhood — Public path"
 	return "Hearthvale — Wilderness"
 
 func _setup_dev_overlay(player: AvatarController) -> void:
@@ -619,35 +645,143 @@ func _current_land_plots() -> Dictionary:
 	return raw as Dictionary if typeof(raw) == TYPE_DICTIONARY else {}
 
 func _setup_plot_markers() -> void:
-	# Neighborhood entrance sign + notice board where the road meets the lots.
-	var entrance: Node2D = _make_plot_sign(map.grid_to_world(Vector2i(28, 19)), "Hearthvale Neighborhood", Color("#e8c060"))
+	# Neighborhood entrance sign at the road junction between the meadow and the
+	# orchard cluster (the lots are now spread out, so this is just a welcome post).
+	var entrance: Node2D = _make_plot_sign(map.grid_to_world(Vector2i(32, 32)), "Hearthvale Neighborhood", Color("#e8c060"))
 	register_world_interactable(
 		"neighborhood_entrance", entrance, ContentIds.INTERACTION_GENERIC,
 		"Press F to read the neighborhood board", _read_neighborhood_board
 	)
 	for plot_id_variant in LandRegistry.definitions().keys():
 		var plot_id: String = String(plot_id_variant)
-		if not bool(LandRegistry.get_plot(plot_id).get("claimable", false)):
-			continue
-		_build_plot_boundary(plot_id)
-		var marker: Node2D = _make_plot_sign(
-			map.grid_to_world(LandRegistry.marker_tile(plot_id)),
-			String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)), Color("#9fc4e8")
-		)
-		register_world_interactable(
-			"plot_marker_%s" % plot_id, marker, ContentIds.INTERACTION_GENERIC,
-			"Press F to view %s" % String(LandRegistry.get_plot(plot_id).get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
-		)
-	# Land clerk at the neighborhood entrance.
+		if bool(LandRegistry.get_plot(plot_id).get("claimable", false)):
+			_spawn_plot_furniture(plot_id)
+	# Land clerk near the entrance.
 	var clerk: BramVillager = BramVillager.new()
 	clerk.villager_name = "Clerk Hazel"
-	clerk.position = map.grid_to_world(Vector2i(29, 19))
+	clerk.position = map.grid_to_world(Vector2i(30, 31))
 	gameplay_layer.add_child(clerk)
 	Nameplate.attach(clerk, "Clerk Hazel", "Land Office", Color("#9fc4e8"))
 	register_world_interactable(
 		"land_clerk", clerk, ContentIds.INTERACTION_VILLAGER,
 		"Press F to talk to the land clerk", _talk_land_clerk
 	)
+
+## Spawn (or re-spawn) one plot's in-world furniture: biome ground patch, corner
+## posts + boundary outline, and the interactable claim sign. Shared by the boot
+## loop AND the in-game world-builder so an editor-made plot looks identical to a
+## built-in one. Nodes are tracked in _plot_furniture so the plot can be removed.
+func _spawn_plot_furniture(plot_id: String) -> void:
+	_despawn_plot_furniture(plot_id)
+	var plot: Dictionary = LandRegistry.get_plot(plot_id)
+	var container: Node2D = Node2D.new()
+	container.name = "PlotFurniture_%s" % plot_id
+	gameplay_layer.add_child(container)
+	_build_plot_boundary(plot_id, container)
+	_decorate_plot(plot, container)
+	var sign_accent: Color = LandRegistry.biome_color(String(plot.get("biome", "meadow"))).lightened(0.25)
+	var marker: Node2D = _make_plot_sign(
+		map.grid_to_world(LandRegistry.marker_tile(plot_id)),
+		String(plot.get("display_name", plot_id)), sign_accent, container
+	)
+	register_world_interactable(
+		"plot_marker_%s" % plot_id, marker, ContentIds.INTERACTION_GENERIC,
+		"Press F to view %s" % String(plot.get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
+	)
+	var ground: Node2D = map.call("paint_plot_ground", plot) if map.has_method("paint_plot_ground") else null
+	_plot_furniture[plot_id] = {"container": container, "ground": ground}
+
+## Free a plot's furniture + interactable (used before re-spawn and on removal).
+func _despawn_plot_furniture(plot_id: String) -> void:
+	if not _plot_furniture.has(plot_id):
+		return
+	unregister_world_interactable("plot_marker_%s" % plot_id)
+	var refs: Dictionary = _plot_furniture[plot_id]
+	for key in ["container", "ground"]:
+		var node: Node = refs.get(key, null)
+		if node != null and is_instance_valid(node):
+			node.queue_free()
+	_plot_furniture.erase(plot_id)
+
+## Light biome flavor so each lot reads as its own place. Decor is visual-only
+## (no collision) and sits in the 1-tile skirt OUTSIDE the buildable rect, so it
+## never blocks building. Lives in the plot container, so it frees with the plot.
+func _decorate_plot(plot: Dictionary, container: Node2D) -> void:
+	var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
+	if rect.size.x <= 0:
+		return
+	var biome: String = String(plot.get("biome", "meadow"))
+	# Skirt anchors just outside each side of the lot.
+	var north: Vector2i = rect.position + Vector2i(rect.size.x / 2, -1)
+	var south: Vector2i = Vector2i(rect.position.x + rect.size.x / 2, rect.end.y)
+	var west: Vector2i = Vector2i(rect.position.x - 1, rect.position.y + rect.size.y / 2)
+	var east: Vector2i = Vector2i(rect.end.x, rect.position.y + rect.size.y / 2)
+	match biome:
+		"orchard", "grove":
+			_decor_tree(container, map.grid_to_world(north), biome == "grove")
+			_decor_tree(container, map.grid_to_world(east), biome == "grove")
+			_decor_tree(container, map.grid_to_world(west), biome == "grove")
+		"creekside", "brook":
+			_decor_pond(container, map.grid_to_world(south))
+			_decor_pond(container, map.grid_to_world(west))
+		"hilltop":
+			_decor_rock(container, map.grid_to_world(north))
+			_decor_flowers(container, map.grid_to_world(west))
+		_:  # meadow
+			_decor_flowers(container, map.grid_to_world(north))
+			_decor_flowers(container, map.grid_to_world(east))
+
+func _decor_tree(parent: Node2D, world_pos: Vector2, deep: bool) -> void:
+	var tree := Node2D.new()
+	tree.position = world_pos
+	tree.z_index = 5
+	parent.add_child(tree)
+	var trunk := Polygon2D.new()
+	trunk.polygon = PackedVector2Array([Vector2(-3, 0), Vector2(3, 0), Vector2(4, -16), Vector2(-4, -16)])
+	trunk.color = Color("#8a5e3c")
+	tree.add_child(trunk)
+	var canopy := Polygon2D.new()
+	canopy.polygon = TerrainShapes.ellipse(Vector2(0, -24), 16.0, 13.0, 16)
+	canopy.color = Color("#4e7a4a") if deep else Color("#6fa55a")
+	tree.add_child(canopy)
+	var highlight := Polygon2D.new()
+	highlight.polygon = TerrainShapes.ellipse(Vector2(-4, -28), 7.0, 6.0, 12)
+	highlight.color = Color("#7fb867") if deep else Color("#8cbf72")
+	tree.add_child(highlight)
+
+func _decor_pond(parent: Node2D, world_pos: Vector2) -> void:
+	var pond := Node2D.new()
+	pond.position = world_pos
+	pond.z_index = -2
+	parent.add_child(pond)
+	var water := Polygon2D.new()
+	water.polygon = TerrainShapes.ellipse(Vector2(0, 0), 20.0, 11.0, 18)
+	water.color = Color(0.46, 0.66, 0.78, 0.92)
+	pond.add_child(water)
+	var glint := Polygon2D.new()
+	glint.polygon = TerrainShapes.ellipse(Vector2(-5, -2), 6.0, 2.6, 10)
+	glint.color = Color(0.86, 0.95, 1.0, 0.7)
+	pond.add_child(glint)
+
+func _decor_rock(parent: Node2D, world_pos: Vector2) -> void:
+	var rock := Polygon2D.new()
+	rock.position = world_pos
+	rock.z_index = 4
+	rock.polygon = PackedVector2Array([Vector2(-12, 0), Vector2(-7, -9), Vector2(4, -11), Vector2(12, -3), Vector2(9, 2)])
+	rock.color = Color("#9a958c")
+	parent.add_child(rock)
+
+func _decor_flowers(parent: Node2D, world_pos: Vector2) -> void:
+	var bed := Node2D.new()
+	bed.position = world_pos
+	bed.z_index = 3
+	parent.add_child(bed)
+	var palette: Array = [Color("#e58fb0"), Color("#f2d36b"), Color("#cdb4dd"), Color("#f0945a")]
+	for i in range(5):
+		var petal := Polygon2D.new()
+		petal.polygon = TerrainShapes.ellipse(Vector2(-10 + i * 5, -2 - (i % 2) * 4), 2.4, 2.4, 8)
+		petal.color = palette[i % palette.size()]
+		bed.add_child(petal)
 
 func _read_neighborhood_board() -> void:
 	_open_observe_panel(
@@ -660,7 +794,10 @@ func _read_neighborhood_board() -> void:
 	)
 
 ## Draw corner posts + a soft boundary outline so a plot reads as a real yard.
-func _build_plot_boundary(plot_id: String) -> void:
+## Nodes go under `parent` (a per-plot container) so the whole plot can be freed.
+func _build_plot_boundary(plot_id: String, parent: Node2D = null) -> void:
+	if parent == null:
+		parent = gameplay_layer
 	var corners: Array = LandRegistry.corner_tiles(plot_id)
 	var boundary: Line2D = Line2D.new()
 	boundary.width = 3.0
@@ -669,11 +806,11 @@ func _build_plot_boundary(plot_id: String) -> void:
 	for corner_tile in corners:
 		boundary.add_point(map.grid_to_world(corner_tile as Vector2i))
 	boundary.add_point(map.grid_to_world(corners[0] as Vector2i))
-	gameplay_layer.add_child(boundary)
+	parent.add_child(boundary)
 	for corner_tile in corners:
 		var post: Node2D = Node2D.new()
 		post.position = map.grid_to_world(corner_tile as Vector2i)
-		gameplay_layer.add_child(post)
+		parent.add_child(post)
 		var stake: Polygon2D = Polygon2D.new()
 		stake.polygon = PackedVector2Array([Vector2(-2.5, 0), Vector2(2.5, 0), Vector2(2.5, -22), Vector2(-2.5, -22)])
 		stake.color = Color("#a8754a")
@@ -683,11 +820,15 @@ func _build_plot_boundary(plot_id: String) -> void:
 		cap.color = Color("#d8b572")
 		post.add_child(cap)
 
-## A large, readable plot/area sign with a title plate.
-func _make_plot_sign(world_pos: Vector2, title: String, accent: Color) -> Node2D:
+## A large, readable plot/area sign with a title plate. `parent` defaults to the
+## gameplay layer; the plot builder passes a per-plot container so the sign frees
+## with the rest of the plot's furniture.
+func _make_plot_sign(world_pos: Vector2, title: String, accent: Color, parent: Node2D = null) -> Node2D:
+	if parent == null:
+		parent = gameplay_layer
 	var sign_marker: Node2D = Node2D.new()
 	sign_marker.position = world_pos
-	gameplay_layer.add_child(sign_marker)
+	parent.add_child(sign_marker)
 	for px: float in [-12.0, 12.0]:
 		var post: Polygon2D = Polygon2D.new()
 		post.polygon = PackedVector2Array([Vector2(px - 3, 0), Vector2(px + 3, 0), Vector2(px + 3, -34), Vector2(px - 3, -34)])
@@ -795,6 +936,251 @@ func _do_claim_plot(plot_id: String) -> void:
 	refresh_inventory_panel()
 	_refresh_minimap_plots()
 	_chat_toast("You claimed %s! Build anywhere inside it (B)." % String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)))
+
+# === World builder: runtime plots, markers, overlay (offline / admin) ===========
+#
+# These are the in-game "visual GUI tools". Plots authored in-game live in the
+# LandRegistry runtime overlay and persist to the save's "runtime_plots" flag;
+# decor/resource/NPC/sign hints persist to "world_markers". Everything is gated
+# behind _admin_commands_blocked() so it stays offline/world-builder only, and
+# every change re-draws the world + minimap + overlay so it's WYSIWYG.
+
+func _setup_world_builder() -> void:
+	# A world-space layer above props for persistent authored markers.
+	_marker_layer = Node2D.new()
+	_marker_layer.name = "WorldMarkerLayer"
+	_marker_layer.z_index = 60
+	map.add_child(_marker_layer)
+	_load_world_markers()
+	# In-world admin overlay (plot bounds/names/corners), hidden until toggled.
+	_world_overlay = WORLD_BUILDER_OVERLAY_SCENE.new()
+	_world_overlay.name = "WorldBuilderOverlay"
+	map.add_child(_world_overlay)
+	_world_overlay.call("setup", map, Callable(self, "_overlay_markers"), Vector2i(map.MAP_WIDTH, map.MAP_HEIGHT))
+
+## Marker snapshot the overlay draws (tiles + colors), kept presentation-only.
+func _overlay_markers() -> Array:
+	var out: Array = []
+	for marker in _world_markers:
+		out.append({"tile": Vector2i(int(marker["tile"][0]), int(marker["tile"][1])), "color": _marker_color(String(marker["type"]))})
+	return out
+
+func _redraw_overlay() -> void:
+	if _world_overlay != null and _world_overlay.has_method("refresh"):
+		_world_overlay.call("refresh")
+
+# --- Runtime plot persistence ---------------------------------------------------
+
+func _load_runtime_plots() -> void:
+	var data: Variant = save_system.get_overworld_flag("runtime_plots", {})
+	if typeof(data) == TYPE_DICTIONARY:
+		LandRegistry.load_runtime_plots(data as Dictionary)
+
+func _save_runtime_plots() -> void:
+	save_system.set_overworld_flag("runtime_plots", LandRegistry.runtime_plots_save_data())
+
+## Create a claimable plot centered on the player's tile. Rejects overlaps so all
+## plot queries (claim, build permission, bounds) stay unambiguous.
+func admin_create_plot(biome: String = "meadow", size: int = 16) -> void:
+	if _admin_commands_blocked():
+		return
+	size = clampi(size, 8, 24)
+	if not BUILDER_BIOMES.has(biome):
+		biome = "meadow"
+	var center: Vector2i = map.world_to_grid(get_player_position())
+	var rect := Rect2i(center.x - size / 2, center.y - size / 2, size, size)
+	for existing in LandRegistry.all_plot_rects():
+		if rect.intersects((existing as Rect2i).grow(1)):
+			_chat_toast("(builder) Too close to another plot — move away and try again.")
+			return
+	var plot_id: String = "custom_%d" % int(Time.get_unix_time_from_system())
+	var index: int = LandRegistry.runtime_plots().size() + 1
+	LandRegistry.add_runtime_plot(plot_id, "%s Lot %d" % [biome.capitalize(), index], rect, biome)
+	_spawn_plot_furniture(plot_id)
+	_save_runtime_plots()
+	_refresh_minimap_setup()
+	_redraw_overlay()
+	_chat_toast("(builder) Created %s (%dx%d) at tile (%d,%d) — claimable now." % [plot_id, size, size, rect.position.x, rect.position.y])
+
+## Remove the editor-made plot the player is standing in (built-in plots are fixed).
+func admin_remove_plot_here() -> void:
+	if _admin_commands_blocked():
+		return
+	var tile: Vector2i = map.world_to_grid(get_player_position())
+	var plot_id: String = String(LandRegistry.plot_at_tile(tile).get("plot_id", ""))
+	if plot_id.is_empty() or not LandRegistry.is_runtime_plot(plot_id):
+		_chat_toast("(builder) Stand inside an editor-made plot to remove it (built-in lots are fixed).")
+		return
+	_despawn_plot_furniture(plot_id)
+	LandRegistry.remove_runtime_plot(plot_id)
+	var plots: Dictionary = _current_land_plots()
+	if plots.has(plot_id):
+		plots.erase(plot_id)
+		save_system.set_overworld_flag("land_plots", plots)
+	_save_runtime_plots()
+	_refresh_minimap_setup()
+	_redraw_overlay()
+	_chat_toast("(builder) Removed plot %s." % plot_id)
+
+## Grow/shrink the editor-made plot under the player by `delta` tiles per side.
+func admin_resize_plot_here(delta: int) -> void:
+	if _admin_commands_blocked():
+		return
+	var tile: Vector2i = map.world_to_grid(get_player_position())
+	var plot: Dictionary = LandRegistry.plot_at_tile(tile)
+	var plot_id: String = String(plot.get("plot_id", ""))
+	if plot_id.is_empty() or not LandRegistry.is_runtime_plot(plot_id):
+		_chat_toast("(builder) Stand inside an editor-made plot to resize it.")
+		return
+	var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
+	var new_size: int = clampi(rect.size.x + delta, 8, 24)
+	var new_rect := Rect2i(rect.position.x, rect.position.y, new_size, new_size)
+	for existing in LandRegistry.all_plot_rects():
+		var er: Rect2i = existing as Rect2i
+		if er != rect and new_rect.intersects(er.grow(1)):
+			_chat_toast("(builder) Resize blocked — would overlap a neighbor.")
+			return
+	LandRegistry.add_runtime_plot(plot_id, String(plot.get("display_name", plot_id)), new_rect, String(plot.get("biome", "meadow")))
+	_spawn_plot_furniture(plot_id)
+	_save_runtime_plots()
+	_refresh_minimap_setup()
+	_redraw_overlay()
+	_chat_toast("(builder) Resized %s to %dx%d." % [plot_id, new_size, new_size])
+
+# --- Persistent world markers ---------------------------------------------------
+
+func _marker_color(type: String) -> Color:
+	match type:
+		"spawn": return Color("#7fd0ff")
+		"resource": return Color("#9bdc6a")
+		"npc": return Color("#ffb6c1")
+		"sign": return Color("#e8c060")
+		"landmark": return Color("#c0a0e0")
+		_: return Color("#f0e0a0")  # decor
+
+func _load_world_markers() -> void:
+	for marker in _world_markers:
+		var node: Node = marker.get("_node", null)
+		if node != null and is_instance_valid(node):
+			node.queue_free()
+	_world_markers.clear()
+	var data: Variant = save_system.get_overworld_flag("world_markers", [])
+	if typeof(data) != TYPE_ARRAY:
+		return
+	for entry_variant in (data as Array):
+		if typeof(entry_variant) != TYPE_DICTIONARY:
+			continue
+		var entry: Dictionary = entry_variant
+		var tile_arr: Variant = entry.get("tile", [])
+		if typeof(tile_arr) != TYPE_ARRAY or (tile_arr as Array).size() != 2:
+			continue
+		var marker: Dictionary = {
+			"type": String(entry.get("type", "decor")),
+			"tile": [int((tile_arr as Array)[0]), int((tile_arr as Array)[1])],
+			"label": String(entry.get("label", "")),
+		}
+		_world_markers.append(marker)
+		_draw_world_marker(marker)
+
+func _save_world_markers() -> void:
+	var data: Array = []
+	for marker in _world_markers:
+		data.append({"type": marker["type"], "tile": marker["tile"], "label": marker.get("label", "")})
+	save_system.set_overworld_flag("world_markers", data)
+
+func _draw_world_marker(marker: Dictionary) -> void:
+	if _marker_layer == null:
+		return
+	var tile := Vector2i(int(marker["tile"][0]), int(marker["tile"][1]))
+	var node := Node2D.new()
+	node.position = map.grid_to_world(tile)
+	_marker_layer.add_child(node)
+	var color: Color = _marker_color(String(marker["type"]))
+	var stake := Polygon2D.new()
+	stake.polygon = PackedVector2Array([Vector2(-2, 0), Vector2(2, 0), Vector2(2, -18), Vector2(-2, -18)])
+	stake.color = Color("#7a5a3a")
+	node.add_child(stake)
+	var gem := Polygon2D.new()  # a colored diamond gem reads the marker type at a glance
+	gem.polygon = PackedVector2Array([Vector2(0, -26), Vector2(7, -19), Vector2(0, -12), Vector2(-7, -19)])
+	gem.color = color
+	node.add_child(gem)
+	var label := Label.new()
+	var text: String = String(marker.get("label", ""))
+	label.text = text if not text.is_empty() else String(marker["type"]).capitalize()
+	label.position = Vector2(-30, -44)
+	label.custom_minimum_size = Vector2(60, 0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", color)
+	node.add_child(label)
+	marker["_node"] = node
+
+## Drop a persistent authoring marker (spawn/resource/npc/sign/landmark/decor) at
+## the player's tile. These are world-authoring hints, not gameplay spawners yet.
+func admin_place_marker(type: String, label: String = "") -> void:
+	if _admin_commands_blocked():
+		return
+	if not MARKER_TYPES.has(type):
+		_chat_toast("(builder) Marker types: %s" % ", ".join(MARKER_TYPES))
+		return
+	var tile: Vector2i = map.world_to_grid(get_player_position())
+	var marker: Dictionary = {"type": type, "tile": [tile.x, tile.y], "label": label}
+	_world_markers.append(marker)
+	_draw_world_marker(marker)
+	_save_world_markers()
+	_redraw_overlay()
+	_chat_toast("(builder) Placed %s marker at tile (%d,%d) — %d total." % [type, tile.x, tile.y, _world_markers.size()])
+
+func admin_remove_marker_here() -> void:
+	if _admin_commands_blocked():
+		return
+	var tile: Vector2i = map.world_to_grid(get_player_position())
+	var best: int = -1
+	var best_distance: int = 9999
+	for i in range(_world_markers.size()):
+		var t: Array = _world_markers[i]["tile"]
+		var distance: int = absi(int(t[0]) - tile.x) + absi(int(t[1]) - tile.y)
+		if distance < best_distance:
+			best_distance = distance
+			best = i
+	if best < 0 or best_distance > 3:
+		_chat_toast("(builder) No marker within reach (stand on or beside one).")
+		return
+	var node: Node = _world_markers[best].get("_node", null)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	_world_markers.remove_at(best)
+	_save_world_markers()
+	_redraw_overlay()
+	_chat_toast("(builder) Removed marker — %d left." % _world_markers.size())
+
+# --- Overlay + teleport navigation ----------------------------------------------
+
+func admin_toggle_world_overlay() -> void:
+	if _world_overlay == null:
+		return
+	var on: bool = bool(_world_overlay.call("toggle"))
+	_chat_toast("(builder) World overlay %s." % ("ON — plot bounds, names & corners shown" if on else "OFF"))
+
+## Plot directory for the admin panel's teleport buttons.
+func admin_plot_directory() -> Array:
+	var directory: Array = []
+	for plot_id in LandRegistry.claimable_plot_ids():
+		directory.append({
+			"plot_id": String(plot_id),
+			"display_name": String(LandRegistry.get_plot(String(plot_id)).get("display_name", plot_id)),
+		})
+	return directory
+
+func admin_teleport_plot(plot_id: String) -> void:
+	if _network_player == null or not is_instance_valid(_network_player):
+		return
+	if not LandRegistry.has_plot(plot_id):
+		return
+	var rect: Rect2i = LandRegistry.get_plot(plot_id).get("rect", Rect2i()) as Rect2i
+	var center := Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2)
+	_network_player.global_position = map.grid_to_world(center)
+	_chat_toast("(builder) Teleported to %s." % plot_id)
 
 func _setup_town_services() -> void:
 	# Outdoor service stalls around the village square: visual kiosks with
@@ -984,7 +1370,7 @@ func _handle_chat_command(text: String) -> void:
 			_grant_xp(skill_id, skill_amount, 0)
 			_chat_toast("(admin) +%d %s XP" % [skill_amount, ProgressionRegistry.skill_display_name(skill_id)])
 		"/help":
-			_chat_toast("Player: /skills /progression /invite <user> /where  ·  Admin: /give <id> [n] /xp [n] /adminbuild /plots /plotinfo <id> /inspect /claimplot <id> <user> /unclaimplot <id> /save /announce")
+			_chat_toast("Player: /skills /progression /invite <user> /where  ·  Admin: /give /xp /adminbuild /plots /plotinfo /claimplot /unclaimplot /save  ·  Builder: /newplot [biome] [size] /delplot /resizeplot <±n> /marker <type> [label] /delmarker /overlay /tp <plot_id>")
 		"/adminbuild":
 			if _admin_commands_blocked():
 				return
@@ -1016,6 +1402,33 @@ func _handle_chat_command(text: String) -> void:
 			_admin_claimplot(parts)
 		"/unclaimplot":
 			_admin_unclaimplot(parts)
+		"/newplot":
+			var biome: String = String(parts[1]).to_lower() if parts.size() > 1 else "meadow"
+			var size: int = int(parts[2]) if parts.size() > 2 else 16
+			admin_create_plot(biome, size)
+		"/delplot":
+			admin_remove_plot_here()
+		"/resizeplot":
+			if parts.size() < 2:
+				_chat_toast("Usage: /resizeplot <±n> — grow/shrink the editor plot you're standing in.")
+			else:
+				admin_resize_plot_here(int(parts[1]))
+		"/marker":
+			if parts.size() < 2:
+				_chat_toast("Usage: /marker <%s> [label]" % "|".join(MARKER_TYPES))
+			else:
+				admin_place_marker(String(parts[1]).to_lower(), " ".join(Array(parts).slice(2)))
+		"/delmarker":
+			admin_remove_marker_here()
+		"/overlay":
+			admin_toggle_world_overlay()
+		"/tp":
+			if parts.size() < 2:
+				_chat_toast("Usage: /tp <plot_id> — see /plots for ids. Also: /tp landing|neighborhood|town.")
+			elif ["landing", "neighborhood", "town"].has(String(parts[1]).to_lower()):
+				admin_teleport(String(parts[1]).to_lower())
+			else:
+				admin_teleport_plot(String(parts[1]))
 		"/announce":
 			if _admin_commands_blocked():
 				return
@@ -1147,7 +1560,7 @@ func admin_teleport(destination: String) -> void:
 	var target_tile: Vector2i
 	match destination:
 		"neighborhood":
-			target_tile = Vector2i(28, 26)
+			target_tile = Vector2i(32, 28)
 		"town":
 			_network_player.global_position = OverworldMap.VILLAGE_OFFSET + Vector2(96, 320)
 			return
@@ -1156,10 +1569,11 @@ func admin_teleport(destination: String) -> void:
 	_network_player.global_position = map.grid_to_world(target_tile)
 
 func admin_toggle_plot_debug() -> void:
+	# The strong version is the in-world overlay (every plot's bounds/name/corners,
+	# the core grid, and authored markers). Also flips the minimap's debug outline.
 	if _minimap != null:
-		# Reuse the minimap's admin debug outline as the plot-debug overlay.
 		_minimap.call("set_admin_debug", true)
-	_chat_toast("(admin) Plot debug overlay on the minimap toggled on.")
+	admin_toggle_world_overlay()
 
 func _on_network_place_denied(reason: String) -> void:
 	# Non-modal: a chat-log line instead of a panel, so building flow continues.
