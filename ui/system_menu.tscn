@@ -72,6 +72,26 @@ text = "Resume"
 layout_mode = 2
 text = "Toggle Fullscreen / Windowed"
 
+[node name="SettingsButton" type="Button" parent="Dim/Panel/Rows"]
+layout_mode = 2
+text = "Settings / Display"
+
+[node name="SettingsBox" type="VBoxContainer" parent="Dim/Panel/Rows"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="VsyncButton" type="Button" parent="Dim/Panel/Rows/SettingsBox"]
+layout_mode = 2
+text = "V-Sync: On"
+
+[node name="DisplayInfo" type="Label" parent="Dim/Panel/Rows/SettingsBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.85, 0.8, 0.7, 1)
+theme_override_font_sizes/font_size = 11
+text = "Esc = menu / close panels · F11 = fullscreen"
+
 [node name="QuitButton" type="Button" parent="Dim/Panel/Rows"]
 layout_mode = 2
 text = "Quit to Desktop"

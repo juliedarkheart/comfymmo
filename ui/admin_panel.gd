@@ -13,7 +13,7 @@ var _biome_picker: OptionButton = null
 var _marker_picker: OptionButton = null
 var _plot_teleport_box: VBoxContainer = null
 
-@onready var _rows: VBoxContainer = $Panel/Rows
+@onready var _rows: VBoxContainer = $Panel/Scroll/Rows
 
 func setup(controller: Node) -> void:
 	_controller = controller
@@ -23,13 +23,13 @@ func _ready() -> void:
 	var title: Label = Label.new()
 	title.text = "World Builder (F7)"
 	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color("#f8de9a"))
+	title.add_theme_color_override("font_color", CozyUITheme.HONEY)
 	_rows.add_child(title)
 
 	_info_label = Label.new()
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_label.add_theme_font_size_override("font_size", 13)
-	_info_label.add_theme_color_override("font_color", Color(0.96, 0.93, 0.85, 1.0))
+	_info_label.add_theme_color_override("font_color", CozyUITheme.INK)
 	_rows.add_child(_info_label)
 
 	_build_button = _add_button("Toggle Admin Build", func() -> void:
@@ -49,16 +49,30 @@ func _ready() -> void:
 	# --- World-builder: plots --------------------------------------------------
 	_add_heading("World Builder · Plots")
 	_biome_picker = OptionButton.new()
-	for biome in ["meadow", "orchard", "creekside", "hilltop", "grove", "brook"]:
+	for biome in ["meadow", "orchard", "creekside", "hilltop", "grove", "brook", "forest", "farmland"]:
 		_biome_picker.add_item(String(biome).capitalize())
 	_rows.add_child(_biome_picker)
-	_add_button("Create Plot Here", func() -> void:
-		var biome: String = _biome_picker.get_item_text(_biome_picker.selected).to_lower()
-		_call("admin_create_plot", [biome, 16]))
+	_add_button("Create Plot Here (24x24)", func() -> void:
+		_call("admin_create_plot", [_picked_biome(), 24]))
 	var plot_edit_row: HBoxContainer = _add_row()
 	_row_button(plot_edit_row, "Grow +2", func() -> void: _call("admin_resize_plot_here", [2]))
 	_row_button(plot_edit_row, "Shrink -2", func() -> void: _call("admin_resize_plot_here", [-2]))
 	_row_button(plot_edit_row, "Remove Here", func() -> void: _call("admin_remove_plot_here", []))
+	_add_button("Recolor Plot Here (biome)", func() -> void: _call("admin_set_plot_biome_here", [_picked_biome()]))
+
+	# --- Visual parcel tool: stake two corners, see a preview, confirm ---------
+	_add_heading("Visual Parcel Tool")
+	var help: Label = Label.new()
+	help.text = "Stand at corner A → Start. Walk to the far corner (preview follows) → Confirm."
+	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help.add_theme_font_size_override("font_size", 11)
+	help.add_theme_color_override("font_color", CozyUITheme.INK_SOFT)
+	_rows.add_child(help)
+	var parcel_row: HBoxContainer = _add_row()
+	_row_button(parcel_row, "Start", func() -> void: _call("admin_parcel_start", []))
+	_row_button(parcel_row, "Confirm", func() -> void: _call("admin_parcel_confirm", [""]))
+	_row_button(parcel_row, "Cancel", func() -> void: _call("admin_parcel_cancel", []))
+	_add_button("Set Parcel Biome (from picker)", func() -> void: _call("admin_set_parcel_biome", [_picked_biome()]))
 
 	# --- World-builder: markers ------------------------------------------------
 	_add_heading("World Builder · Markers")
@@ -100,9 +114,15 @@ func _add_button(text: String, on_press: Callable) -> Button:
 func _add_heading(text: String) -> void:
 	var heading: Label = Label.new()
 	heading.text = text
-	heading.add_theme_font_size_override("font_size", 13)
-	heading.add_theme_color_override("font_color", Color("#f8de9a"))
+	heading.add_theme_font_size_override("font_size", 14)
+	heading.add_theme_color_override("font_color", CozyUITheme.HONEY)
 	_rows.add_child(heading)
+
+## The biome currently chosen in the picker (lowercased id).
+func _picked_biome() -> String:
+	if _biome_picker == null:
+		return "meadow"
+	return _biome_picker.get_item_text(_biome_picker.selected).to_lower()
 
 func _add_row() -> HBoxContainer:
 	var row: HBoxContainer = HBoxContainer.new()

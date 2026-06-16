@@ -6,11 +6,14 @@ extends CanvasLayer
 ## scaled into the map rect from a fixed world bounds, so it stays truthful to
 ## the real layout without per-frame cost beyond a queue_redraw.
 
-## World bounds the minimap maps into its rect. Widened west + south so the
-## spread-out homestead lots (creekside/brook to the west, orchard/grove to the
-## south) all fit on the readout alongside the town and forest to the east.
-const WORLD_MIN := Vector2(-1480, -300)
-const WORLD_MAX := Vector2(3400, 1820)
+## Fallback world bounds the minimap maps into its rect. The controller normally
+## passes the live world bounds via setup(...) so the readout always matches the
+## (large, expandable) world; these consts are only used if none are supplied.
+const WORLD_MIN := Vector2(-4600, -700)
+const WORLD_MAX := Vector2(3900, 2300)
+
+var _world_min: Vector2 = WORLD_MIN
+var _world_max: Vector2 = WORLD_MAX
 
 var _player_pos: Vector2 = Vector2.ZERO
 var _plots: Dictionary = {}            # plot_id -> {rect_center_world, owned_state}
@@ -25,10 +28,14 @@ func _ready() -> void:
 
 ## Static landmarks + plot centers in world space, supplied once by the
 ## controller (so the minimap doesn't reach into world systems itself).
-func setup(landmarks: Array, plot_centers: Dictionary) -> void:
+func setup(landmarks: Array, plot_centers: Dictionary, world_bounds: Rect2 = Rect2()) -> void:
 	_landmarks = landmarks
+	_plots.clear()
 	for plot_id in plot_centers.keys():
 		_plots[plot_id] = {"center": plot_centers[plot_id], "state": "unclaimed"}
+	if world_bounds.size.x > 1.0 and world_bounds.size.y > 1.0:
+		_world_min = world_bounds.position
+		_world_max = world_bounds.end
 	_map_rect.queue_redraw()
 
 func set_player_position(world_pos: Vector2) -> void:
@@ -51,8 +58,8 @@ func toggle_panel() -> void:
 
 func _world_to_map(world_pos: Vector2) -> Vector2:
 	var size: Vector2 = _map_rect.size
-	var nx: float = clampf((world_pos.x - WORLD_MIN.x) / (WORLD_MAX.x - WORLD_MIN.x), 0.0, 1.0)
-	var ny: float = clampf((world_pos.y - WORLD_MIN.y) / (WORLD_MAX.y - WORLD_MIN.y), 0.0, 1.0)
+	var nx: float = clampf((world_pos.x - _world_min.x) / maxf(_world_max.x - _world_min.x, 1.0), 0.0, 1.0)
+	var ny: float = clampf((world_pos.y - _world_min.y) / maxf(_world_max.y - _world_min.y, 1.0), 0.0, 1.0)
 	return Vector2(nx * size.x, ny * size.y)
 
 func _draw_map() -> void:

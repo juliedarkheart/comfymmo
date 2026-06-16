@@ -21,7 +21,16 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/dev_tool_state.gd",
 	"res://systems/overworld_editor_system.gd",
 	"res://systems/world_builder_overlay.gd",
+	"res://systems/parcel_preview.gd",
 	"res://systems/dev_world_marker.gd",
+	# Large-world architecture + cozy UI + day/night (this design-correction pass).
+	"res://systems/world/biome_registry.gd",
+	"res://systems/world/world_chunk.gd",
+	"res://systems/world/world_chunk_registry.gd",
+	"res://systems/world/world_generation.gd",
+	"res://systems/world/world_area_registry.gd",
+	"res://systems/world/day_night_cycle.gd",
+	"res://ui/cozy_ui_theme.gd",
 	"res://systems/admin/moderation_models.gd",
 	"res://systems/admin/audit_log.gd",
 	"res://systems/character/character_appearance.gd",
@@ -325,14 +334,106 @@ func _initialize() -> void:
 		push_error("System menu scene failed to load")
 		quit(1)
 		return
-	var system_menu: Node = system_menu_scene.instantiate()
+	var system_menu: CanvasLayer = system_menu_scene.instantiate() as CanvasLayer
+	if system_menu == null:
+		push_error("System menu scene failed to instantiate")
+		quit(1)
+		return
+	get_root().add_child(system_menu)
+	await process_frame
 	for required_method in ["open", "close", "is_open", "_on_quit", "_on_fullscreen"]:
 		if not system_menu.has_method(required_method):
 			push_error("System menu is missing method '%s'" % required_method)
-			system_menu.free()
+			system_menu.queue_free()
 			quit(1)
 			return
-	system_menu.free()
+	var fullscreen_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/FullscreenButton") as Button
+	var settings_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/SettingsButton") as Button
+	var settings_box: VBoxContainer = system_menu.get_node_or_null("Dim/Panel/Rows/SettingsBox") as VBoxContainer
+	var vsync_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/SettingsBox/VsyncButton") as Button
+	var quit_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/QuitButton") as Button
+	var close_menu_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/CloseButton") as Button
+	if fullscreen_button == null:
+		push_error("System menu is missing FullscreenButton")
+		quit(1)
+		return
+	if quit_button == null:
+		push_error("System menu is missing QuitButton")
+		quit(1)
+		return
+	if close_menu_button == null:
+		push_error("System menu is missing CloseButton")
+		quit(1)
+		return
+	if settings_button == null or settings_box == null or vsync_button == null:
+		push_error("System menu is missing the Settings / Display path")
+		quit(1)
+		return
+	system_menu.call("open")
+	if not bool(system_menu.call("is_open")):
+		push_error("System menu open() did not show the menu")
+		quit(1)
+		return
+	settings_button.emit_signal("pressed")
+	await process_frame
+	if not settings_box.visible:
+		push_error("System menu Settings / Display button did not reveal the settings box")
+		quit(1)
+		return
+	close_menu_button.emit_signal("pressed")
+	await process_frame
+	if bool(system_menu.call("is_open")):
+		push_error("System menu Close button did not hide the menu")
+		quit(1)
+		return
+	system_menu.call("open")
+	var system_escape_event: InputEventKey = InputEventKey.new()
+	system_escape_event.pressed = true
+	system_escape_event.keycode = KEY_ESCAPE
+	system_menu.call("_input", system_escape_event)
+	if bool(system_menu.call("is_open")):
+		push_error("System menu Esc close path did not hide the menu")
+		quit(1)
+		return
+	system_menu.queue_free()
+	await process_frame
+
+	# Parcel/world-builder helpers: scripts parse, expose their expected APIs,
+	# and the parcel preview still round-trips an inclusive two-corner rect.
+	var parcel_preview_script: Script = load("res://systems/parcel_preview.gd") as Script
+	var parcel_preview: Node2D = null
+	if parcel_preview_script != null:
+		parcel_preview = parcel_preview_script.new() as Node2D
+	if parcel_preview == null:
+		push_error("ParcelPreview script failed to load/instantiate")
+		quit(1)
+		return
+	for required_method in ["setup", "set_corners", "pending_rect", "clear"]:
+		if not parcel_preview.has_method(required_method):
+			push_error("ParcelPreview is missing method '%s'" % required_method)
+			quit(1)
+			return
+	parcel_preview.call("set_corners", Vector2i(2, 3), Vector2i(5, 7), "grove")
+	if parcel_preview.call("pending_rect") != Rect2i(2, 3, 4, 5):
+		push_error("ParcelPreview pending_rect no longer matches the staked corners")
+		quit(1)
+		return
+	parcel_preview.call("clear")
+	parcel_preview.free()
+	var world_builder_overlay_script: Script = load("res://systems/world_builder_overlay.gd") as Script
+	var world_builder_overlay: Node2D = null
+	if world_builder_overlay_script != null:
+		world_builder_overlay = world_builder_overlay_script.new() as Node2D
+	if world_builder_overlay == null:
+		push_error("WorldBuilderOverlay script failed to load/instantiate")
+		quit(1)
+		return
+	for required_method in ["setup", "toggle", "refresh"]:
+		if not world_builder_overlay.has_method(required_method):
+			push_error("WorldBuilderOverlay is missing method '%s'" % required_method)
+			quit(1)
+			return
+	world_builder_overlay.free()
 
 	# Lightweight save-helper sanity: defaults must be returned with no save file.
 	var save_system: LocalSaveSystem = LocalSaveSystem.new()
@@ -657,6 +758,18 @@ func _initialize() -> void:
 			push_error("InputMap action '%s' is missing from project.godot" % required_action)
 			quit(1)
 			return
+	var fullscreen_has_f11: bool = false
+	for event_variant in InputMap.action_get_events("toggle_fullscreen"):
+		var fullscreen_event: InputEventKey = event_variant as InputEventKey
+		if fullscreen_event != null and (
+			fullscreen_event.keycode == KEY_F11 or fullscreen_event.physical_keycode == KEY_F11
+		):
+			fullscreen_has_f11 = true
+			break
+	if not fullscreen_has_f11:
+		push_error("InputMap action 'toggle_fullscreen' is missing an F11 binding")
+		quit(1)
+		return
 
 	# --- Server run/external-access pass ----------------------------------------
 	for required_file in [
@@ -976,8 +1089,8 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# Land: plot ids unique with valid rects, >= 2 claimable, and the claim +
-	# build permission state machine behaves.
+	# Land: plot ids unique with valid rects/biomes, >= 4 claimable, and the
+	# claim/build permission state machine behaves across the expanded lots.
 	var plot_ids_seen: Dictionary = {}
 	for plot_def_variant in LandRegistry.definitions().values():
 		var plot_def: Dictionary = plot_def_variant as Dictionary
@@ -987,18 +1100,36 @@ func _initialize() -> void:
 			quit(1)
 			return
 		plot_ids_seen[def_plot_id] = true
+		var def_rect_variant: Variant = plot_def.get("rect", null)
+		if not (def_rect_variant is Rect2i):
+			push_error("Land plot '%s' is missing a Rect2i bounds" % def_plot_id)
+			quit(1)
+			return
+		var def_rect: Rect2i = def_rect_variant as Rect2i
+		if def_rect.size.x <= 0 or def_rect.size.y <= 0:
+			push_error("Land plot '%s' has invalid bounds %s" % [def_plot_id, def_rect])
+			quit(1)
+			return
+		var def_biome: String = String(plot_def.get("biome", ""))
+		if not BiomeRegistry.has_biome(def_biome):
+			push_error("Land plot '%s' has unknown biome '%s'" % [def_plot_id, def_biome])
+			quit(1)
+			return
 	if LandRegistry.claimable_plot_ids().size() < 4:
 		push_error("Fewer than 4 claimable homestead plots defined")
 		quit(1)
 		return
-	# At least 4 plots must be true homestead-sized (16x16 = 256 tiles or more).
+	var implemented_large_plot_target: int = 24
+	# At least 4 default plots must hit the implemented large-lot target.
 	var large_plot_ids: Array[String] = []
 	for claim_id in LandRegistry.claimable_plot_ids():
 		var claim_rect: Rect2i = LandRegistry.get_plot(String(claim_id)).get("rect", Rect2i()) as Rect2i
-		if claim_rect.size.x >= 16 and claim_rect.size.y >= 16:
+		if claim_rect.size.x >= implemented_large_plot_target and claim_rect.size.y >= implemented_large_plot_target:
 			large_plot_ids.append(String(claim_id))
 	if large_plot_ids.size() < 4:
-		push_error("Fewer than 4 plots are 16x16 or larger (found %d)" % large_plot_ids.size())
+		push_error("Fewer than 4 plots meet the %dx%d large-lot target (found %d)" % [
+			implemented_large_plot_target, implemented_large_plot_target, large_plot_ids.size(),
+		])
 		quit(1)
 		return
 	var overworld_map: OverworldMap = OverworldMap.new()
@@ -1016,10 +1147,15 @@ func _initialize() -> void:
 			push_error("Large plot center resolved to the wrong plot for '%s'" % large_plot_id)
 			quit(1)
 			return
-		# The center AND all four corners must be in the expanded buildable bounds,
-		# so the owner can build right up to the edges of the homestead lot.
-		var check_tiles: Array = LandRegistry.corner_tiles(large_plot_id)
-		check_tiles.append(center_tile)
+		# The center AND near-corner interior tiles must be buildable so owners can
+		# place throughout the expanded lots without hugging exact edge artifacts.
+		var check_tiles: Array = [
+			center_tile,
+			large_rect.position + Vector2i(1, 1),
+			Vector2i(large_rect.end.x - 2, large_rect.position.y + 1),
+			Vector2i(large_rect.position.x + 1, large_rect.end.y - 2),
+			large_rect.end - Vector2i(2, 2),
+		]
 		for build_tile_variant in check_tiles:
 			var build_tile: Vector2i = build_tile_variant as Vector2i
 			if not overworld_map.is_tile_in_bounds(build_tile):
@@ -1031,6 +1167,17 @@ func _initialize() -> void:
 				push_error("Plot '%s' tile (%d,%d) is not buildable: %s" % [large_plot_id, build_tile.x, build_tile.y, build_result.get("reason", "")])
 				quit(1)
 				return
+	var town_world: Vector2 = OverworldMap.VILLAGE_OFFSET + Vector2(96, 320)
+	var town_area: Dictionary = WorldAreaRegistry.area_at(town_world)
+	if String(town_area.get("id", "")) != "town" or not bool(town_area.get("protected", false)):
+		push_error("WorldAreaRegistry no longer classifies the village square as protected town land")
+		quit(1)
+		return
+	var town_tile: Vector2i = overworld_map.world_to_grid(town_world)
+	if bool(overworld_map.get_place_footprint_result(town_tile, Vector2i.ONE, []).get("valid", false)):
+		push_error("Town/protected area allowed normal building")
+		quit(1)
+		return
 	overworld_map.free()
 	var test_plots: Dictionary = {}
 	# Use an interior tile (plot center), not the sign tile (which now sits in
@@ -1126,15 +1273,15 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# Land repair pass: claimable plot rects must not overlap each other (each
-	# is a distinct yard), and the quick-tools strip ids must all be real tools.
-	var claimable: Array = LandRegistry.claimable_plot_ids()
-	for i in range(claimable.size()):
-		for j in range(i + 1, claimable.size()):
-			var rect_a: Rect2i = LandRegistry.get_plot(String(claimable[i])).get("rect", Rect2i()) as Rect2i
-			var rect_b: Rect2i = LandRegistry.get_plot(String(claimable[j])).get("rect", Rect2i()) as Rect2i
+	# Land repair pass: plot rects must not overlap each other (claimable or
+	# fixed), and the quick-tools strip ids must all be real tools.
+	var all_plot_ids: Array = LandRegistry.definitions().keys()
+	for i in range(all_plot_ids.size()):
+		for j in range(i + 1, all_plot_ids.size()):
+			var rect_a: Rect2i = LandRegistry.get_plot(String(all_plot_ids[i])).get("rect", Rect2i()) as Rect2i
+			var rect_b: Rect2i = LandRegistry.get_plot(String(all_plot_ids[j])).get("rect", Rect2i()) as Rect2i
 			if rect_a.intersects(rect_b):
-				push_error("Plots '%s' and '%s' overlap" % [claimable[i], claimable[j]])
+				push_error("Plots '%s' and '%s' overlap" % [all_plot_ids[i], all_plot_ids[j]])
 				quit(1)
 				return
 	for quick_tool_id in [ItemIds.TOOL_WORN_AXE, ItemIds.TOOL_WORN_PICKAXE, ItemIds.TOOL_WORN_HOE, ItemIds.TOOL_WATERING_CAN, ItemIds.TOOL_SIMPLE_HAMMER, ItemIds.TOOL_BASIC_SHOVEL]:
@@ -1189,9 +1336,27 @@ func _initialize() -> void:
 		push_error("plot_at_tile did not resolve a runtime plot")
 		quit(1)
 		return
+	LandRegistry.add_runtime_plot("wb_tiny_plot", "Too Small", Rect2i(96, 96, 4, 4), "grove")
+	if LandRegistry.is_runtime_plot("wb_tiny_plot"):
+		push_error("Runtime plot helper accepted a tiny plot")
+		quit(1)
+		return
+	LandRegistry.add_runtime_plot("wb_invalid_biome", "Fallback Biome", Rect2i(96, 96, 12, 12), "bogus_biome")
+	if not LandRegistry.is_runtime_plot("wb_invalid_biome"):
+		push_error("Runtime plot helper rejected a valid plot with fallback biome normalization")
+		quit(1)
+		return
+	if String(LandRegistry.get_plot("wb_invalid_biome").get("biome", "")) != "meadow":
+		push_error("Runtime plot helper did not normalize an invalid biome to meadow")
+		quit(1)
+		return
 	var wb_save_data: Dictionary = LandRegistry.runtime_plots_save_data()
 	if not wb_save_data.has("wb_test_plot") or (wb_save_data["wb_test_plot"]["rect"] as Array) != [80, 80, 12, 12]:
 		push_error("Runtime plot save data did not serialize rect as [x,y,w,h]")
+		quit(1)
+		return
+	if String((wb_save_data["wb_invalid_biome"] as Dictionary).get("biome", "")) != "meadow":
+		push_error("Runtime plot save data did not persist normalized biome ids")
 		quit(1)
 		return
 	LandRegistry.load_runtime_plots(wb_save_data)
@@ -1199,10 +1364,23 @@ func _initialize() -> void:
 		push_error("Runtime plot did not survive a save round-trip")
 		quit(1)
 		return
-	# A corrupt record must be skipped, never crash the loader.
-	LandRegistry.load_runtime_plots({"bad_rec": {"rect": [1, 2]}, "wb_test_plot": wb_save_data["wb_test_plot"]})
+	# Corrupt/tiny records must be skipped, and invalid biomes must fail safe.
+	LandRegistry.load_runtime_plots({
+		"bad_rec": {"rect": [1, 2]},
+		"tiny_rec": {"display_name": "Tiny", "rect": [1, 2, 4, 4], "biome": "grove"},
+		"bad_biome": {"display_name": "Bad Biome", "rect": [120, 120, 12, 12], "biome": "bogus"},
+		"wb_test_plot": wb_save_data["wb_test_plot"],
+	})
 	if LandRegistry.is_runtime_plot("bad_rec"):
 		push_error("Runtime plot loader accepted a malformed rect")
+		quit(1)
+		return
+	if LandRegistry.is_runtime_plot("tiny_rec"):
+		push_error("Runtime plot loader accepted a tiny rect")
+		quit(1)
+		return
+	if not LandRegistry.is_runtime_plot("bad_biome") or String(LandRegistry.get_plot("bad_biome").get("biome", "")) != "meadow":
+		push_error("Runtime plot loader did not normalize an invalid biome safely")
 		quit(1)
 		return
 	# Clearing the overlay must restore the static catalog with no leakage.
@@ -1212,15 +1390,199 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# Spread-biome layout: each built-in claimable plot must declare a known biome,
-	# and biome_color must resolve a distinct tint for the overlay/ground drawing.
-	var known_biomes: Array = ["meadow", "orchard", "creekside", "hilltop", "grove", "brook"]
-	for biome_plot_id in LandRegistry.claimable_plot_ids():
-		var biome_name: String = String(LandRegistry.get_plot(String(biome_plot_id)).get("biome", ""))
-		if not known_biomes.has(biome_name):
-			push_error("Plot '%s' has unknown biome '%s'" % [biome_plot_id, biome_name])
+	# --- Biome registry: ids unique, all resolve, future ids reserved -----------
+	for required_biome in ["meadow", "forest", "orchard", "creekside", "hilltop", "grove", "town", "farmland"]:
+		if not BiomeRegistry.has_biome(required_biome):
+			push_error("Required biome id '%s' is missing from BiomeRegistry" % required_biome)
 			quit(1)
 			return
+	if BiomeRegistry.display_name("not_a_real_biome").is_empty():
+		push_error("BiomeRegistry.display_name() did not fail safely for an invalid biome id")
+		quit(1)
+		return
+	var invalid_ground: Color = BiomeRegistry.ground_color("not_a_real_biome")
+	var invalid_minimap: Color = BiomeRegistry.minimap_tint("not_a_real_biome")
+	if invalid_ground.a <= 0.0 or invalid_minimap.a <= 0.0:
+		push_error("BiomeRegistry fallback colors are invalid for an unknown biome id")
+		quit(1)
+		return
+	var seen_biome_ids: Dictionary = {}
+	for active_biome in BiomeRegistry.ACTIVE:
+		if seen_biome_ids.has(active_biome) or not BiomeRegistry.has_biome(String(active_biome)):
+			push_error("Biome id '%s' duplicated or missing from the registry table" % active_biome)
+			quit(1)
+			return
+		seen_biome_ids[active_biome] = true
+		if BiomeRegistry.display_name(String(active_biome)).is_empty():
+			push_error("Biome '%s' has no display name" % active_biome)
+			quit(1)
+			return
+		var ground_tint: Color = BiomeRegistry.ground_color(String(active_biome))
+		var minimap_tint: Color = BiomeRegistry.minimap_tint(String(active_biome))
+		if ground_tint.a <= 0.0 or minimap_tint.a <= 0.0:
+			push_error("Biome '%s' has an invalid ground/minimap color" % active_biome)
+			quit(1)
+			return
+	for wild_biome in BiomeRegistry.WILD:
+		if not BiomeRegistry.ACTIVE.has(String(wild_biome)):
+			push_error("Wilderness biome '%s' is not an active biome" % wild_biome)
+			quit(1)
+			return
+	for future_biome in BiomeRegistry.FUTURE:
+		if not BiomeRegistry.has_biome(String(future_biome)):
+			push_error("Reserved future biome '%s' has no registry entry" % future_biome)
+			quit(1)
+			return
+
+	# --- Large-world: plots big enough + roads never cross a plot ----------------
+	# At least 4 default claimable plots must hit the new homestead target (24x24).
+	var big_plot_count: int = 0
+	for big_plot_id in LandRegistry.claimable_plot_ids():
+		var big_rect: Rect2i = LandRegistry.get_plot(String(big_plot_id)).get("rect", Rect2i()) as Rect2i
+		if big_rect.size.x >= 24 and big_rect.size.y >= 24:
+			big_plot_count += 1
+	if big_plot_count < 4:
+		push_error("Fewer than 4 plots meet the 24x24 homestead target (found %d)" % big_plot_count)
+		quit(1)
+		return
+	# Every tile a road passes through must be outside every plot rect (roads run
+	# in the gutters between lots, never across them).
+	var road_map: OverworldMap = OverworldMap.new()
+	for road_tile_variant in OverworldMap.road_sample_tiles():
+		var road_tile: Vector2i = road_tile_variant as Vector2i
+		for plot_rect_variant in LandRegistry.all_plot_rects():
+			if (plot_rect_variant as Rect2i).has_point(road_tile):
+				push_error("A road tile (%d,%d) falls inside a plot" % [road_tile.x, road_tile.y])
+				road_map.free()
+				quit(1)
+				return
+	# The world bounds must enclose every plot's corners (walls/camera derive from
+	# this), proving the world expanded to fit the large lots.
+	var world_limits: Rect2 = Rect2(road_map.get_camera_limits())
+	for limit_plot_id in LandRegistry.claimable_plot_ids():
+		for corner_variant in LandRegistry.corner_tiles(String(limit_plot_id)):
+			if not world_limits.has_point(road_map.grid_to_world(corner_variant as Vector2i)):
+				push_error("Plot '%s' corner is outside the framed world bounds" % limit_plot_id)
+				road_map.free()
+				quit(1)
+				return
+	var minimap_scene: PackedScene = load("res://ui/minimap_panel.tscn") as PackedScene
+	if minimap_scene == null:
+		push_error("Minimap scene failed explicit load")
+		road_map.free()
+		quit(1)
+		return
+	var minimap: CanvasLayer = minimap_scene.instantiate() as CanvasLayer
+	if minimap == null:
+		push_error("Minimap scene failed explicit instantiate")
+		road_map.free()
+		quit(1)
+		return
+	get_root().add_child(minimap)
+	await process_frame
+	var minimap_rect: Control = minimap.get_node_or_null("Panel/Margin/MapRect") as Control
+	if minimap_rect == null or minimap_rect.size.x <= 0.0 or minimap_rect.size.y <= 0.0:
+		push_error("Minimap is missing a valid MapRect")
+		road_map.free()
+		quit(1)
+		return
+	var plot_centers: Dictionary = {}
+	for plot_id in LandRegistry.claimable_plot_ids():
+		var rect: Rect2i = LandRegistry.get_plot(String(plot_id)).get("rect", Rect2i()) as Rect2i
+		plot_centers[plot_id] = road_map.grid_to_world(Vector2i(
+			rect.position.x + rect.size.x / 2,
+			rect.position.y + rect.size.y / 2
+		))
+	minimap.call("setup", [], plot_centers, Rect2(road_map.get_camera_limits()))
+	minimap.call("set_player_position", Vector2.ZERO)
+	minimap.call("set_plot_states", {})
+	minimap.call("set_admin_debug", true)
+	for center_variant in plot_centers.values():
+		var minimap_point: Vector2 = minimap.call("_world_to_map", center_variant as Vector2)
+		if minimap_point.x < -0.01 or minimap_point.y < -0.01 \
+				or minimap_point.x > minimap_rect.size.x + 0.01 or minimap_point.y > minimap_rect.size.y + 0.01:
+			push_error("Minimap bounds do not include an expanded plot center at %s" % minimap_point)
+			minimap.queue_free()
+			road_map.free()
+			quit(1)
+			return
+	minimap.call("toggle_panel")
+	minimap.queue_free()
+	await process_frame
+	road_map.free()
+
+	# --- Chunk / world generation scaffolding -----------------------------------
+	if WorldChunk.chunk_id(Vector2i(-2, 3)) != "chunk_-2_3":
+		push_error("WorldChunk.chunk_id is not stable/negative-safe")
+		quit(1)
+		return
+	if WorldChunk.coord_of_tile(Vector2i(-1, 33)) != Vector2i(-1, 1):
+		push_error("WorldChunk.coord_of_tile floored division regressed")
+		quit(1)
+		return
+	if WorldGeneration.biome_for_chunk(99, Vector2i(4, 4)) != WorldGeneration.biome_for_chunk(99, Vector2i(4, 4)):
+		push_error("WorldGeneration.biome_for_chunk is not deterministic")
+		quit(1)
+		return
+	if not BiomeRegistry.WILD.has(WorldGeneration.biome_for_chunk(99, Vector2i(4, 4))):
+		push_error("Generated chunk biome is not a wilderness biome")
+		quit(1)
+		return
+	var chunk_registry: WorldChunkRegistry = WorldChunkRegistry.new(2024)
+	var generated_chunk: Dictionary = chunk_registry.get_or_generate(Vector2i(5, -2))
+	if String(generated_chunk["chunk_id"]) != "chunk_5_-2" or chunk_registry.loaded_count() != 1:
+		push_error("WorldChunkRegistry.get_or_generate did not cache a chunk")
+		quit(1)
+		return
+	chunk_registry.get_or_generate(Vector2i(5, -2))
+	if chunk_registry.loaded_count() != 1:
+		push_error("WorldChunkRegistry regenerated an already-cached chunk")
+		quit(1)
+		return
+	var chunk_round_trip: WorldChunkRegistry = WorldChunkRegistry.new()
+	chunk_round_trip.load_save_data(chunk_registry.to_save_data())
+	if chunk_round_trip.world_seed() != 2024 or not chunk_round_trip.has_chunk(Vector2i(5, -2)):
+		push_error("WorldChunkRegistry save round-trip lost data")
+		quit(1)
+		return
+
+	# --- Fixed authored areas + day/night ---------------------------------------
+	var training_area: Dictionary = WorldAreaRegistry.area_at(Vector2.ZERO)
+	if String(training_area.get("id", "")) != "farmer_training" or not bool(training_area.get("protected", false)):
+		push_error("WorldAreaRegistry no longer reports the landing/training area correctly")
+		quit(1)
+		return
+	if String(WorldAreaRegistry.area_at(OverworldMap.VILLAGE_OFFSET + Vector2(96, 320)).get("id", "")) != "town":
+		push_error("WorldAreaRegistry no longer resolves the town area")
+		quit(1)
+		return
+	if not WorldAreaRegistry.area_at(Vector2(4800, 1800)).is_empty():
+		push_error("WorldAreaRegistry should return empty outside fixed areas (wilderness)")
+		quit(1)
+		return
+	if ContentRegistry.area_display_name(ContentIds.AREA_WILDERNESS).is_empty():
+		push_error("Wilderness area label is empty")
+		quit(1)
+		return
+	for fixed_area in WorldAreaRegistry.areas():
+		if not BiomeRegistry.has_biome(String((fixed_area as Dictionary).get("biome", ""))):
+			push_error("Fixed area '%s' has an unknown biome" % (fixed_area as Dictionary).get("id", "?"))
+			quit(1)
+			return
+	# Day/night tint must never crash and must respect the readability floor.
+	var day_night: DayNightCycle = DayNightCycle.new()
+	for sample_t in [0.0, 0.25, 0.5, 0.75, 1.0]:
+		day_night.set_time01(sample_t)
+		if day_night.phase_label().is_empty() or not day_night.clock_label().contains(":"):
+			push_error("Day/night labels are invalid at t=%.2f" % sample_t)
+			quit(1)
+			return
+		var tint: Color = DayNightCycle.tint_for(sample_t)
+		if tint.r < DayNightCycle.MIN_CHANNEL - 0.001 or tint.g < DayNightCycle.MIN_CHANNEL - 0.001 or tint.b < DayNightCycle.MIN_CHANNEL - 0.001:
+			push_error("Day/night tint at t=%.2f drops below the readability floor" % sample_t)
+			quit(1)
+			return
+	day_night.free()
 
 	print("Project smoke test passed.")
 	quit(0)

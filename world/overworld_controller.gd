@@ -50,12 +50,20 @@ var _hud_tick: float = 0.0
 # resource/NPC/sign hints) are persisted to "world_markers". The overlay is an
 # in-world debug layer drawing every plot's bounds/name/corners on an admin toggle.
 const WORLD_BUILDER_OVERLAY_SCENE := preload("res://systems/world_builder_overlay.gd")
-const BUILDER_BIOMES: Array[String] = ["meadow", "orchard", "creekside", "hilltop", "grove", "brook"]
+const PARCEL_PREVIEW_SCENE := preload("res://systems/parcel_preview.gd")
+const DAY_NIGHT_SCENE := preload("res://systems/world/day_night_cycle.gd")
+const BUILDER_BIOMES: Array[String] = ["meadow", "orchard", "creekside", "hilltop", "grove", "brook", "forest", "farmland"]
 const MARKER_TYPES: Array[String] = ["spawn", "resource", "npc", "sign", "landmark", "decor"]
 var _plot_furniture: Dictionary = {}        # plot_id -> [Node, ...] (signs, posts, ground)
 var _world_markers: Array = []              # [{type, tile:[x,y], label, _node}]
 var _marker_layer: Node2D = null
 var _world_overlay: Node2D = null
+var _day_night: DayNightCycle = null
+# Visual parcel tool: two-corner selection that previews a rectangle before
+# confirming. _parcel_corner_a is the first staked corner (or null).
+var _parcel_preview: Node2D = null
+var _parcel_corner_a: Variant = null
+var _parcel_biome: String = "meadow"
 
 func _ready() -> void:
 	# Load profiles BEFORE super._ready(): the base spawns the avatar and reads
@@ -81,9 +89,17 @@ func _ready() -> void:
 	_load_runtime_plots()       # restore in-game-authored plots BEFORE drawing markers
 	_setup_plot_markers()
 	_setup_world_builder()      # marker layer, persisted markers, admin overlay
+	_setup_day_night()          # cozy world lighting tint (world layer only)
 	_setup_town_services()
 	_setup_network(player)
 	_show_welcome_if_first_boot.call_deferred()
+
+## Cozy day/night lighting. The CanvasModulate lives in the world (map) layer, so
+## it tints terrain/props but never the UI CanvasLayers. Phase shows in the HUD.
+func _setup_day_night() -> void:
+	_day_night = DAY_NIGHT_SCENE.new()
+	_day_night.name = "DayNightCycle"
+	map.add_child(_day_night)
 
 func _setup_land_panel() -> void:
 	_land_panel = LAND_PANEL_SCENE.instantiate() as CanvasLayer
@@ -117,9 +133,13 @@ func _process(delta: float) -> void:
 		return
 	_hud_tick = 0.0
 	if hud.has_method("set_area_line"):
-		hud.call("set_area_line", _player_area_text())
+		var area_line: String = _player_area_text()
+		if _day_night != null:
+			area_line += "   ·   %s %s" % [_day_night.phase_label(), _day_night.clock_label()]
+		hud.call("set_area_line", area_line)
 	if _minimap != null:
 		_minimap.call("set_player_position", get_player_position())
+	_update_parcel_preview()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_minimap"):
@@ -142,7 +162,7 @@ func _refresh_quick_tools() -> void:
 func _overworld_landmarks() -> Array:
 	return [
 		{"pos": map.grid_to_world(Vector2i(3, 8)), "color": Color("#bfe6a0")},    # Rowan
-		{"pos": map.grid_to_world(Vector2i(30, 31)), "color": Color("#9fc4e8")},  # Clerk Hazel
+		{"pos": map.grid_to_world(Vector2i(13, 18)), "color": Color("#9fc4e8")},  # Clerk Hazel
 		{"pos": OverworldMap.VILLAGE_OFFSET + Vector2(96, 272), "color": Color("#f2d469")}, # town fountain
 		{"pos": OverworldMap.FOREST_OFFSET + Vector2(136, 166), "color": Color("#c0a0e0")}, # shrine
 	]
@@ -157,7 +177,8 @@ func _refresh_minimap_setup() -> void:
 	for plot_id in LandRegistry.claimable_plot_ids():
 		var rect: Rect2i = LandRegistry.get_plot(String(plot_id)).get("rect", Rect2i()) as Rect2i
 		plot_centers[plot_id] = map.grid_to_world(Vector2i(rect.position.x + rect.size.x / 2, rect.position.y + rect.size.y / 2))
-	_minimap.call("setup", _overworld_landmarks(), plot_centers)
+	var world_bounds := Rect2(map.get_camera_limits())
+	_minimap.call("setup", _overworld_landmarks(), plot_centers, world_bounds)
 	_refresh_minimap_plots()
 
 func _refresh_minimap_plots() -> void:
@@ -221,29 +242,30 @@ func _player_area_text() -> String:
 	var tile: Vector2i = map.world_to_grid(pos)
 	var plot: Dictionary = LandRegistry.plot_at_tile(tile)
 	if not plot.is_empty():
+		var biome_tag: String = " · %s" % BiomeRegistry.display_name(String(plot.get("biome", "meadow")))
 		if bool(plot.get("npc_owned", false)):
-			return "%s — Tutorial Land" % String(plot["display_name"])
+			return "%s — Tutorial Land%s" % [String(plot["display_name"]), biome_tag]
 		var profile_id: String = String(_profile_manager.get_active_profile().get("profile_id", ""))
 		var state: Dictionary = LandPlot.normalized_state(_current_land_plots().get(String(plot["plot_id"]), {}) as Dictionary)
 		if String(state["status"]) != LandPlot.STATUS_OWNED:
-			return "%s — Unclaimed" % String(plot["display_name"])
+			return "%s — Unclaimed%s" % [String(plot["display_name"]), biome_tag]
 		if String(state["owner_profile_id"]) == profile_id:
-			return "%s — Your Plot" % String(plot["display_name"])
+			return "%s — Your Plot%s" % [String(plot["display_name"]), biome_tag]
 		if (state["member_profile_ids"] as Array).has(profile_id):
-			return "%s — Friend's Plot" % String(plot["display_name"])
-		return "%s — Owned by @%s" % [String(plot["display_name"]), String(state["owner_username"])]
-	# Off-plot: classify by world region.
-	if pos.x >= 1150.0 and pos.x < 2050.0:
-		return "Town Square — Public, protected"
-	if pos.x >= 2550.0:
-		return "Forest Edge — Wilderness"
-	# Inside the original homestead core grid = Rowan's training land; any other
-	# in-bounds tile (path margins around the spread-out lots) is neighborhood.
-	if tile.x >= 0 and tile.x < map.MAP_WIDTH and tile.y >= 0 and tile.y < map.MAP_HEIGHT:
-		return "Rowan's Training Farm — Tutorial"
+			return "%s — Friend's Plot%s" % [String(plot["display_name"]), biome_tag]
+		return "%s — Owned by @%s%s" % [String(plot["display_name"]), String(state["owner_username"]), biome_tag]
+	# Off-plot: classify by fixed authored area (town/forest/training), then by
+	# buildable neighborhood path, else wilderness — each tagged with its biome.
+	var area: Dictionary = WorldAreaRegistry.area_at(pos)
+	if not area.is_empty():
+		return "%s — %s · %s" % [
+			String(area["display_name"]),
+			"Public, protected" if bool(area.get("protected", false)) else "Public",
+			BiomeRegistry.display_name(String(area.get("biome", "meadow"))),
+		]
 	if map.is_tile_in_bounds(tile):
 		return "Neighborhood — Public path"
-	return "Hearthvale — Wilderness"
+	return "Hearthvale Wilds — Wilderness"
 
 func _setup_dev_overlay(player: AvatarController) -> void:
 	var camera: AvatarCamera = get_camera(player)
@@ -645,9 +667,9 @@ func _current_land_plots() -> Dictionary:
 	return raw as Dictionary if typeof(raw) == TYPE_DICTIONARY else {}
 
 func _setup_plot_markers() -> void:
-	# Neighborhood entrance sign at the road junction between the meadow and the
-	# orchard cluster (the lots are now spread out, so this is just a welcome post).
-	var entrance: Node2D = _make_plot_sign(map.grid_to_world(Vector2i(32, 32)), "Hearthvale Neighborhood", Color("#e8c060"))
+	# Neighborhood entrance sign where the core road meets the lots (in the gutter
+	# above the homestead rows, so it never sits inside a plot).
+	var entrance: Node2D = _make_plot_sign(map.grid_to_world(Vector2i(16, 18)), "Hearthvale Neighborhood", Color("#e8c060"))
 	register_world_interactable(
 		"neighborhood_entrance", entrance, ContentIds.INTERACTION_GENERIC,
 		"Press F to read the neighborhood board", _read_neighborhood_board
@@ -659,7 +681,7 @@ func _setup_plot_markers() -> void:
 	# Land clerk near the entrance.
 	var clerk: BramVillager = BramVillager.new()
 	clerk.villager_name = "Clerk Hazel"
-	clerk.position = map.grid_to_world(Vector2i(30, 31))
+	clerk.position = map.grid_to_world(Vector2i(13, 18))
 	gameplay_layer.add_child(clerk)
 	Nameplate.attach(clerk, "Clerk Hazel", "Land Office", Color("#9fc4e8"))
 	register_world_interactable(
@@ -957,6 +979,11 @@ func _setup_world_builder() -> void:
 	_world_overlay.name = "WorldBuilderOverlay"
 	map.add_child(_world_overlay)
 	_world_overlay.call("setup", map, Callable(self, "_overlay_markers"), Vector2i(map.MAP_WIDTH, map.MAP_HEIGHT))
+	# Live preview rectangle for the visual two-corner parcel tool.
+	_parcel_preview = PARCEL_PREVIEW_SCENE.new()
+	_parcel_preview.name = "ParcelPreview"
+	map.add_child(_parcel_preview)
+	_parcel_preview.call("setup", map)
 
 ## Marker snapshot the overlay draws (tiles + colors), kept presentation-only.
 func _overlay_markers() -> Array:
@@ -981,26 +1008,102 @@ func _save_runtime_plots() -> void:
 
 ## Create a claimable plot centered on the player's tile. Rejects overlaps so all
 ## plot queries (claim, build permission, bounds) stay unambiguous.
-func admin_create_plot(biome: String = "meadow", size: int = 16) -> void:
+func admin_create_plot(biome: String = "meadow", size: int = 24) -> void:
 	if _admin_commands_blocked():
 		return
-	size = clampi(size, 8, 24)
-	if not BUILDER_BIOMES.has(biome):
+	size = clampi(size, 8, 48)
+	if not BiomeRegistry.has_biome(biome):
 		biome = "meadow"
 	var center: Vector2i = map.world_to_grid(get_player_position())
 	var rect := Rect2i(center.x - size / 2, center.y - size / 2, size, size)
+	_commit_runtime_plot(rect, biome, "")
+
+## Shared commit path for centered AND drag-staked plots. Validates overlap, adds
+## the runtime plot, draws it, persists, and refreshes the world. Returns success.
+func _commit_runtime_plot(rect: Rect2i, biome: String, display_name: String) -> bool:
+	if rect.size.x < 8 or rect.size.y < 8:
+		_chat_toast("(builder) Parcel too small — make it at least 8x8.")
+		return false
+	if not BiomeRegistry.has_biome(biome):
+		biome = "meadow"
 	for existing in LandRegistry.all_plot_rects():
 		if rect.intersects((existing as Rect2i).grow(1)):
-			_chat_toast("(builder) Too close to another plot — move away and try again.")
-			return
+			_chat_toast("(builder) Overlaps another plot — move it and try again.")
+			return false
 	var plot_id: String = "custom_%d" % int(Time.get_unix_time_from_system())
 	var index: int = LandRegistry.runtime_plots().size() + 1
-	LandRegistry.add_runtime_plot(plot_id, "%s Lot %d" % [biome.capitalize(), index], rect, biome)
+	if display_name.is_empty():
+		display_name = "%s Homestead %d" % [BiomeRegistry.display_name(biome), index]
+	LandRegistry.add_runtime_plot(plot_id, display_name, rect, biome)
 	_spawn_plot_furniture(plot_id)
 	_save_runtime_plots()
 	_refresh_minimap_setup()
 	_redraw_overlay()
-	_chat_toast("(builder) Created %s (%dx%d) at tile (%d,%d) — claimable now." % [plot_id, size, size, rect.position.x, rect.position.y])
+	_chat_toast("(builder) Created %s '%s' (%dx%d) — claimable now." % [plot_id, display_name, rect.size.x, rect.size.y])
+	return true
+
+# --- Visual two-corner parcel tool ----------------------------------------------
+# Stake corner A, walk to corner B, see a live preview rectangle, then confirm.
+# No coordinate memorization. Drives the same _commit_runtime_plot as everything.
+
+func admin_set_parcel_biome(biome: String) -> void:
+	if BiomeRegistry.has_biome(biome):
+		_parcel_biome = biome
+		_chat_toast("(builder) Parcel biome set to %s." % BiomeRegistry.display_name(biome))
+
+func admin_parcel_start() -> void:
+	if _admin_commands_blocked():
+		return
+	_parcel_corner_a = map.world_to_grid(get_player_position())
+	_chat_toast("(builder) Corner A staked at (%d,%d). Walk to the far corner, then Confirm." % [(_parcel_corner_a as Vector2i).x, (_parcel_corner_a as Vector2i).y])
+
+func admin_parcel_cancel() -> void:
+	_parcel_corner_a = null
+	if _parcel_preview != null:
+		_parcel_preview.call("clear")
+	_chat_toast("(builder) Parcel selection cancelled.")
+
+## Confirm the staked rectangle (corner A .. current player tile) into a plot.
+func admin_parcel_confirm(display_name: String = "") -> void:
+	if _admin_commands_blocked():
+		return
+	if _parcel_corner_a == null:
+		_chat_toast("(builder) Stake corner A first (Start Parcel / walk to a corner).")
+		return
+	var a: Vector2i = _parcel_corner_a as Vector2i
+	var b: Vector2i = map.world_to_grid(get_player_position())
+	var rect := Rect2i(mini(a.x, b.x), mini(a.y, b.y), absi(b.x - a.x) + 1, absi(b.y - a.y) + 1)
+	if _commit_runtime_plot(rect, _parcel_biome, display_name):
+		_parcel_corner_a = null
+		if _parcel_preview != null:
+			_parcel_preview.call("clear")
+
+## Live-update the preview rectangle as the player moves (called from _process).
+func _update_parcel_preview() -> void:
+	if _parcel_preview == null or _parcel_corner_a == null:
+		return
+	var b: Vector2i = map.world_to_grid(get_player_position())
+	_parcel_preview.call("set_corners", _parcel_corner_a as Vector2i, b, _parcel_biome)
+
+## Recolor (re-biome) the editor-made plot under the player.
+func admin_set_plot_biome_here(biome: String) -> void:
+	if _admin_commands_blocked():
+		return
+	if not BiomeRegistry.has_biome(biome):
+		_chat_toast("(builder) Unknown biome '%s'." % biome)
+		return
+	var tile: Vector2i = map.world_to_grid(get_player_position())
+	var plot: Dictionary = LandRegistry.plot_at_tile(tile)
+	var plot_id: String = String(plot.get("plot_id", ""))
+	if plot_id.is_empty() or not LandRegistry.is_runtime_plot(plot_id):
+		_chat_toast("(builder) Stand inside an editor-made plot to recolor it.")
+		return
+	LandRegistry.add_runtime_plot(plot_id, String(plot.get("display_name", plot_id)), plot.get("rect", Rect2i()) as Rect2i, biome)
+	_spawn_plot_furniture(plot_id)
+	_save_runtime_plots()
+	_refresh_minimap_setup()
+	_redraw_overlay()
+	_chat_toast("(builder) %s is now %s." % [plot_id, BiomeRegistry.display_name(biome)])
 
 ## Remove the editor-made plot the player is standing in (built-in plots are fixed).
 func admin_remove_plot_here() -> void:
@@ -1370,7 +1473,7 @@ func _handle_chat_command(text: String) -> void:
 			_grant_xp(skill_id, skill_amount, 0)
 			_chat_toast("(admin) +%d %s XP" % [skill_amount, ProgressionRegistry.skill_display_name(skill_id)])
 		"/help":
-			_chat_toast("Player: /skills /progression /invite <user> /where  ·  Admin: /give /xp /adminbuild /plots /plotinfo /claimplot /unclaimplot /save  ·  Builder: /newplot [biome] [size] /delplot /resizeplot <±n> /marker <type> [label] /delmarker /overlay /tp <plot_id>")
+			_chat_toast("Player: /skills /progression /invite <user> /where  ·  Admin: /give /xp /adminbuild /plots /plotinfo /claimplot /unclaimplot /save  ·  Builder: /newplot [biome] [size] /plotstart /plotend /parcelbiome <b> /setbiome <b> /delplot /resizeplot <±n> /marker <type> [label] /delmarker /overlay /tp <plot_id>")
 		"/adminbuild":
 			if _admin_commands_blocked():
 				return
@@ -1404,8 +1507,29 @@ func _handle_chat_command(text: String) -> void:
 			_admin_unclaimplot(parts)
 		"/newplot":
 			var biome: String = String(parts[1]).to_lower() if parts.size() > 1 else "meadow"
-			var size: int = int(parts[2]) if parts.size() > 2 else 16
+			var size: int = int(parts[2]) if parts.size() > 2 else 24
 			admin_create_plot(biome, size)
+		"/plotstart":
+			admin_parcel_start()
+		"/plotend", "/plotconfirm":
+			admin_parcel_confirm("")
+		"/createplotfromselection":
+			# /createplotfromselection [biome] [name...]
+			if parts.size() > 1 and BiomeRegistry.has_biome(String(parts[1]).to_lower()):
+				admin_set_parcel_biome(String(parts[1]).to_lower())
+			admin_parcel_confirm(" ".join(Array(parts).slice(2)) if parts.size() > 2 else "")
+		"/plotcancel":
+			admin_parcel_cancel()
+		"/parcelbiome":
+			if parts.size() < 2:
+				_chat_toast("Usage: /parcelbiome <%s>" % "|".join(BUILDER_BIOMES))
+			else:
+				admin_set_parcel_biome(String(parts[1]).to_lower())
+		"/setbiome":
+			if parts.size() < 2:
+				_chat_toast("Usage: /setbiome <biome> — recolors the editor plot you stand in.")
+			else:
+				admin_set_plot_biome_here(String(parts[1]).to_lower())
 		"/delplot":
 			admin_remove_plot_here()
 		"/resizeplot":

@@ -20,9 +20,36 @@ func _ready() -> void:
 	_build_overworld()
 
 func get_camera_limits() -> Rect2i:
-	# Broad MMO-style framing spanning the whole strip; the backdrop is sized to
-	# it. Extended south + west to show the spread-out homestead lots.
-	return Rect2i(-1560, -460, 5380, 2440)
+	# Framed to whatever the world actually contains (core + every homestead lot +
+	# town + forest), so the camera always reveals the full large neighborhood
+	# instead of a hand-tuned box. Grows as plots are added.
+	var bounds: Rect2 = _content_bounds_world().grow(260.0)
+	return Rect2i(bounds)
+
+## Bounding box (world px) of a tile rect's projected iso diamond.
+func _projected_bounds(rect: Rect2i) -> Rect2:
+	var corners: Array = [
+		grid_to_world(rect.position),
+		grid_to_world(Vector2i(rect.end.x - 1, rect.position.y)),
+		grid_to_world(Vector2i(rect.position.x, rect.end.y - 1)),
+		grid_to_world(Vector2i(rect.end.x - 1, rect.end.y - 1)),
+	]
+	var min_p: Vector2 = corners[0]
+	var max_p: Vector2 = corners[0]
+	for c in corners:
+		min_p = min_p.min(c as Vector2)
+		max_p = max_p.max(c as Vector2)
+	return Rect2(min_p, max_p - min_p)
+
+## Union (world px) of the homestead core, every static plot (grown by the path
+## margin), and the fixed town/forest areas — the real extent of the world.
+func _content_bounds_world() -> Rect2:
+	var bounds: Rect2 = _projected_bounds(Rect2i(0, 0, MAP_WIDTH, MAP_HEIGHT))
+	for rect_variant in LandRegistry.all_plot_rects():
+		bounds = bounds.merge(_projected_bounds((rect_variant as Rect2i).grow(PLOT_BOUNDS_MARGIN)))
+	for area in WorldAreaRegistry.areas():
+		bounds = bounds.merge(area["rect"] as Rect2)
+	return bounds
 
 func get_camera_zoom() -> Vector2:
 	# Slightly closer than 1.0 for readable detail on high-DPI / 4K monitors. Players
@@ -63,18 +90,40 @@ func is_tile_in_bounds(tile: Vector2i) -> bool:
 ## Draw cozy biome-tinted ground for each plot region (so the spread-out lots
 ## read as real yards on the green backdrop), plus dirt roads linking them to
 ## the core. Visual only — placement validity is governed by is_tile_in_bounds.
+## Road corridors as tile waypoints. They run ONLY through the gutters between
+## the homestead lots (never across a lot) — validated in tools/validate_project.
+## A connector drops from the core into the neighborhood, then a + of avenues
+## threads the gaps.
+static func road_corridors() -> Array:
+	return [
+		[Vector2i(10, 12), Vector2i(15, 16)],     # core -> neighborhood
+		[Vector2i(15, 16), Vector2i(15, 90)],     # avenue between centre & east cols
+		[Vector2i(-22, 16), Vector2i(-22, 90)],   # avenue between west & centre cols
+		[Vector2i(-58, 53), Vector2i(52, 53)],    # mid avenue between the two rows
+	]
+
+## Every integer tile a road passes through (for overlap validation).
+static func road_sample_tiles() -> Array:
+	var tiles: Array = []
+	for corridor in road_corridors():
+		for i in range((corridor as Array).size() - 1):
+			var a: Vector2i = corridor[i]
+			var b: Vector2i = corridor[i + 1]
+			var steps: int = maxi(absi(b.x - a.x), absi(b.y - a.y))
+			for s in range(steps + 1):
+				var t: float = float(s) / float(maxi(steps, 1))
+				tiles.append(Vector2i(roundi(lerpf(a.x, b.x, t)), roundi(lerpf(a.y, b.y, t))))
+	return tiles
+
 func _build_neighborhood_ground() -> void:
 	for plot in LandRegistry.definitions().values():
 		paint_plot_ground(plot as Dictionary)
-	# Dirt roads from the core out toward the lot clusters (south and west).
-	for road in [
-		[Vector2i(14, 16), Vector2i(20, 20), Vector2i(28, 28), Vector2i(32, 40)],
-		[Vector2i(10, 14), Vector2i(8, 22), Vector2i(10, 34), Vector2i(14, 44)],
-	]:
+	# Cozy dirt avenues through the gutters between the lots.
+	for corridor in road_corridors():
 		var pts: PackedVector2Array = PackedVector2Array()
-		for t in road:
+		for t in corridor:
 			pts.append(grid_to_world(t as Vector2i))
-		TerrainShapes.add_ribbon(ground_layer, pts, 18.0, 18.0, Color("#c2a071"))
+		TerrainShapes.add_ribbon(ground_layer, pts, 20.0, 20.0, Color("#c2a071"))
 
 ## Paint one plot's biome-tinted ground patch (a 1-tile skirt around the rect).
 ## Public so the in-game world-builder can draw a plot the moment it's created,
@@ -124,24 +173,32 @@ func _build_region_tints() -> void:
 	TerrainShapes.add_disc(ground_layer, FOREST_OFFSET + Vector2(40, 260), 840, 16, Color("#4e7a4a"), 0.62)
 
 func _build_natural_borders() -> void:
-	# Distant mountain range along the north, a river along the south, a dense forest
-	# wall to the east, and a cliff to the west — all drawn flat in the ground layer.
-	for i in range(9):
-		var x: float = -700.0 + i * 560.0
-		TerrainShapes.add_disc(ground_layer, Vector2(x, -360), 270, 7, Color("#84899e"), 0.5)
-		TerrainShapes.add_disc(ground_layer, Vector2(x + 130, -300), 190, 7, Color("#9aa1b4"), 0.5)
-	# River: a soft blue water ribbon. Kept WELL SOUTH of the play area (the
-	# south wall is at y=1880) so it reads as a distant border, not a grey stripe
-	# cutting through the neighborhood. (Root cause of the old "grey line": when
-	# the south wall moved down to fit the lots, this border ribbon — at y~980
-	# and a desaturated blue-grey — ended up mid-map. Moved + bluer now.)
+	# All borders are derived from the actual world bounds and drawn JUST OUTSIDE
+	# the south/north edges, so they always read as distant scenery and can never
+	# become a "grey line" cutting through play (root cause of the old artifact: a
+	# fixed-position desaturated ribbon ended up mid-map when the walls moved).
+	var bounds: Rect2 = _content_bounds_world()
+	var cx: float = bounds.position.x + bounds.size.x * 0.5
+	# Distant soft mountains beyond the north edge.
+	var north_y: float = bounds.position.y - 220.0
+	var step: float = bounds.size.x / 9.0
+	for i in range(10):
+		var x: float = bounds.position.x + i * step
+		TerrainShapes.add_disc(ground_layer, Vector2(x, north_y), 280, 7, Color("#84899e"), 0.5)
+		TerrainShapes.add_disc(ground_layer, Vector2(x + 130, north_y + 60), 200, 7, Color("#9aa1b4"), 0.5)
+	# A clear blue river hugging the south edge, well past the south wall.
+	var river_y: float = bounds.end.y + 180.0
 	TerrainShapes.add_ribbon(
 		ground_layer,
-		PackedVector2Array([Vector2(-1100, 1980), Vector2(700, 1940), Vector2(1700, 2000), Vector2(2700, 1950), Vector2(3800, 2000)]),
-		60.0, 66.0, Color(0.46, 0.66, 0.78, 0.9)
+		PackedVector2Array([
+			Vector2(bounds.position.x - 200, river_y - 30), Vector2(cx - 600, river_y + 30),
+			Vector2(cx, river_y - 20), Vector2(cx + 700, river_y + 30), Vector2(bounds.end.x + 200, river_y - 10),
+		]),
+		64.0, 70.0, Color(0.46, 0.66, 0.78, 0.92)
 	)
-	TerrainShapes.add_disc(ground_layer, Vector2(3780, 320), 440, 12, Color("#3f6a3c"), 0.7)
-	TerrainShapes.add_disc(ground_layer, Vector2(-760, 320), 300, 8, Color("#8b8780"), 0.62)
+	# Forest wall east, soft cliff west.
+	TerrainShapes.add_disc(ground_layer, Vector2(bounds.end.x + 60, bounds.position.y + bounds.size.y * 0.4), 460, 12, Color("#3f6a3c"), 0.7)
+	TerrainShapes.add_disc(ground_layer, Vector2(bounds.position.x - 40, bounds.position.y + bounds.size.y * 0.5), 320, 8, Color("#8b8780"), 0.62)
 
 func _build_connecting_roads() -> void:
 	TerrainShapes.add_ribbon(
@@ -254,13 +311,16 @@ func _build_overworld_wilderness() -> void:
 			_add_decor_tree(ground_layer, p)
 
 func _build_overworld_bounds() -> void:
-	# Walls overlap at corners so the player can't slip out. South pushed to
-	# 1880 and west to -1080 to enclose the four 16x16 lots (whose far/SW corners
-	# reach world_y ~1760 and world_x ~-928).
-	_add_boundary("OW_North", Vector2(1500, -120), Vector2(6800, 80))
-	_add_boundary("OW_South", Vector2(1500, 1820), Vector2(6800, 80))
-	_add_boundary("OW_West", Vector2(-1500, 700), Vector2(80, 3600))
-	_add_boundary("OW_East", Vector2(3760, 700), Vector2(80, 3600))
+	# Walls are derived from the world's actual content bounds (+ a margin) and
+	# overlap at the corners so the player can't slip out. They expand automatically
+	# with the homestead lots — no hand-tuned magic numbers to drift out of sync.
+	var b: Rect2 = _content_bounds_world().grow(120.0)
+	var cx: float = b.position.x + b.size.x * 0.5
+	var cy: float = b.position.y + b.size.y * 0.5
+	_add_boundary("OW_North", Vector2(cx, b.position.y), Vector2(b.size.x + 200.0, 80))
+	_add_boundary("OW_South", Vector2(cx, b.end.y), Vector2(b.size.x + 200.0, 80))
+	_add_boundary("OW_West", Vector2(b.position.x, cy), Vector2(80, b.size.y + 200.0))
+	_add_boundary("OW_East", Vector2(b.end.x, cy), Vector2(80, b.size.y + 200.0))
 
 func _add_overworld_fountain(world_pos: Vector2) -> void:
 	# Soft round stone fountain: ellipse basin, rim, water, sparkles, and a

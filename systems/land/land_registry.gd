@@ -21,6 +21,7 @@ const AREA_TOWN := "town"
 const AREA_FARMER_TRAINING := "farmer_training"
 const AREA_NEIGHBORHOOD := "neighborhood"
 const AREA_WILDERNESS := "wilderness"
+const MIN_RUNTIME_PLOT_SIZE := 8
 
 # Runtime plots authored in-game (plot_id -> plot dict). Static across the
 # session; the controller persists/loads it. Empty during validation.
@@ -28,17 +29,21 @@ static var _runtime_plots: Dictionary = {}
 
 static func _static_definitions() -> Dictionary:
 	return {
-		# Six lots, spread out, varied sizes (14x14 .. 20x20) and biomes.
-		"meadow_lot_1": _plot("meadow_lot_1", "Meadow Lot", Rect2i(24, 15, 16, 16), "meadow"),
-		"orchard_lot_1": _plot("orchard_lot_1", "Orchard Lot", Rect2i(26, 37, 20, 20), "orchard"),
-		"creekside_lot_1": _plot("creekside_lot_1", "Creekside Lot", Rect2i(10, 40, 14, 14), "creekside"),
-		"hilltop_lot_1": _plot("hilltop_lot_1", "Hilltop Lot", Rect2i(24, -6, 16, 16), "hilltop"),
-		"grove_lot_1": _plot("grove_lot_1", "Grove Lot", Rect2i(46, 28, 16, 16), "grove"),
-		"brook_lot_1": _plot("brook_lot_1", "Brook Lot", Rect2i(2, 22, 14, 14), "brook"),
+		# Six LARGE homestead lots (28..32 tiles) laid out as a roomy 3x2
+		# neighborhood west + south of the core, with 4..8 tile road gutters
+		# between every lot (the roads in overworld_map.gd run through those
+		# gutters, never across a lot). Each lot is a distinct biome so the
+		# neighborhood reads as varied land, not one flat zone.
+		"meadow_homestead_a": _plot("meadow_homestead_a", "Meadow Homestead A", Rect2i(-54, 20, 30, 30), "meadow"),
+		"orchard_homestead": _plot("orchard_homestead", "Orchard Homestead", Rect2i(-18, 20, 28, 28), "orchard"),
+		"hilltop_homestead": _plot("hilltop_homestead", "Hilltop Homestead", Rect2i(18, 20, 32, 32), "hilltop"),
+		"creekside_homestead": _plot("creekside_homestead", "Creekside Homestead", Rect2i(-54, 56, 28, 28), "creekside"),
+		"grove_homestead": _plot("grove_homestead", "Forest Grove Homestead", Rect2i(-18, 56, 32, 32), "grove"),
+		"meadow_homestead_b": _plot("meadow_homestead_b", "Meadow Homestead B", Rect2i(18, 56, 30, 30), "meadow"),
 		# Farmer Rowan's training land in the core: NPC-owned, never claimable.
 		"rowan_training_plot": {
 			"plot_id": "rowan_training_plot", "display_name": "Rowan's Training Farm",
-			"area_id": AREA_FARMER_TRAINING, "rect": Rect2i(4, 5, 6, 6), "biome": "meadow",
+			"area_id": AREA_FARMER_TRAINING, "rect": Rect2i(4, 5, 6, 6), "biome": "farmland",
 			"claimable": false, "npc_owned": true, "tutorial_build": true, "price_tokens": 0,
 		},
 	}
@@ -60,7 +65,10 @@ static func definitions() -> Dictionary:
 # --- Runtime (in-game editor) overlay ----------------------------------------
 
 static func add_runtime_plot(plot_id: String, display_name: String, rect: Rect2i, biome: String = "meadow") -> void:
-	_runtime_plots[plot_id] = _plot(plot_id, display_name, rect, biome)
+	if plot_id.is_empty() or not _is_valid_runtime_rect(rect):
+		return
+	var safe_name: String = display_name if not display_name.is_empty() else plot_id
+	_runtime_plots[plot_id] = _plot(plot_id, safe_name, rect, _normalized_runtime_biome(biome))
 
 static func remove_runtime_plot(plot_id: String) -> void:
 	_runtime_plots.erase(plot_id)
@@ -81,7 +89,7 @@ static func load_runtime_plots(data: Dictionary) -> void:
 			continue
 		var raw_rect: Variant = (record as Dictionary).get("rect", null)
 		var rect: Rect2i = raw_rect if raw_rect is Rect2i else _rect_from_array((record as Dictionary).get("rect", []))
-		if rect.size.x <= 0 or rect.size.y <= 0:
+		if not _is_valid_runtime_rect(rect):
 			continue
 		add_runtime_plot(
 			String(plot_id_variant),
@@ -107,6 +115,12 @@ static func _rect_from_array(arr: Variant) -> Rect2i:
 	if typeof(arr) == TYPE_ARRAY and (arr as Array).size() == 4:
 		return Rect2i(int(arr[0]), int(arr[1]), int(arr[2]), int(arr[3]))
 	return Rect2i()
+
+static func _is_valid_runtime_rect(rect: Rect2i) -> bool:
+	return rect.size.x >= MIN_RUNTIME_PLOT_SIZE and rect.size.y >= MIN_RUNTIME_PLOT_SIZE
+
+static func _normalized_runtime_biome(biome: String) -> String:
+	return biome if BiomeRegistry.has_biome(biome) else "meadow"
 
 # --- Queries (include runtime plots automatically) ---------------------------
 
@@ -155,12 +169,7 @@ static func corner_tiles(plot_id: String) -> Array:
 		Vector2i(rect.end.x - 1, rect.end.y - 1),
 	]
 
-## Soft per-biome ground tint for plot drawing + minimap variety.
+## Soft per-biome ground tint for plot drawing + minimap variety. Delegates to
+## the central BiomeRegistry so plots, chunks, ground, and minimap all agree.
 static func biome_color(biome: String) -> Color:
-	match biome:
-		"orchard": return Color("#7fab5e")
-		"creekside": return Color("#7bac74")
-		"hilltop": return Color("#90b873")
-		"grove": return Color("#5d8c52")
-		"brook": return Color("#79ab78")
-		_: return Color("#83b06b")  # meadow
+	return BiomeRegistry.ground_color(biome)
