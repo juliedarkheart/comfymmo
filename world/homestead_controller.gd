@@ -189,19 +189,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		_mark_input_handled()
 		return
 
-	if not _is_mailbox_open():
-		if (
-			event is InputEventKey
-			and event.pressed
-			and not event.echo
-			and event.keycode == KEY_C
-			and not _decorating_mode_active
-		):
-			_consume_carrot()
-			_mark_input_handled()
+	if (
+		not _is_mailbox_open()
+		and event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.keycode == KEY_C
+		and not _decorating_mode_active
+	):
+		_consume_carrot()
+		_mark_input_handled()
 		return
 
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	if (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.is_action_pressed("toggle_system_menu")
+	):
 		# Esc with no panel open: mailbox closes first; otherwise (when not in
 		# build/edit mode, which the placement system handles) open the system
 		# menu. While decorating, don't consume Esc — let placement exit its mode.
@@ -211,6 +216,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif not _decorating_mode_active:
 			_toggle_system_menu()
 			_mark_input_handled()
+		return
 
 func _on_decorating_mode_changed(is_active: bool, player: AvatarController) -> void:
 	_decorating_mode_active = is_active

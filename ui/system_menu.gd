@@ -27,6 +27,7 @@ func _ready() -> void:
 
 func open() -> void:
 	visible = true
+	_refresh_vsync_label()
 	_refresh_mode_label()
 
 func close() -> void:
@@ -38,7 +39,12 @@ func is_open() -> bool:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+	if (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.is_action_pressed("toggle_system_menu")
+	):
 		_request_close()
 		var viewport: Viewport = get_viewport()
 		if viewport != null:
@@ -75,4 +81,6 @@ func _on_quit() -> void:
 
 func _refresh_mode_label() -> void:
 	if _mode_label != null:
-		_mode_label.text = "Window: %s   (F11 also toggles)" % ("Fullscreen" if DisplaySettings.is_fullscreen() else "Windowed")
+		_mode_label.text = "Window: %s   (F11 also toggles)" % (
+			"Fullscreen" if DisplaySettings.is_fullscreen() else "Windowed (bordered)"
+		)

@@ -348,11 +348,16 @@ func _initialize() -> void:
 			quit(1)
 			return
 	var fullscreen_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/FullscreenButton") as Button
+	var resume_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/ResumeButton") as Button
 	var settings_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/SettingsButton") as Button
 	var settings_box: VBoxContainer = system_menu.get_node_or_null("Dim/Panel/Rows/SettingsBox") as VBoxContainer
 	var vsync_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/SettingsBox/VsyncButton") as Button
 	var quit_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/QuitButton") as Button
 	var close_menu_button: Button = system_menu.get_node_or_null("Dim/Panel/Rows/CloseButton") as Button
+	if resume_button == null:
+		push_error("System menu is missing ResumeButton")
+		quit(1)
+		return
 	if fullscreen_button == null:
 		push_error("System menu is missing FullscreenButton")
 		quit(1)
@@ -380,6 +385,13 @@ func _initialize() -> void:
 		push_error("System menu Settings / Display button did not reveal the settings box")
 		quit(1)
 		return
+	resume_button.emit_signal("pressed")
+	await process_frame
+	if bool(system_menu.call("is_open")):
+		push_error("System menu Resume button did not hide the menu")
+		quit(1)
+		return
+	system_menu.call("open")
 	close_menu_button.emit_signal("pressed")
 	await process_frame
 	if bool(system_menu.call("is_open")):
@@ -770,6 +782,28 @@ func _initialize() -> void:
 		push_error("InputMap action 'toggle_fullscreen' is missing an F11 binding")
 		quit(1)
 		return
+	var display_settings_source: String = FileAccess.get_file_as_string("res://ui/display_settings.gd")
+	for required_snippet in [
+		"WINDOW_FLAG_BORDERLESS",
+		"WINDOW_MODE_WINDOWED",
+		"WINDOW_MODE_FULLSCREEN",
+		"config.get_value(\"display\", \"fullscreen\", false)",
+	]:
+		if not display_settings_source.contains(required_snippet):
+			push_error("DisplaySettings is missing the bordered-window/fullscreen helper path '%s'" % required_snippet)
+			quit(1)
+			return
+	var homestead_controller_source: String = FileAccess.get_file_as_string("res://world/homestead_controller.gd")
+	for required_snippet in [
+		"SYSTEM_MENU_SCENE := preload(\"res://ui/system_menu.tscn\")",
+		"_system_menu = SYSTEM_MENU_SCENE.instantiate()",
+		"_system_menu.connect(\"close_requested\", _on_system_menu_closed)",
+		"event.is_action_pressed(\"toggle_system_menu\")",
+	]:
+		if not homestead_controller_source.contains(required_snippet):
+			push_error("HomesteadController is missing system-menu wiring snippet '%s'" % required_snippet)
+			quit(1)
+			return
 
 	# --- Server run/external-access pass ----------------------------------------
 	for required_file in [

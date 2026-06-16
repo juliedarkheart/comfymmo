@@ -599,7 +599,7 @@ func _read_welcome_board() -> void:
 		"You're on Farmer Rowan's training farm — learn here, then make a place of your own.\n\n"
 		+ "GATHER branches/pebbles/fiber/clay: F   ·   INVENTORY: I   ·   CRAFT: K\n"
 		+ "BUILD: B (needs your hammer)   ·   SKILLS: P   ·   FULL HELP: H\n"
-		+ "CHAT: Enter   ·   MULTIPLAYER/PROFILE: F8   ·   WARDROBE: F9   ·   FULLSCREEN: F11\n\n"
+		+ "MENU: Esc   ·   CHAT: Enter   ·   MULTIPLAYER/PROFILE: F8   ·   WARDROBE: F9   ·   FULLSCREEN: F11\n\n"
 		+ "Plot signs east and north mark claimable lots — talk to Farmer Rowan for a Land Token, "
 		+ "then press F at a sign to Claim it. The village square (east) has the town stalls and notice board."
 	)
@@ -1723,6 +1723,7 @@ func _show_welcome_if_first_boot() -> void:
 		"Gather wood, stone, fiber, and clay from the piles around your homestead (walk up, press F). "
 		+ "Build with B — Tab switches items and shows their cost — and edit with E. "
 		+ "Tend the farm plots, check the mailbox, and rest at the cottage door at dusk. "
+		+ "Inventory is I, help is H, Esc opens the menu, and F11 switches fullscreen/windowed. "
 		+ "The mirror by the cottage opens your wardrobe (F9 works too). "
 		+ "F8 opens multiplayer, F10 opens dev tools."
 	)

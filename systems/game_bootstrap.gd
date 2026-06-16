@@ -9,6 +9,7 @@ var multiplayer_service: Node
 var world_region_manager: Node
 
 func _ready() -> void:
+	DisplaySettings.apply_saved()
 	_bootstrap_services()
 	_load_starting_world()
 	print("Hearthvale prototype loaded.")

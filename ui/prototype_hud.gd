@@ -11,7 +11,7 @@ extends CanvasLayer
 @onready var _mode_label: Label = $Panel/Rows/ModeLabel
 @onready var _controls_label: Label = $Panel/Rows/ControlsLabel
 
-var _controls_text: String = "Move WASD · Interact F · Inventory I · Craft K · Build B · Skills P · Help H · Fullscreen F11"
+var _controls_text: String = "Move WASD · Interact F · Menu Esc · Inventory I · Craft K · Build B · Help H · Fullscreen F11"
 var _mood_display: String = "Morning"
 var _day_number: int = 1
 var _current_mode_name: String = "Explore"
@@ -43,7 +43,9 @@ func _input(event: InputEvent) -> void:
 		var fullscreen: bool = DisplaySettings.toggle_fullscreen()
 		set_interaction_prompt("")
 		if _mode_label != null:
-			_flash_controls("Window: %s (F11 to toggle)" % ("Fullscreen" if fullscreen else "Windowed"))
+			_flash_controls("Window: %s (F11 to toggle)" % (
+				"Fullscreen" if fullscreen else "Windowed (bordered)"
+			))
 		var viewport: Viewport = get_viewport()
 		if viewport != null:
 			viewport.set_input_as_handled()
