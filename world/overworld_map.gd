@@ -70,11 +70,16 @@ func get_camera_zoom() -> Vector2:
 	return Vector2(z, z)
 
 func _build_overworld() -> void:
+	# LimeZu is the live visual direction: when its local assets resolve, the opening
+	# view is a LimeZu Modern Farm composition over the same gameplay grid. Sprout's
+	# core ground/props/curated cluster are suppressed (the gameplay colliders stay).
+	var limezu: bool = LiveVisualPolicy.live_limezu_slice()
 	_build_overworld_backdrop()
 	_build_region_tints()
-	_build_ground()                 # inherited: detailed homestead yard tiles at origin
-	_build_neighborhood_ground()    # buildable ground for the neighborhood plots
-	_scatter_core_detail()          # light flowers/grass/pebbles so the core isn't flat
+	_build_ground()                 # inherited: skipped in LimeZu live mode (LimeZu grass covers)
+	_build_neighborhood_ground()    # buildable ground for the neighborhood plots (off opening view)
+	if not limezu:
+		_scatter_core_detail()      # Sprout-only light flowers/grass/pebbles
 	_build_natural_borders()
 	# Far-reaching visual layers (the long road to the far regions + the broad
 	# wilderness scatter) read as a worldgen test in the opening view. They are kept
@@ -86,8 +91,11 @@ func _build_overworld() -> void:
 	_build_village_area()
 	_build_forest_area()
 	_ensure_terrain_override_layer()
-	_build_homestead_colliders()    # inherited: cottage, trees, fence (homestead area)
-	_build_curated_slice()          # hand-composed cozy focal cluster around the core
+	_build_homestead_colliders()    # inherited: cottage/trees/fence colliders (Sprout visuals skipped in LimeZu mode)
+	if limezu:
+		_build_limezu_slice()       # LimeZu Modern Farm opening composition
+	else:
+		_build_curated_slice()      # Sprout hand-composed cozy focal cluster
 	_build_overworld_bounds()
 
 ## The neighborhood is a second buildable region east and south of the core
@@ -310,14 +318,16 @@ func _build_overworld_backdrop() -> void:
 		Vector2(limits.end.x + m, limits.end.y + m),
 		Vector2(limits.position.x - m, limits.end.y + m),
 	])
-	# Calm, uniform grass tone matching the Hearthvale/Sprout meadow tile, so the
-	# tiled patches (core, plots) blend into the background instead of reading as
-	# bright rectangles floating on a different-colored field.
-	bg.color = BACKDROP_GRASS
+	# Calm, uniform grass tone so the tiled patches blend into the background instead
+	# of reading as bright rectangles on a different-colored field. In LimeZu live mode
+	# this matches the LimeZu grass tile so the area beyond the LimeZu ground is seamless.
+	bg.color = LIMEZU_BACKDROP_GRASS if LiveVisualPolicy.live_limezu_slice() else BACKDROP_GRASS
 	_bg_layer().add_child(bg)
 
 ## Soft grass tone matching the top-down meadow tile (art/generated/hearthvale).
 const BACKDROP_GRASS := Color("#7faf68")
+## Mean colour of the LimeZu grass tile (modern_farm) so the backdrop is seamless.
+const LIMEZU_BACKDROP_GRASS := Color(0.28, 0.59, 0.34)
 
 func _build_region_tints() -> void:
 	# Region differentiation now comes from the actual terrain tiles + props, and a
@@ -566,6 +576,79 @@ func _build_curated_slice() -> void:
 		_decor_sprite(gameplay_layer, grid_to_world(bush_tile), "bush", 0.5)
 	for tree_tile in [Vector2i(1, 3), Vector2i(13, 3)]:
 		_decor_sprite(gameplay_layer, grid_to_world(tree_tile), "tree", 0.6)
+
+## LimeZu Modern Farm opening composition over the existing gameplay grid. All art is
+## resolved through LimeZuArtRegistry by logical id (no hardcoded licensed paths) and
+## drawn at LIMEZU_DISPLAY_SCALE (16px art -> 32px cells). Ground tiles go in the
+## (non-y-sorted) ground layer; objects/animals are bottom-anchored Node2Ds in the
+## y-sorted gameplay layer so they overlap the player correctly. Trees/fence sit on the
+## existing tree/fence colliders; the barn/garden/animals are decor. The gameplay grid,
+## placement bounds, spawn, and colliders are unchanged.
+func _build_limezu_slice() -> void:
+	set_meta("limezu_slice", true)
+	# 1) LimeZu grass ground covering the visible opening area (camera-framed core).
+	for ty in range(-2, MAP_HEIGHT + 4):
+		for tx in range(-6, MAP_WIDTH + 8):
+			_limezu_ground("terrain.grass", Vector2i(tx, ty), 0)
+	# 2) A short dirt path in front of the home, plus a tidy tilled garden bed SW.
+	for tile in [Vector2i(7, 12), Vector2i(8, 12), Vector2i(9, 12), Vector2i(9, 13), Vector2i(9, 14)]:
+		_limezu_ground("terrain.dirt_path", tile, 1)
+	for gy in range(12, 15):
+		for gx in range(2, 5):
+			_limezu_ground("terrain.tilled_soil", Vector2i(gx, gy), 1)
+	# 3) Crops on the tilled bed.
+	var crops: Array[String] = ["crop.carrot", "crop.cauliflower", "crop.watermelon", "crop.carrot_stage1"]
+	var crop_i: int = 0
+	for gy in range(12, 15):
+		for gx in range(2, 5):
+			_limezu_object(crops[crop_i % crops.size()], Vector2i(gx, gy))
+			crop_i += 1
+	# 4) Focal barn (decor, placed low so it is fully on-screen), framing trees on the
+	#    existing tree colliders, and the garden fence on the existing fence colliders.
+	_limezu_object("object.barn", Vector2i(13, 13))
+	for tree_tile in TREE_TILES:
+		_limezu_object("object.tree", tree_tile as Vector2i)
+	for offset in range(FENCE_LENGTH):
+		_limezu_object("object.fence_horizontal", FENCE_START_TILE + Vector2i(offset, 0))
+	# 5) Cozy detail + livestock (decor, no collision; placed in open tiles).
+	for flower_tile in [Vector2i(1, 12), Vector2i(5, 11), Vector2i(12, 15), Vector2i(2, 9), Vector2i(15, 12)]:
+		_limezu_object("object.flower", flower_tile)
+	_limezu_object("animal.chicken", Vector2i(6, 12))
+	_limezu_object("animal.cow", Vector2i(11, 15))
+	_limezu_object("object.crate", Vector2i(10, 13))
+	_limezu_object("object.sign", Vector2i(8, 13))
+
+## A LimeZu ground tile, centred on the cell, scaled to fill the 32px grid.
+func _limezu_ground(logical_id: String, tile: Vector2i, z: int) -> void:
+	if not LimeZuArtRegistry.has_asset(logical_id):
+		return
+	var s := Sprite2D.new()
+	s.texture = LimeZuArtRegistry.resolve_texture(logical_id)
+	s.centered = true
+	s.position = grid_to_world(tile)
+	s.scale = Vector2(LiveVisualPolicy.LIMEZU_DISPLAY_SCALE, LiveVisualPolicy.LIMEZU_DISPLAY_SCALE)
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.z_index = z
+	ground_layer.add_child(s)
+
+## A LimeZu object/animal, bottom-anchored to base_tile and y-sorted via its feet.
+func _limezu_object(logical_id: String, base_tile: Vector2i) -> void:
+	if not LimeZuArtRegistry.has_asset(logical_id):
+		return
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(logical_id)
+	if tex == null:
+		return
+	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
+	var holder := Node2D.new()
+	holder.position = grid_to_world(base_tile) + Vector2(0, 16)
+	gameplay_layer.add_child(holder)
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.centered = false
+	s.position = Vector2(-tex.get_width() * scale_f * 0.5, -tex.get_height() * scale_f)
+	s.scale = Vector2(scale_f, scale_f)
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	holder.add_child(s)
 
 func _build_overworld_bounds() -> void:
 	# Walls are derived from the world's actual content bounds (+ a margin) and

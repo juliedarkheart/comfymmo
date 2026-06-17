@@ -92,6 +92,12 @@ static func visual_for(visual_id: String) -> Dictionary:
 	}
 
 static func make_sprite(visual_id: String) -> Sprite2D:
+	# LimeZu live mode: human actors (player/remote/NPCs) use the LimeZu farmer sprite
+	# so live characters match the LimeZu world instead of the generated bodies.
+	# Creatures keep their generated art (LimeZu has no woodland-creature equivalents).
+	var lz_sprite: Sprite2D = _limezu_actor_sprite(visual_id)
+	if lz_sprite != null:
+		return lz_sprite
 	var visual: Dictionary = visual_for(visual_id)
 	var tex: Texture2D = visual.get("texture", null) as Texture2D
 	if tex == null:
@@ -102,6 +108,30 @@ static func make_sprite(visual_id: String) -> Sprite2D:
 	sprite.centered = true
 	sprite.position = visual.get("anchor", Vector2.ZERO) as Vector2
 	sprite.scale = sprite_scale(String(visual.get("id", visual_id)))
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.z_index = 2
+	return sprite
+
+## In LimeZu live mode, returns a bottom-anchored LimeZu farmer sprite for human
+## character ids; null otherwise (creatures + non-LimeZu fall through to generated).
+static func _limezu_actor_sprite(visual_id: String) -> Sprite2D:
+	if not LiveVisualPolicy.live_limezu_slice():
+		return null
+	if not REQUIRED_CHARACTER_IDS.has(normalize_id(visual_id)):
+		return null
+	if not LimeZuArtRegistry.has_asset("character.farmer_idle"):
+		return null
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture("character.farmer_idle")
+	if tex == null:
+		return null
+	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
+	var sprite := Sprite2D.new()
+	sprite.name = "CharacterArt_limezu_%s" % normalize_id(visual_id)
+	sprite.texture = tex
+	sprite.centered = true
+	# Feet at the actor origin (0,0): centre sits half the scaled height above it.
+	sprite.position = Vector2(0, -tex.get_height() * scale_f * 0.5)
+	sprite.scale = Vector2(scale_f, scale_f)
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.z_index = 2
 	return sprite

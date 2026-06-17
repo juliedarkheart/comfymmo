@@ -314,16 +314,25 @@ are suppressed in normal play. The full overworld renderer is unchanged and retu
 when the flag is off; the gameplay/data world is intact underneath. This is a
 presentation gate, not a gameplay change — see docs/world_art_direction.md.
 
-### LimeZu provider (under evaluation)
+### LimeZu provider (now the LIVE provider)
 
-LimeZu ("Modern" ecosystem) is being tested as a possible future main visual
-ecosystem. It is wired as a SEPARATE licensed provider — `systems/art/limezu_art_registry.gd`
-(logical-id resolver over a gitignored local manifest) selected via
-`systems/art/art_provider_registry.gd` — and is exercised only by the visual spike
-`scenes/visual_spikes/limezu_homestead_slice.tscn`. The live game stays on Sprout
-(`ArtProviderRegistry.LIVE_PROVIDER == "sprout"`); no live resolution is rerouted.
-Extraction/cataloging is `tools/art/limezu_integrate.py` (writes `.gdignore` into the
-raw `extracted/` trees so Godot never imports the ~120k licensed PNGs — only the few
-reviewed `normalized/` derivatives import). All LimeZu media stays local/gitignored;
-only code, the manifest *template*, and docs are commit-safe. See
-docs/limezu_visual_spike.md and docs/limezu_asset_mapping.md.
+LimeZu ("Modern" ecosystem) is now the PRIMARY live visual provider
+(`ArtProviderRegistry.LIVE_PROVIDER == "limezu"`). It is a licensed provider —
+`systems/art/limezu_art_registry.gd` (logical-id resolver over a gitignored local
+manifest) selected via `systems/art/art_provider_registry.gd`. When LimeZu is live and
+its assets resolve (`LiveVisualPolicy.live_limezu_slice()`):
+
+- `OverworldMap._build_limezu_slice()` composes the curated opening homestead from
+  LimeZu art (16px drawn at x2 = 32px cells) over the unchanged gameplay grid; the
+  Sprout core ground/cottage/tree/fence VISUALS are suppressed (colliders kept).
+- `CozyUITheme._ui_box()` returns LimeZu Modern UI nine-patches for panels/slots/buttons.
+- `CharacterArtRegistry.make_sprite()` returns the LimeZu farmer for live human actors.
+
+**Sprout stays fully integrated as a secondary/comparison provider** (registries, the
+Sprout-required helper, the Sprout spike, and docs are NOT removed). Extraction is
+`tools/art/limezu_integrate.py`; spike/live slicing is
+`tools/art/limezu_slice_spike_assets.py` (both write `.gdignore` into raw `extracted/`
+trees so Godot never imports the ~120k licensed PNGs — only reviewed `normalized/`
+derivatives import). All LimeZu media stays local/gitignored; only code, the manifest
+*template*, and docs are commit-safe. See docs/limezu_live_pivot_plan.md,
+docs/limezu_visual_spike.md, and docs/limezu_asset_mapping.md.

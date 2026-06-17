@@ -468,6 +468,10 @@ func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = [])
 	}
 
 func _build_ground() -> void:
+	# In LimeZu live mode the LimeZu grass layer covers the core, so skip the Sprout
+	# ground tiles entirely (no double terrain, no Sprout look in the opening view).
+	if LiveVisualPolicy.live_limezu_slice():
+		return
 	for y in range(MAP_HEIGHT):
 		for x in range(MAP_WIDTH):
 			var tile := Vector2i(x, y)
@@ -521,6 +525,16 @@ func _add_building(origin: Vector2i, footprint: Vector2i, _color: Color, label: 
 	building.name = label
 	building.position = grid_to_world(origin)
 	gameplay_layer.add_child(building)
+
+	# LimeZu live mode: keep the collider, skip the Sprout visual (the LimeZu barn in
+	# OverworldMap._build_limezu_slice provides the home visual).
+	if LiveVisualPolicy.live_limezu_slice():
+		var lz_collision := CollisionShape2D.new()
+		var lz_shape := RectangleShape2D.new()
+		lz_shape.size = Vector2(52 * footprint.x, 24 * footprint.y)
+		lz_collision.shape = lz_shape
+		building.add_child(lz_collision)
+		return
 
 	# Live top-down: use the cozy top-down cottage sprite (keep body + collision);
 	# the procedural billboard cottage below stays as the legacy-iso fallback.
@@ -679,6 +693,17 @@ func _add_tree(tile: Vector2i) -> void:
 	tree.position = grid_to_world(tile)
 	gameplay_layer.add_child(tree)
 
+	# LimeZu live mode: keep the collider, skip the Sprout visual (the LimeZu tree in
+	# OverworldMap._build_limezu_slice sits on this collider).
+	if LiveVisualPolicy.live_limezu_slice():
+		var lz_collision := CollisionShape2D.new()
+		var lz_shape := CircleShape2D.new()
+		lz_shape.radius = 14.0
+		lz_collision.position = Vector2(0, -6)
+		lz_collision.shape = lz_shape
+		tree.add_child(lz_collision)
+		return
+
 	# Live top-down: cozy top-down tree sprite (keep body + collision); the
 	# procedural billboard tree below is the legacy-iso fallback.
 	if _use_object_sprites():
@@ -767,6 +792,16 @@ func _add_fence_line(start_tile: Vector2i, length: int) -> void:
 		fence.name = "Fence_%s_%s" % [tile.x, tile.y]
 		fence.position = grid_to_world(tile) + Vector2(0, 6)
 		gameplay_layer.add_child(fence)
+
+		# LimeZu live mode: keep the collider, skip the Sprout visual (the LimeZu fence
+		# in OverworldMap._build_limezu_slice sits on this collider).
+		if LiveVisualPolicy.live_limezu_slice():
+			var lz_collision := CollisionShape2D.new()
+			var lz_shape := RectangleShape2D.new()
+			lz_shape.size = Vector2(48, 12)
+			lz_collision.shape = lz_shape
+			fence.add_child(lz_collision)
+			continue
 
 		var post_left := Polygon2D.new()
 		post_left.name = "PostLeft"

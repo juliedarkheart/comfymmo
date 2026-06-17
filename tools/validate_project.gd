@@ -555,8 +555,11 @@ func _initialize() -> void:
 			actor_sprite.free()
 		quit(1)
 		return
-	if actor_sprite.scale.x > 0.7 or actor_sprite.scale.y > 0.7:
-		push_error("Live actor sprites are not scaled down for Sprout 32x32 terrain")
+	# Sprout/generated actors are scaled DOWN (<=0.7) for the 32x32 terrain; LimeZu live
+	# actors use the upscaled LimeZu farmer (LIMEZU_DISPLAY_SCALE). Allow the right range.
+	var max_actor_scale: float = (LiveVisualPolicy.LIMEZU_DISPLAY_SCALE + 0.6) if LiveVisualPolicy.live_limezu_slice() else 0.7
+	if actor_sprite.scale.x > max_actor_scale or actor_sprite.scale.y > max_actor_scale:
+		push_error("Live actor sprite scale %.2f is out of the expected range (max %.2f)" % [actor_sprite.scale.x, max_actor_scale])
 		actor_sprite.free()
 		quit(1)
 		return
@@ -1076,14 +1079,29 @@ func _initialize() -> void:
 	inventory_probe.queue_free()
 	await process_frame
 
-	# --- LimeZu provider + visual spike (evaluation only; must not break the game) --
-	# The live game stays on Sprout; LimeZu is a separate provider used by the spike.
-	if ArtProviderRegistry.LIVE_PROVIDER != ArtProviderRegistry.PROVIDER_SPROUT:
-		push_error("Live art provider must remain Sprout while LimeZu is only being evaluated")
+	# --- LimeZu is now the LIVE visual provider; Sprout stays secondary/comparison ---
+	if ArtProviderRegistry.LIVE_PROVIDER != ArtProviderRegistry.PROVIDER_LIMEZU:
+		push_error("Live art provider should be LimeZu after the pivot")
+		quit(1)
+		return
+	# Sprout must remain integrated as a secondary/comparison provider (not deleted).
+	if not ArtProviderRegistry.is_known(ArtProviderRegistry.PROVIDER_SPROUT) or load("res://systems/visual/sprout_asset_requirement.gd") == null:
+		push_error("Sprout provider/integration was removed — it must stay as a secondary provider")
 		quit(1)
 		return
 	if not ArtProviderRegistry.is_known(ArtProviderRegistry.PROVIDER_LIMEZU):
 		push_error("ArtProviderRegistry does not list the LimeZu provider")
+		quit(1)
+		return
+	# The live overworld map must have the LimeZu curated-slice builder.
+	var overworld_map_src_live: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	if not overworld_map_src_live.contains("_build_limezu_slice"):
+		push_error("OverworldMap is missing the LimeZu curated slice builder")
+		quit(1)
+		return
+	# When LimeZu is installed, the live slice must actually resolve LimeZu art.
+	if LimeZuArtRegistry.is_available() and not LiveVisualPolicy.live_limezu_slice():
+		push_error("LimeZu is installed + live but live_limezu_slice() is false")
 		quit(1)
 		return
 	# Provider must resolve safely whether or not LimeZu is installed.

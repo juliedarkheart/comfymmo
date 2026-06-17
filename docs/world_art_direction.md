@@ -40,15 +40,22 @@ in a small, **hand-composed demo slice** instead of framing the broad procedural
   *visual* layers are held back until they have art. Turn `CURATED_SLICE` off to
   render the whole overworld again.
 
-## LimeZu ecosystem (under evaluation)
+## LimeZu ecosystem (now the live visual direction)
 
-The LimeZu "Modern" packs (farm, exteriors, interiors, office, UI, plus fungus_cave
-and the Fantasy Battlers pack) are being evaluated as a possible new main art
-direction, separate from Sprout. The live world is unchanged; LimeZu is exercised
-only in `scenes/visual_spikes/limezu_homestead_slice.tscn` via the LimeZu provider.
-Coverage findings (honest): strong for farming/building/interiors/office/UI, weaker
-for cozy dungeon tilesets and tameable-companion creatures. Full report:
-docs/limezu_visual_spike.md.
+LimeZu's "Modern" ecosystem is now the **primary live visual direction**
+(`ArtProviderRegistry.LIVE_PROVIDER == "limezu"`). The live overworld opens into a
+curated LimeZu Modern Farm slice — `OverworldMap._build_limezu_slice()` composes
+LimeZu grass, a barn focal point, apple trees, a tilled garden + crops, fences,
+flowers, a cow + chicken, and props over the **unchanged gameplay grid** (placement,
+colliders, spawn, farming data, movement are all preserved; LimeZu art is drawn at x2
+to fill the 32px cells). Live human actors (player + NPCs) use the LimeZu farmer
+sprite. **Sprout remains fully integrated as a secondary/comparison provider** and is
+not removed. LimeZu local licensed assets are **required** for the live visual
+prototype (a missing pack shows a clear missing-assets screen, not ugly fallback).
+
+Coverage findings (honest): strong for farming/building/interiors/office/UI; still
+weak for cozy dungeon tilesets and tameable-companion creatures. Full report:
+docs/limezu_visual_spike.md; pivot details: docs/limezu_live_pivot_plan.md.
 
 ## Composition
 

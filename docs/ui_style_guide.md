@@ -100,15 +100,21 @@ closed with Esc or the Close button:
 - Validation enforces: closed by default, size within a viewport fraction, Esc/close
   wired, and CozyUITheme/UIArtRegistry styling rather than hardcoded art.
 
-### Modern UI (LimeZu) evaluation
+### Modern UI (LimeZu) is now the live UI skin
 
-The LimeZu Modern UI pack is being evaluated as a possible replacement for the Sprout
-UI kit. A Modern UI **inventory mock** lives in the visual spike
-(`scenes/visual_spikes/limezu_homestead_slice.tscn`, `_build_inventory_mock`): a
-compact window with a title, close button, and a Sprout-free item-slot grid that
-pulls LimeZu icons through `LimeZuArtRegistry`. It demonstrates whether Modern UI
-should replace the current Sprout-styled live inventory. The live inventory is
-unchanged for now; nothing licensed is committed. See docs/limezu_visual_spike.md.
+LimeZu Modern UI is now the live UI direction. `CozyUITheme._ui_box()` is the single
+switch point: when LimeZu is the live provider it returns Modern UI nine-patch frames
+(`ui.panel`/`ui.slot`/`ui.slot_selected`, sliced into `modern_ui/normalized/spike/`)
+for every panel/slot/button styled through CozyUITheme — so the inventory, build menu,
+land/admin panels, and tool buttons pick up Modern UI automatically. Sprout UI still
+applies when Sprout is the provider; the code-drawn cozy box remains the fallback.
+
+Readability exception: the **HUD/minimap/chat cards keep their solid dark backing**
+(via `apply_hud_panel`) because their text is cream — cream on the pale Modern UI
+parchment would be unreadable. So world-overlay cards stay dark; pop-up menus/inventory
+use the Modern UI wood frame with dark ink text. The live inventory remains closed by
+default, opens on I, and closes on Esc/close. Nothing licensed is committed. See
+docs/limezu_visual_spike.md and docs/limezu_live_pivot_plan.md.
 
 ## Accessibility And Readability
 

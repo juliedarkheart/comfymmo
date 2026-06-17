@@ -76,18 +76,52 @@ static func slot_style(selected: bool = false, blocked: bool = false) -> StyleBo
 	style.set_content_margin_all(8)
 	return style
 
-## Prefer an activated licensed Sprout UI nine-patch for `ui_id`; otherwise return
-## the code-drawn cozy box. This is the single switch point — every panel that
-## styles itself through CozyUITheme automatically picks up Sprout UI art when the
-## local pack is installed/activated, and falls back cleanly when it is not.
+## LimeZu Modern UI ids for each cozy ui_id, used when LimeZu is the live provider.
+const LIMEZU_UI_MAP := {
+	"panel": "ui.panel",
+	"slot": "ui.slot",
+	"slot_selected": "ui.slot_selected",
+	"button": "ui.slot",
+	"button_hover": "ui.slot_selected",
+}
+
+## A nine-patch StyleBoxTexture from a LimeZu Modern UI frame, or null when LimeZu is
+## not the live provider / the id is not mapped.
+static func _limezu_box(ui_id: String, content_margin: int) -> StyleBoxTexture:
+	if not LiveVisualPolicy.live_limezu_slice():
+		return null
+	var lz_id: String = String(LIMEZU_UI_MAP.get(ui_id, ""))
+	if lz_id.is_empty() or not LimeZuArtRegistry.has_asset(lz_id):
+		return null
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(lz_id)
+	if tex == null:
+		return null
+	var box := StyleBoxTexture.new()
+	box.texture = tex
+	box.set_texture_margin_all(7)
+	box.set_content_margin_all(content_margin)
+	return box
+
+## Single UI skin switch: LimeZu Modern UI when it is the live provider, else an
+## activated Sprout UI nine-patch, else the code-drawn cozy box. Every panel that
+## styles itself through CozyUITheme picks this up automatically.
 static func _ui_box(ui_id: String, fallback: StyleBox, content_margin: int = 12) -> StyleBox:
+	var limezu: StyleBoxTexture = _limezu_box(ui_id, content_margin)
+	if limezu != null:
+		return limezu
 	var textured: StyleBoxTexture = UIArtRegistry.texture_stylebox(ui_id, content_margin)
 	return textured if textured != null else fallback
+
+## Crisp pixel filtering for LimeZu-skinned controls (16px UI art scaled up).
+static func _maybe_pixel_filter(control: Control) -> void:
+	if LiveVisualPolicy.live_limezu_slice():
+		control.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 static func apply_panel(panel: Control, fill: Color = PARCHMENT) -> void:
 	if panel == null:
 		return
 	_tag_ui_source(panel)
+	_maybe_pixel_filter(panel)
 	panel.add_theme_stylebox_override("panel", _ui_box("panel", panel_style(fill), 14))
 
 static func apply_hud_panel(panel: Control) -> void:
@@ -104,6 +138,7 @@ static func apply_slot(panel: Control, selected: bool = false, blocked: bool = f
 	if panel == null:
 		return
 	_tag_ui_source(panel)
+	_maybe_pixel_filter(panel)
 	# Blocked slots stay code-drawn so "unavailable" reads clearly regardless of skin.
 	var ui_id: String = "slot_selected" if selected else "slot"
 	var fallback: StyleBox = slot_style(selected, blocked)

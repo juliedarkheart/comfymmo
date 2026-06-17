@@ -25,6 +25,24 @@ const CURATED_SLICE := true
 const CURATED_SLICE_ZOOM := 1.7
 const OVERWORLD_WIDE_ZOOM := 1.3
 
+## LimeZu is now the PRIMARY live visual direction (ArtProviderRegistry.LIVE_PROVIDER).
+## The live curated opening slice composes LimeZu Modern Farm art over the existing
+## gameplay grid (colliders/placement/data unchanged), the UI re-skins to Modern UI,
+## and live human actors use the LimeZu farmer sprite. Sprout stays integrated as a
+## comparison/fallback provider. LimeZu art is 16px, drawn at x2 to fill the 32px grid.
+const LIMEZU_DISPLAY_SCALE := 2.0
+
+## True when the live game should render the LimeZu curated slice: provider is LimeZu
+## AND the local LimeZu assets actually resolve. If LimeZu is selected but absent, the
+## boot gate shows a missing-assets screen instead (see WorldRegionManager).
+static func live_limezu_slice() -> bool:
+	return ArtProviderRegistry.LIVE_PROVIDER == ArtProviderRegistry.PROVIDER_LIMEZU \
+		and LimeZuArtRegistry.is_available()
+
+## True when LimeZu is the selected live provider (regardless of local availability).
+static func limezu_is_live_provider() -> bool:
+	return ArtProviderRegistry.LIVE_PROVIDER == ArtProviderRegistry.PROVIDER_LIMEZU
+
 const PRIMARY_PROJECTION := WorldProjection.MODE_SPROUT_TOPDOWN
 const TILE_SIZE := Vector2i(32, 32)
 const ACTOR_CANVAS_SIZE := Vector2i(96, 96)

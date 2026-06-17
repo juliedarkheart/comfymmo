@@ -11,6 +11,16 @@ class_name FarmPlot
 
 var plot_id: String = ""
 
+func _ready() -> void:
+	# LimeZu live mode: hide the procedural soil diamond so the starter farm plots do
+	# not clash with the LimeZu ground. Farming logic and the crop sprites are unchanged
+	# — only the brown soil polygons are hidden in the opening view.
+	if LiveVisualPolicy.live_limezu_slice():
+		for soil_name in ["SoilRim", "SoilBase", "FurrowTop", "FurrowMid", "FurrowBottom"]:
+			var node := get_node_or_null(soil_name)
+			if node is CanvasItem:
+				(node as CanvasItem).visible = false
+
 func set_plot_state(plot_data: Dictionary) -> void:
 	var stage: String = String(plot_data.get("stage", "empty"))
 	var is_nearby: bool = bool(plot_data.get("is_nearby", false))

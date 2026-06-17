@@ -1,10 +1,15 @@
 # LimeZu Visual Spike — Feature Coverage Report
 
-LimeZu ("Modern" ecosystem) is being **evaluated** as a possible new main visual
-direction for Hearthvale. This pass extracted + cataloged the local packs, added a
-LimeZu art provider + a separate visual spike scene, and assessed coverage. Sprout
-remains the live provider and is not removed. All LimeZu media stays local-only under
-gitignored `licensed_assets/limezu/`.
+> **Update:** the evaluation succeeded and LimeZu is **now the live visual provider**
+> — the live game opens into a curated LimeZu homestead (see
+> docs/limezu_live_pivot_plan.md). This document remains the coverage/feature report;
+> this standalone spike scene is kept as the art/style reference. Sprout stays
+> integrated as a secondary/comparison provider.
+
+LimeZu ("Modern" ecosystem) was **evaluated** as a possible new main visual direction
+for Hearthvale. This work extracted + cataloged the local packs, added a LimeZu art
+provider + a visual spike scene, and assessed coverage. All LimeZu media stays
+local-only under gitignored `licensed_assets/limezu/`.
 
 ## Packs found & extracted (all succeeded)
 

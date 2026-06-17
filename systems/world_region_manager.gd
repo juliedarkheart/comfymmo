@@ -141,10 +141,23 @@ func _load_starting_region() -> void:
 	# future instances (dungeons, caves, interiors) will use region swapping. Any
 	# legacy outdoor current_region_id resolves to the overworld.
 	#
-	# Sprout-required gate: the live visual build needs the licensed Sprout pack. When
-	# it is missing/inactive we mount a clear missing-assets screen instead of silently
-	# rendering the old generated/procedural fallback (see SproutAssetRequirement).
-	if SproutAssetRequirement.REQUIRED:
+	# Live-provider gate: the live visual build needs the PRIMARY provider's licensed
+	# assets. LimeZu is now primary, so a missing/inactive LimeZu pack mounts a clear
+	# missing-assets screen instead of rendering ugly generated/procedural fallback.
+	# (Sprout stays integrated as a secondary/comparison provider and is not required
+	# to be present for the LimeZu live build.)
+	if LiveVisualPolicy.limezu_is_live_provider():
+		if not LimeZuArtRegistry.is_available():
+			var reason := LimeZuArtRegistry.missing_reason()
+			push_warning("[limezu-required] %s" % reason)
+			_show_missing_assets_screen([
+				"LimeZu local licensed assets are required for the live visual prototype.",
+				reason,
+				"Run: python tools/art/limezu_slice_spike_assets.py --root licensed_assets/limezu --all",
+			])
+			return
+	elif SproutAssetRequirement.REQUIRED:
+		# Sprout is the live provider (fallback selection): keep the Sprout gate.
 		var requirement: Dictionary = SproutAssetRequirement.check()
 		if not bool(requirement["ok"]):
 			push_warning("[sprout-required] %s" % String(requirement["summary"]))

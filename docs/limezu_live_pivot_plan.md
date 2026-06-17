@@ -1,8 +1,16 @@
 # LimeZu Live Pivot Plan
 
-Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu. This is a
-plan only — the live game still runs on Sprout (`ArtProviderRegistry.LIVE_PROVIDER ==
-"sprout"`). Do not flip it until the steps below pass validation + boot.
+Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
+
+> **STATUS: PIVOTED.** `ArtProviderRegistry.LIVE_PROVIDER == "limezu"`. The live
+> overworld opens into a curated LimeZu slice (`OverworldMap._build_limezu_slice()`),
+> the UI re-skins to Modern UI (`CozyUITheme._ui_box`), and live human actors use the
+> LimeZu farmer (`CharacterArtRegistry`). Validation + offline/server boot pass. Sprout
+> stays integrated as a secondary/comparison provider (not deleted). Gameplay
+> (movement/placement/farming/delete-twice/data/networking) is unchanged. The sections
+> below record the plan; the checklist items in scope this pass are done, the rest
+> (full-world LimeZu beyond the opening slice, Exteriors/Interiors tiling, Modern UI
+> buttons/close, creature/dungeon art) remain follow-ups.
 
 ## Why LimeZu looks better for Hearthvale
 

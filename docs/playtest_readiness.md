@@ -58,16 +58,27 @@ now opens in a curated demo slice**, not the broad procedural world:
 - Sprout assets are required for live visual mode (missing-assets screen otherwise);
   generated/dev art remains temporary and must not dominate the slice.
 
-## LimeZu visual spike (evaluation, separate from the live game)
+## LimeZu is now the LIVE visual direction
 
-The LimeZu "Modern" ecosystem is being tested as a possible new main visual
-direction. It is wired as a separate provider and exercised only by
-`scenes/visual_spikes/limezu_homestead_slice.tscn` (Run Current Scene). The live
-Sprout game, curated slice, and inventory are unchanged. All LimeZu media is
-local/gitignored; only code/docs/templates are commit-safe. Validation asserts the
-provider + spike load, the spike survives missing assets (markers/banner, no crash),
-and no LimeZu media is tracked. Honest coverage + next steps:
-docs/limezu_visual_spike.md.
+The live game now opens into a curated **LimeZu** Modern Farm slice
+(`ArtProviderRegistry.LIVE_PROVIDER == "limezu"`, `OverworldMap._build_limezu_slice()`):
+LimeZu grass/barn/trees/fence/garden/crops/cow/chicken/props over the unchanged
+gameplay grid, LimeZu farmer actors, and Modern-UI-skinned panels/slots. **Sprout
+stays integrated as a secondary/comparison provider** (the standalone spike scene
+`scenes/visual_spikes/limezu_homestead_slice.tscn` is also kept).
+
+LimeZu local licensed assets are **required** for the live visual prototype: a missing
+pack mounts a clear missing-assets screen (no ugly generated/procedural fallback).
+Preserved unchanged: movement, placement, farming data, delete-twice safety, inventory
+data, offline boot, server boot. All LimeZu media stays local/gitignored; only
+code/docs/templates are commit-safe. Validation asserts live provider = LimeZu, the
+live slice resolves real LimeZu ids, the cow is not head-cropped, inventory is closed
+by default + Modern-UI styled, Sprout stays present, and no LimeZu media is tracked.
+A local opening screenshot is at
+`licensed_assets/limezu/review_screenshots/live_limezu_opening.png` (gitignored).
+Known remaining clashes: dark HUD/minimap/chat cards (kept dark for readable cream
+text), small generated woodland creatures, and Exteriors/Interiors not yet sliced.
+See docs/limezu_live_pivot_plan.md and docs/limezu_visual_spike.md.
 
 ## Visual/UI foundation checks
 
