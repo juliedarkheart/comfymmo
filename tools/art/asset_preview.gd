@@ -19,16 +19,20 @@ func _ready() -> void:
 	rows.add_theme_constant_override("separation", 12)
 	var licensed: int = ArtActivation.licensed_count()
 	var external: int = ArtActivation.active_count()
+	var ui_licensed: int = UIArtRegistry.active_count()
 	_add_title(rows, "Hearthvale Asset Preview")
-	_add_note(rows, "Showing ACTIVE art. %d licensed (Sprout, local) + %d external override(s) active; everything else uses the cozy generated placeholders. Sources are tagged below. Run with F6." % [licensed, external])
+	_add_note(rows, "Primary visual mode: %s (legacy fallback: %s). ACTIVE art: %d licensed Sprout override(s) + %d licensed UI + %d external; everything else is generated. Source tiers: licensed / licensed_modified / generated / missing. Run with F6." % [
+		WorldProjection.DEFAULT_MODE, WorldProjection.LEGACY_MODE, licensed, ui_licensed, external])
 
-	_add_heading(rows, "Isometric tessellation (terrain tiles)")
+	_add_heading(rows, "Top-down tessellation (sprout_topdown — primary)")
+	rows.add_child(_topdown_cluster())
+	_add_heading(rows, "Isometric tessellation (iso_64x32 — legacy)")
 	rows.add_child(_iso_cluster())
 
 	_add_terrain_section(rows, "Terrain tiles", TerrainArtRegistry.required_ids())
 	_add_object_section(rows, "Objects & prefabs", ObjectArtRegistry.required_ids())
 	_add_object_section(rows, "UI / tool icons", ICON_IDS)
-	_add_ui_section(rows, "Sprout UI kit candidates", UIArtRegistry.required_ids())
+	_add_ui_section(rows, "Sprout UI kit (panel/button/slot/close)", UIArtRegistry.required_ids())
 
 # --- sections ---------------------------------------------------------------
 
@@ -68,11 +72,24 @@ func _add_ui_section(parent: VBoxContainer, title: String, ids: Array) -> void:
 		var path: String = UIArtRegistry.texture_path(id)
 		grid.add_child(_tile(load(path) as Texture2D, id, UIArtRegistry.source_of(path)))
 
+func _source_color(source: String) -> Color:
+	match source:
+		"missing":
+			return CozyUITheme.BAD
+		"licensed", "licensed_ui":
+			return CozyUITheme.HONEY
+		"licensed_modified":
+			return CozyUITheme.BORDER_LIGHT
+		"external":
+			return CozyUITheme.HONEY
+		_:
+			return CozyUITheme.GOOD
+
 func _tile(texture: Texture2D, id: String, source: String) -> Control:
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(104, 116)
 	var frame := PanelContainer.new()
-	CozyUITheme.apply_slot(frame, source == "external")
+	CozyUITheme.apply_slot(frame, source != "generated" and source != "missing")
 	box.add_child(frame)
 	var rect := TextureRect.new()
 	rect.texture = texture
@@ -89,10 +106,31 @@ func _tile(texture: Texture2D, id: String, source: String) -> Control:
 	src_label.text = source
 	src_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	src_label.add_theme_font_size_override("font_size", 9)
-	src_label.add_theme_color_override("font_color",
-		CozyUITheme.BAD if source == "missing" else (CozyUITheme.HONEY if source == "external" or source == "licensed_ui" else CozyUITheme.GOOD))
+	src_label.add_theme_color_override("font_color", _source_color(source))
 	box.add_child(src_label)
 	return box
+
+## A 6x4 top-down cluster (the primary sprout_topdown projection) so square tiles
+## are judged the way the live world draws them, not on the legacy diamond grid.
+func _topdown_cluster() -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(640, 170)
+	var biomes: Array[String] = ["meadow", "forest", "orchard", "creekside", "hilltop", "grove", "town", "farmland", "dirt_path", "stone_path", "tilled_soil", "water"]
+	var origin := Vector2(8, 8)
+	var size: Vector2i = WorldProjection.tile_size(WorldProjection.MODE_SPROUT_TOPDOWN)
+	var scale := 2
+	for y in range(4):
+		for x in range(6):
+			var biome: String = biomes[(x + y * 6) % biomes.size()]
+			var rect := TextureRect.new()
+			rect.texture = TerrainArtRegistry.texture(biome)
+			rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			rect.custom_minimum_size = Vector2(size) * scale
+			rect.size = Vector2(size) * scale
+			rect.position = origin + Vector2(x * size.x * scale, y * size.y * scale)
+			holder.add_child(rect)
+	return holder
 
 ## A 4x4 isometric cluster of terrain tiles, to judge how they tessellate.
 func _iso_cluster() -> Control:

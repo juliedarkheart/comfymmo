@@ -73,9 +73,14 @@ activate. No gameplay code changes — it's all data + the activation manifest.
 
 Paid packs that can't be redistributed (e.g. Sprout Lands by Cup Nooble) use the
 SAME review path but stay **local-only / gitignored** under `licensed_assets/`,
-with their own local `sprout_active_manifest.json`. They resolve at the highest
-priority (local licensed -> external -> generated -> missing). See
-docs/licensed_asset_policy.md.
+with their own local `sprout_active_manifest.json` + `sprout_ui_manifest.json`.
+Full resolve order: **local licensed -> local licensed_modified -> external ->
+generated -> missing**. The license permits local modification, so recolors/tints
+live under `licensed_assets/sprout_lands/modified/` and resolve as the
+`licensed_modified` tier (still never committed). When a needed asset has no safe
+Sprout mapping, prefer **original** committable art under
+`art/generated/hearthvale/` (see docs/graphics_pipeline.md) rather than a blind
+crop. See docs/licensed_asset_policy.md.
 
 ## Sprout UI and animation catalog
 

@@ -105,10 +105,13 @@ semantic review before any cell could be trusted.
 
 - **Sprout Lands** premium sprite pack — **by Cup Nooble** (https://cupnooble.itch.io/).
   *Credit (required): Assets — From: Sprout Lands — By: Cup Nooble.* Premium
-  license: modify OK, commercial/non-commercial OK, **non-redistributable**, no
-  NFT/AI-training use. The pack files are **local-only and gitignored** - not in
-  this repository. 18 ids are wired locally (9 objects + 6 icons + 3 reviewed
-  Sprout/top-down terrain tiles: meadow, water, creek). Full policy:
+  license: modify OK (incl. local recolors/tints), commercial/non-commercial OK,
+  **non-redistributable**, no NFT/AI-training use. The pack files **and any locally
+  modified Sprout derivatives** are **local-only and gitignored** - not in this
+  repository. Wired locally: 10 objects + 6 icons + 6 licensed terrain + 3
+  licensed_modified tint terrain + 2 UI ids. (Original Hearthvale top-down
+  gap-fill art under `art/generated/hearthvale/` is committable and NOT derived
+  from Sprout.) Full policy:
   docs/licensed_asset_policy.md.
 
 Sprout UI kit files, UI contact sheets, normalized derivatives, local manifests,

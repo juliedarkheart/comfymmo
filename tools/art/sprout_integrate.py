@@ -31,6 +31,10 @@ UI_ZIP = SPROUT / "original/Sprout Lands - UI Pack - Premium pack.zip"
 UI_EXTRACTED = SPROUT / "original/extracted_ui"
 UI_ROOT = UI_EXTRACTED / "Sprout Lands - UI Pack - Premium pack"
 NORMALIZED = SPROUT / "normalized"
+# Locally MODIFIED licensed derivatives (recolors/tints). Gitignored like the rest
+# of licensed_assets/, but NOT .gdignored — Godot imports these so the registries
+# can resolve them as the `licensed_modified` source tier.
+MODIFIED = SPROUT / "modified"
 MANIFEST = SPROUT / "sprout_active_manifest.json"
 UI_MANIFEST = SPROUT / "sprout_ui_manifest.json"
 UI_CONTACT = SPROUT / "contact_sheets/ui"
@@ -53,6 +57,8 @@ OBJECTS = {
     "objects/decor/sign.png":             ("Objects/signs.png", (0, 0, 16, 18)),
     "objects/decor/fence.png":            ("Tilesets/Building parts/Fences.png", (0, 48, 48, 64)),
     "objects/building/storage_chest.png": ("Tilesets/Building parts/Chest.png", (16, 16, 32, 32)),
+    # "work station.png" is a single 32x32 object — confidently named, whole image.
+    "objects/building/workbench.png":     ("Objects/work station.png", None),
 }
 ICONS = {
     "ui/icons/watering_can.png":  ("Objects/Items/tools and meterials.png", (0, 0, 16, 16)),
@@ -62,12 +68,28 @@ ICONS = {
     "ui/icons/wood.png":          ("Objects/Items/tools and meterials.png", (0, 32, 16, 48)),
     "ui/icons/stone.png":         ("Objects/Items/tools and meterials.png", (32, 32, 48, 48)),
 }
-# Terrain activation is intentionally limited to reviewed single-tile top-down
-# mappings. Multi-cell sheets stay catalog-only until manually reviewed.
+# Terrain activation uses only Cup Nooble's pre-cut, descriptively-named single
+# tiles from the "Grass tiles v2 simple cutout" folder (NOT blind cells off a
+# bitmask sheet). Soil/path/plot terrain is left to the original Hearthvale
+# top-down generated tiles (tools/art/generate_hearthvale_gap_assets.py), which
+# look intentional and stay committable.
+CUTOUT = "Tilesets/ground tiles/New tiles/simpel versions/Grass tiles v2 simple cutout"
 TERRAIN = {
-    "tiles/biomes/meadow.png":      ("Tilesets/ground tiles/New tiles/simpel versions/Grass tiles v2 simple cutout/Grass_tiles_v2_Mid.png", None),
+    "tiles/biomes/meadow.png":      (f"{CUTOUT}/Grass_tiles_v2_Mid.png", None),
+    "tiles/biomes/orchard.png":     (f"{CUTOUT}/Grass_tiles_v2_Mid_Flowers1.png", None),
+    "tiles/biomes/grove.png":       (f"{CUTOUT}/Grass_tiles_v2_Mid_Sprouts1.png", None),
+    "tiles/biomes/creekside.png":   (f"{CUTOUT}/Grass_tiles_v2_Mid_Grass1.png", None),
     "tiles/water/water.png":        ("Tilesets/ground tiles/water frames/Water_1.png", None),
     "tiles/water/creek.png":        ("Tilesets/ground tiles/water frames/Water_2.png", None),
+}
+
+# Locally MODIFIED (licensed_modified) biome tints derived from the normalized
+# Sprout grass tile — allowed by the Sprout license, kept local-only. Each value
+# is (rmul, gmul, bmul, desaturate) applied to normalized/tiles/biomes/meadow.png.
+MODIFIED_TINTS = {
+    "tiles/biomes/forest.png":  (0.70, 0.84, 0.62, 0.05),  # darker, deeper green
+    "tiles/biomes/hilltop.png": (0.92, 0.96, 0.86, 0.38),  # cool, sun-bleached
+    "tiles/biomes/town.png":    (1.08, 0.99, 0.80, 0.46),  # warm packed-earth tone
 }
 
 UI_CANDIDATES = {
@@ -165,6 +187,69 @@ def place(art_id: str, src: str, box, canvas, fit_box, anchor: str) -> None:
     out.save(dest)
 
 
+def recolor(img: Image.Image, rgb_mul, desat: float = 0.0) -> Image.Image:
+    """Local licensed modification: per-channel multiply + optional desaturate."""
+    out = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    src = img.load()
+    dst = out.load()
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b, a = src[x, y]
+            if a == 0:
+                continue
+            lum = 0.299 * r + 0.587 * g + 0.114 * b
+            r = r + (lum - r) * desat
+            g = g + (lum - g) * desat
+            b = b + (lum - b) * desat
+            dst[x, y] = (
+                max(0, min(255, round(r * rgb_mul[0]))),
+                max(0, min(255, round(g * rgb_mul[1]))),
+                max(0, min(255, round(b * rgb_mul[2]))),
+                a,
+            )
+    return out
+
+
+def build_modified_tints(active: dict) -> int:
+    """Write licensed_modified biome tints from the normalized Sprout grass tile.
+    Manifest values are full res:// paths so they resolve as `licensed_modified`."""
+    base_path = NORMALIZED / "tiles/biomes/meadow.png"
+    if not base_path.exists():
+        return 0
+    base = Image.open(base_path).convert("RGBA")
+    count = 0
+    for art_id, (rmul, gmul, bmul, desat) in MODIFIED_TINTS.items():
+        dest = MODIFIED / art_id
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        recolor(base, (rmul, gmul, bmul), desat).save(dest)
+        active[art_id] = f"res://licensed_assets/sprout_lands/modified/{art_id}"
+        count += 1
+    return count
+
+
+def activate_ui() -> dict:
+    """Normalize the clean, confidently-identifiable Sprout UI nine-slice (the
+    dialog box) + the close X, and return the active map + texture margins. Button
+    and slot SHEETS don't divide cleanly headlessly, so they stay catalog-only and
+    the cozy code-drawn theme keeps styling them."""
+    if not UI_ROOT.is_dir():
+        return {}
+    jobs = {
+        "panel": ("UI Sprites/Dialouge UI/dialog box.png", "normalized/ui/panels/panel.png"),
+        "close": ("UI Sprites/Other UI sprites/Xs and check marks/1s/X.png", "normalized/ui/icons/close.png"),
+    }
+    ui_active: dict[str, str] = {}
+    for ui_id, (src_rel, dest_rel) in jobs.items():
+        src = UI_ROOT / src_rel
+        if not src.exists():
+            continue
+        dest = SPROUT / dest_rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        Image.open(src).convert("RGBA").save(dest)  # native size, crisp nine-slice
+        ui_active[ui_id] = dest_rel
+    return ui_active
+
+
 def _safe_rel(path: Path) -> str:
     return path.relative_to(SPROUT).as_posix()
 
@@ -249,17 +334,9 @@ def _contact_sheet(title: str, files: list[Path], dest: Path, thumb=(104, 72), c
     sheet.save(dest)
 
 
-def _write_ui_manifest() -> None:
+def _write_ui_manifest(active_ui: dict[str, str]) -> None:
     if not UI_ROOT.is_dir():
         return
-    existing_active: dict[str, str] = {}
-    if UI_MANIFEST.exists():
-        try:
-            existing = json.loads(UI_MANIFEST.read_text(encoding="utf-8"))
-            if isinstance(existing.get("active"), dict):
-                existing_active = dict(existing["active"])
-        except Exception:
-            existing_active = {}
     candidates: dict[str, list[str]] = {}
     for ui_id, rels in UI_CANDIDATES.items():
         paths: list[str] = []
@@ -269,11 +346,15 @@ def _write_ui_manifest() -> None:
                 paths.append(_safe_rel(candidate))
         candidates[ui_id] = paths
     manifest = {
-        "_comment": "LOCAL gitignored Sprout UI manifest. Active is intentionally safe to leave empty; UIArtRegistry falls back to generated/cozy code-drawn UI.",
+        "_comment": "LOCAL gitignored Sprout UI manifest. `active` values are rel to "
+                    "licensed_assets/sprout_lands/. CozyUITheme swaps to a nine-patch "
+                    "texture for any active id; missing ids fall back to the cozy "
+                    "code-drawn UI. Button/slot sheets stay catalog-only (candidates).",
         "version": 1,
         "pack": "Sprout Lands UI Pack (premium) by Cup Nooble",
         "license": "premium, local-only, non-redistributable; credit Cup Nooble",
-        "active": existing_active,
+        "active": active_ui,
+        "margins": {"_default": 10, "panel": 14},
         "candidates": candidates,
     }
     UI_MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -376,6 +457,7 @@ def main() -> None:
     for art_id, (src, box) in TERRAIN.items():
         place(art_id, src, box, (32, 32), (32, 32), "center")
         active[art_id] = art_id
+    modified_count = build_modified_tints(active)
 
     manifest = {
         "_comment": "LOCAL gitignored activation manifest for Sprout Lands (Cup Nooble). "
@@ -397,12 +479,14 @@ def main() -> None:
             "Credit: Assets -From : Sprout Lands -By : Cup Nooble\n"
             "Original pack license text follows:\n\n"
             + readme.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
-    print(f"Normalized {len(OBJECTS)} objects + {len(ICONS)} icons + {len(TERRAIN)} terrain.")
-    print(f"Activated {len(active)} ids -> {MANIFEST.relative_to(ROOT)}")
+    print(f"Normalized {len(OBJECTS)} objects + {len(ICONS)} icons + {len(TERRAIN)} terrain "
+          f"+ {modified_count} licensed_modified tints.")
+    print(f"Activated {len(active)} object/terrain ids -> {MANIFEST.relative_to(ROOT)}")
     if ui_available:
-        _write_ui_manifest()
+        active_ui = activate_ui()
+        _write_ui_manifest(active_ui)
         _write_ui_contact_sheets()
-        print(f"Prepared UI manifest + contact sheets under {UI_CONTACT.relative_to(ROOT)}")
+        print(f"Activated {len(active_ui)} UI ids {sorted(active_ui)}; contact sheets under {UI_CONTACT.relative_to(ROOT)}")
     else:
         print("UI pack zip not found; skipped UI extraction/contact sheets.")
     _animation_inventory()

@@ -197,12 +197,26 @@ not merely present on disk. Empty manifest = all generated. Full details and the
 
 ## Licensed (premium, local-only) layer
 
-There is a third, highest-priority resolution tier for **paid /
-non-redistributable** packs (e.g. Sprout Lands by Cup Nooble): full order is
-**local licensed → redistributable external → generated → missing**. The licensed
-manifest + assets live under the gitignored `licensed_assets/` and are never
-committed; a clean checkout falls straight through to the generated art. Tooling
-is `tools/art/sprout_integrate.py`. Full rules: docs/licensed_asset_policy.md.
+There is a highest-priority resolution tier for **paid / non-redistributable**
+packs (e.g. Sprout Lands by Cup Nooble): full order is **local licensed → local
+licensed_modified → redistributable external → generated → missing**. The
+licensed manifest + assets live under the gitignored `licensed_assets/` and are
+never committed (including the `modified/` recolors/tints that resolve as the
+`licensed_modified` tier); a clean checkout falls straight through to the
+generated art. Tooling is `tools/art/sprout_integrate.py`. Full rules:
+docs/licensed_asset_policy.md.
+
+## Original Hearthvale top-down gap-fill (`art/generated/hearthvale/`)
+
+`tools/art/generate_hearthvale_gap_assets.py` renders **original, committable**
+top-down 32x32 terrain tiles (every terrain id) plus simple UI shapes under
+`art/generated/hearthvale/`. In the live `sprout_topdown` mode the terrain
+registry prefers these over the legacy 64x48 isometric diamonds, so a clean
+checkout with **no** Sprout pack still reads as a coherent top-down farming world
+(paths look like paths, soil like soil, plot markers like cozy posts). They
+resolve as the `generated` source tier and are **not** derived from Sprout (or
+any third-party) media — the script draws them procedurally. Licensed Sprout art,
+when installed locally, still wins over them per the order above.
 
 Reviewed Sprout terrain currently activates only obvious single-tile mappings:
 meadow grass, water, and creek. Other terrain sheets remain catalog/review

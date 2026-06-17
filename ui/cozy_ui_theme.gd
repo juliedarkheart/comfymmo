@@ -66,23 +66,34 @@ static func slot_style(selected: bool = false, blocked: bool = false) -> StyleBo
 	style.set_content_margin_all(8)
 	return style
 
+## Prefer an activated licensed Sprout UI nine-patch for `ui_id`; otherwise return
+## the code-drawn cozy box. This is the single switch point — every panel that
+## styles itself through CozyUITheme automatically picks up Sprout UI art when the
+## local pack is installed/activated, and falls back cleanly when it is not.
+static func _ui_box(ui_id: String, fallback: StyleBox, content_margin: int = 12) -> StyleBox:
+	var textured: StyleBoxTexture = UIArtRegistry.texture_stylebox(ui_id, content_margin)
+	return textured if textured != null else fallback
+
 static func apply_panel(panel: Control, fill: Color = PARCHMENT) -> void:
 	if panel == null:
 		return
 	_tag_ui_source(panel)
-	panel.add_theme_stylebox_override("panel", panel_style(fill))
+	panel.add_theme_stylebox_override("panel", _ui_box("panel", panel_style(fill), 14))
 
 static func apply_hud_panel(panel: Control) -> void:
 	if panel == null:
 		return
 	_tag_ui_source(panel)
-	panel.add_theme_stylebox_override("panel", hud_panel_style())
+	panel.add_theme_stylebox_override("panel", _ui_box("panel", hud_panel_style(), 12))
 
 static func apply_slot(panel: Control, selected: bool = false, blocked: bool = false) -> void:
 	if panel == null:
 		return
 	_tag_ui_source(panel)
-	panel.add_theme_stylebox_override("panel", slot_style(selected, blocked))
+	# Blocked slots stay code-drawn so "unavailable" reads clearly regardless of skin.
+	var ui_id: String = "slot_selected" if selected else "slot"
+	var fallback: StyleBox = slot_style(selected, blocked)
+	panel.add_theme_stylebox_override("panel", fallback if blocked else _ui_box(ui_id, fallback, 8))
 
 static func heading(text: String, size: int = 18) -> Label:
 	var label := Label.new()
@@ -114,16 +125,18 @@ static func apply_button(button: Button) -> void:
 	_tag_ui_source(button)
 	button.add_theme_color_override("font_color", INK)
 	button.add_theme_color_override("font_hover_color", BORDER)
-	button.add_theme_stylebox_override("normal", slot_style(false))
-	button.add_theme_stylebox_override("hover", slot_style(true))
-	button.add_theme_stylebox_override("pressed", slot_style(true))
+	button.add_theme_stylebox_override("normal", _ui_box("button", slot_style(false), 8))
+	button.add_theme_stylebox_override("hover", _ui_box("button_hover", slot_style(true), 8))
+	button.add_theme_stylebox_override("pressed", _ui_box("button_hover", slot_style(true), 8))
+	# Disabled stays code-drawn so unavailable actions read clearly on any skin.
 	button.add_theme_stylebox_override("disabled", slot_style(false, true))
 
 static func apply_tab_button(button: Button, selected: bool) -> void:
 	if button == null:
 		return
 	apply_button(button)
-	button.add_theme_stylebox_override("normal", slot_style(selected))
+	var ui_id: String = "slot_selected" if selected else "slot"
+	button.add_theme_stylebox_override("normal", _ui_box(ui_id, slot_style(selected), 8))
 	button.add_theme_color_override("font_color", BORDER if selected else INK)
 
 static func apply_close_button(button: Button) -> void:

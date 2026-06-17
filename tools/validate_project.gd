@@ -110,13 +110,13 @@ const RESOURCE_PATHS: Array[String] = [
 
 const VISUAL_DOC_CHECKS := {
 	"res://docs/visual_identity.md": ["cozy 2D isometric", "storybook", "plot boundary", "no harsh debug"],
-	"res://docs/ui_style_guide.md": ["cozy_ui_theme.gd", "Close", "selected", "unavailable"],
-	"res://docs/world_art_direction.md": ["meadow", "forest", "creekside", "sprout_topdown", "minimap"],
+	"res://docs/ui_style_guide.md": ["cozy_ui_theme.gd", "Close", "selected", "unavailable", "UIArtRegistry"],
+	"res://docs/world_art_direction.md": ["meadow", "forest", "creekside", "sprout_topdown", "minimap", "hearthvale"],
 	"res://docs/building_art_direction.md": ["foundation", "wall", "prefab", "modular", "interiors"],
-	"res://docs/graphics_pipeline.md": ["terrain_art_registry.gd", "object_art_registry.gd", "fallback", "sprout_topdown"],
+	"res://docs/graphics_pipeline.md": ["terrain_art_registry.gd", "object_art_registry.gd", "fallback", "sprout_topdown", "generated/hearthvale"],
 	"res://docs/asset_credits.md": ["no third-party assets", "CC0", "art/external", "license"],
 	"res://docs/asset_review_workflow.md": ["contact sheet", "active_art_manifest.json", "art/review", "not auto-wired"],
-	"res://docs/licensed_asset_policy.md": ["Cup Nooble", "non-redistributable", "licensed_assets/", "ArtActivation"],
+	"res://docs/licensed_asset_policy.md": ["Cup Nooble", "non-redistributable", "licensed_assets/", "ArtActivation", "licensed_modified"],
 	"res://docs/examples/sprout_animation_manifest.example.json": ["Catalog only", "animations_inventory.json", "No combat"],
 	"res://docs/examples/sprout_audio_inventory.example.json": ["Catalog only", "audio_inventory.json", "No runtime audio"],
 }
@@ -433,9 +433,23 @@ func _initialize() -> void:
 		push_error("TerrainArtRegistry did not carry Sprout/top-down projection hints safely")
 		quit(1)
 		return
-	var generated_forest_visual: Dictionary = TerrainArtRegistry.visual_for("forest", Vector2i.ZERO, WorldProjection.MODE_SPROUT_TOPDOWN)
-	if TerrainArtRegistry.source_of(String(generated_forest_visual.get("path", ""))) != "generated" or bool(generated_forest_visual.get("render_sprite", true)):
-		push_error("Generated 64x48 terrain fallback should not render as a sprite in Sprout/top-down mode")
+	# In Sprout/top-down mode a NON-licensed terrain id resolves to an original
+	# Hearthvale top-down tile (art/generated/hearthvale/terrain/...) that DOES
+	# render as a sprite — the legacy 64x48 iso diamonds are never used here.
+	# (farmer_training is never licensed nor tinted, so it stays generated.)
+	var topdown_generated_visual: Dictionary = TerrainArtRegistry.visual_for("farmer_training", Vector2i.ZERO, WorldProjection.MODE_SPROUT_TOPDOWN)
+	var topdown_generated_path: String = String(topdown_generated_visual.get("path", ""))
+	if TerrainArtRegistry.source_of(topdown_generated_path) != "generated" or not topdown_generated_path.begins_with(TerrainArtRegistry.HEARTHVALE_TOPDOWN_ROOT):
+		push_error("Non-licensed terrain should resolve to an original Hearthvale top-down tile in Sprout mode")
+		quit(1)
+		return
+	if not bool(topdown_generated_visual.get("render_sprite", false)):
+		push_error("Hearthvale top-down generated tile must render as a sprite in Sprout/top-down mode")
+		quit(1)
+		return
+	var legacy_iso_visual: Dictionary = TerrainArtRegistry.visual_for("farmer_training", Vector2i.ZERO, WorldProjection.MODE_ISO_64X32)
+	if not String(legacy_iso_visual.get("path", "")).begins_with(TerrainArtRegistry.LEGACY_TILE_ROOT) or not bool(legacy_iso_visual.get("render_sprite", false)):
+		push_error("Legacy iso terrain art regressed in iso_64x32 mode")
 		quit(1)
 		return
 	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow", WorldProjection.MODE_ISO_64X32)) == "licensed":
@@ -477,7 +491,7 @@ func _initialize() -> void:
 	# generated placeholder (not missing); an unknown id resolves to missing. This
 	# proves the external -> generated -> missing order is wired without fighting
 	# the local Sprout licensed layer when it is installed.
-	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("forest")) != "generated":
+	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("farmer_training")) != "generated":
 		push_error("Terrain external-preference resolver did not classify forest as generated")
 		quit(1)
 		return
@@ -594,7 +608,7 @@ func _initialize() -> void:
 		if typeof(sprout_local) == TYPE_DICTIONARY and typeof((sprout_local as Dictionary).get("active", null)) == TYPE_DICTIONARY:
 			for sprout_key in (sprout_local as Dictionary)["active"].keys():
 				var sprout_value: String = String((sprout_local as Dictionary)["active"][sprout_key])
-				var sprout_full: String = ArtActivation.LICENSED_NORMALIZED_ROOT + sprout_value
+				var sprout_full: String = sprout_value if sprout_value.begins_with("res://") else ArtActivation.LICENSED_NORMALIZED_ROOT + sprout_value
 				if not FileAccess.file_exists(sprout_full):
 					push_error("Sprout manifest maps a missing local file: %s" % sprout_full)
 					quit(1)
@@ -670,8 +684,46 @@ func _initialize() -> void:
 		push_error("licensed_assets contains tracked files; Sprout assets must stay gitignored")
 		quit(1)
 		return
+	# Original Hearthvale generated UI gap-fill must resolve (generated or licensed).
+	if UIArtRegistry.source_of(UIArtRegistry.texture_path("panel")) == "missing":
+		push_error("UIArtRegistry has no generated/licensed panel art to resolve")
+		quit(1)
+		return
+	# No generated terrain path may live under (or point into) licensed_assets/.
+	for hv_id in ["meadow", "farmland", "dirt_path", "plot_boundary", "stone_path"]:
+		var hv_path: String = TerrainArtRegistry.texture_path(hv_id, WorldProjection.MODE_SPROUT_TOPDOWN)
+		if TerrainArtRegistry.source_of(hv_path) == "generated" and hv_path.begins_with("res://licensed_assets/"):
+			push_error("A generated terrain path points into licensed_assets/: %s" % hv_path)
+			quit(1)
+			return
+	# When the local Sprout pack IS installed, the modified tints + object overrides
+	# + UI must report their dedicated source tiers (licensed_modified / licensed / licensed_ui).
+	if FileAccess.file_exists(ArtActivation.LICENSED_MANIFEST_PATH):
+		ArtActivation.reload()
+		if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("forest", WorldProjection.MODE_SPROUT_TOPDOWN)) != "licensed_modified":
+			push_error("Active Sprout modified terrain tint did not resolve as licensed_modified")
+			quit(1)
+			return
+		if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("forest", WorldProjection.MODE_ISO_64X32)) == "licensed_modified":
+			push_error("Licensed_modified terrain leaked into legacy iso mode")
+			quit(1)
+			return
+		if ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(ContentIds.PLACEABLE_WORKBENCH)) != "licensed":
+			push_error("Active Sprout object override (workbench) did not resolve as licensed")
+			quit(1)
+			return
+	UIArtRegistry.reload()
+	if FileAccess.file_exists(UIArtRegistry.LOCAL_UI_MANIFEST_PATH) and UIArtRegistry.active_count() > 0:
+		if not UIArtRegistry.has_licensed("panel") or UIArtRegistry.source_of(UIArtRegistry.texture_path("panel")) != "licensed_ui":
+			push_error("Activated Sprout UI panel did not resolve as licensed_ui")
+			quit(1)
+			return
+		if UIArtRegistry.texture_stylebox("panel") == null:
+			push_error("CozyUITheme could not build a Sprout UI nine-patch for an active panel")
+			quit(1)
+			return
 	# Generated fallback must still resolve regardless (no licensed override for it).
-	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("forest")) != "generated":
+	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("farmer_training")) != "generated":
 		push_error("Generated fallback regressed for an un-activated terrain id")
 		quit(1)
 		return

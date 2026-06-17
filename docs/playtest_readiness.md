@@ -201,13 +201,22 @@ It is not claiming readiness for:
 
 - The premium **Sprout Lands** pack (Cup Nooble) is integrated **locally and
   gitignored** - never committed (non-redistributable license; credit required,
-  in docs/asset_credits.md). 18 ids are wired locally: 9 objects, 6 icons, and
-  reviewed top-down terrain for meadow/water/creek. Inventory icons, registry
-  placeables, and those terrain tiles can show Sprout art when the local pack is
-  present; clean checkout falls back safely.
-- Projection compatibility now lives in `systems/world/world_projection.gd`.
-  The live overworld uses `sprout_topdown` drawing on the same gameplay grid.
-  The old `iso_64x32` path remains as a legacy/fallback projection.
+  in docs/asset_credits.md). Wired locally: 10 objects, 6 icons, 6 licensed
+  terrain tiles (meadow/orchard/grove/creekside/water/creek), 3 `licensed_modified`
+  tint terrains (forest/hilltop/town), and 2 UI ids (panel + close). Clean
+  checkout falls back safely.
+- **Original Hearthvale top-down gap-fill** (`art/generated/hearthvale/`,
+  committable, from `tools/art/generate_hearthvale_gap_assets.py`) gives every
+  terrain id a real 32x32 top-down tile, so a no-Sprout checkout still reads as a
+  coherent top-down farming world (soil/paths/plot markers look intentional). UI
+  resolves licensed Sprout → generated Hearthvale shape → cozy code-drawn theme.
+- Projection compatibility lives in `systems/world/world_projection.gd`. The live
+  overworld uses `sprout_topdown` on the same gameplay grid; `iso_64x32` remains a
+  legacy/fallback projection. Source tiers: `licensed` / `licensed_modified` /
+  `licensed_ui` / `generated` / `missing` (inspect with F6 asset preview).
+- **Manual visual review still owed:** the recolor tints (forest/hilltop/town),
+  the Sprout panel nine-patch margins, and which Sprout button/slot sheet cells
+  to wire (catalog-only for now). Audio + animations remain cataloged, not wired.
 - Sprout UI kit review is local-only. `tools/art/sprout_integrate.py` extracts
   the UI pack, writes a gitignored `sprout_ui_manifest.json`, and generates UI
   contact sheets; `UIArtRegistry` falls back to cozy code-drawn panels and

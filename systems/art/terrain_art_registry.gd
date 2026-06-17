@@ -13,8 +13,15 @@ const TILE_SIZE := Vector2i(64, 48)
 ## blind full-pack replacement. Order: activated external -> generated -> missing.
 const EXTERNAL_ACTIVE_ROOT := "res://art/generated/from_external/active/"
 
+## Original, committable Hearthvale top-down tiles (generate_hearthvale_gap_assets.py).
+## In sprout-compatible modes these are preferred over the legacy 64x48 isometric
+## diamond art, so a clean checkout (no Sprout pack) still reads as a top-down world.
+const HEARTHVALE_TOPDOWN_ROOT := "res://art/generated/hearthvale/terrain/"
+const LEGACY_TILE_ROOT := "res://art/tiles/"
+
 ## Resolve a mapped art path through the preference order. Always returns a path
-## that exists (falls back to the obvious-but-safe missing placeholder).
+## that exists (falls back to the obvious-but-safe missing placeholder). Used for
+## transitions; terrain ids go through texture_path (which also prefers top-down).
 static func resolve_path(mapped_path: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> String:
 	var allow_licensed: bool = WorldProjection.is_sprout_compatible(projection_mode)
 	var override_path: String = ArtActivation.override_for(mapped_path, allow_licensed)
@@ -24,12 +31,19 @@ static func resolve_path(mapped_path: String, projection_mode: String = WorldPro
 		return mapped_path
 	return FALLBACK_PATH
 
-## Where a resolved path came from: "licensed", "external", "generated", "missing".
+static func _hearthvale_topdown_path(terrain_id: String, projection_mode: String) -> String:
+	if not WorldProjection.is_sprout_compatible(projection_mode):
+		return ""
+	var candidate: String = HEARTHVALE_TOPDOWN_ROOT + normalize_id(terrain_id) + ".png"
+	return candidate if FileAccess.file_exists(candidate) else ""
+
+## Where a resolved path came from: "licensed", "licensed_modified", "external",
+## "generated", "missing".
 static func source_of(resolved_path: String) -> String:
 	if resolved_path == FALLBACK_PATH:
 		return "missing"
 	if resolved_path.begins_with("res://licensed_assets/"):
-		return "licensed"
+		return "licensed_modified" if resolved_path.contains("/modified/") else "licensed"
 	if resolved_path.begins_with(EXTERNAL_ACTIVE_ROOT):
 		return "external"
 	return "generated"
@@ -90,7 +104,21 @@ static func normalize_id(terrain_id: String) -> String:
 	return String(terrain_id).strip_edges().to_lower()
 
 static func texture_path(terrain_id: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> String:
-	return resolve_path(String(TERRAIN_PATHS.get(normalize_id(terrain_id), FALLBACK_PATH)), projection_mode)
+	var nid: String = normalize_id(terrain_id)
+	var mapped: String = String(TERRAIN_PATHS.get(nid, FALLBACK_PATH))
+	# 1. Licensed (Sprout) / licensed_modified override — only in sprout-compatible modes.
+	var allow_licensed: bool = WorldProjection.is_sprout_compatible(projection_mode)
+	var override_path: String = ArtActivation.override_for(mapped, allow_licensed)
+	if not override_path.is_empty():
+		return override_path
+	# 2. Original Hearthvale top-down generated tile (preferred over legacy iso art).
+	var topdown: String = _hearthvale_topdown_path(nid, projection_mode)
+	if not topdown.is_empty():
+		return topdown
+	# 3. Legacy generated diamond art, then 4. missing placeholder.
+	if FileAccess.file_exists(mapped):
+		return mapped
+	return FALLBACK_PATH
 
 static func texture(terrain_id: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> Texture2D:
 	return load(texture_path(terrain_id, projection_mode)) as Texture2D
@@ -110,10 +138,12 @@ static func visual_for(terrain_id: String, tile: Vector2i = Vector2i.ZERO, proje
 		"texture": load(path) as Texture2D,
 		"fallback": path == FALLBACK_PATH,
 		"source": source,
-		# Generated fallback terrain is still 64x48 diamond art. In the live
-		# Sprout/top-down projection, the map draws a square color tile instead
-		# of forcing those legacy diamonds into the grid.
-		"render_sprite": not (bool(projection.get("sprout_compatible", false)) and source == "generated"),
+		# Only the LEGACY 64x48 isometric diamond art (res://art/tiles/...) is
+		# suppressed in the Sprout/top-down projection (the map draws a flat color
+		# square for it instead). Licensed Sprout tiles AND the original Hearthvale
+		# top-down generated tiles (res://art/generated/hearthvale/...) are real
+		# square top-down tiles, so they DO render as sprites.
+		"render_sprite": not (bool(projection.get("sprout_compatible", false)) and source == "generated" and path.begins_with(LEGACY_TILE_ROOT)),
 		"variation": variation_index(normalized_id, tile),
 		"tile_size": projection.get("sprite_canvas_size", TILE_SIZE),
 		"projection": projection,

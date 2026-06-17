@@ -64,14 +64,31 @@ text only, and the missing-art X never appears (slots check `source_of != missin
 Toolbar icons exist and resolve (`build_tool`, `delete`, `rotate`, `paint`) for a
 later, low-risk build/edit toolbar adoption - text labels stay either way.
 
-## Sprout UI Kit Fallback
+## Sprout UI Kit (local-only, fallback-safe)
 
-`systems/art/ui_art_registry.gd` can read local-only Sprout UI mappings from
-`licensed_assets/sprout_lands/sprout_ui_manifest.json`. The committed template
-is `art/sprout_ui_manifest.template.json`; it contains no active licensed
-paths.
+`UIArtRegistry` (`systems/art/ui_art_registry.gd`) resolves UI art in three
+tiers: **activated licensed Sprout UI → generated Hearthvale UI shape
+(`art/generated/hearthvale/ui/`) → cozy code-drawn `CozyUITheme`**. Missing ids
+never crash — they fall through to the code-drawn theme. The local mapping lives
+in the gitignored `licensed_assets/sprout_lands/sprout_ui_manifest.json`; the
+committed template `art/sprout_ui_manifest.template.json` has no active paths.
 
-Current panel styling remains `CozyUITheme` code-drawn by default. If a local
-manifest activates reviewed Sprout UI sprites later, panels can detect the
-source through `ui_art_source` metadata, but text readability, Esc behavior, and
-visible Close buttons take priority over using a sprite.
+### How the live wiring works
+
+Every panel already styles itself through `CozyUITheme` (`apply_panel`,
+`apply_button`, `apply_slot`, `apply_tab_button`, ...). Those helpers now ask
+`UIArtRegistry.texture_stylebox(id)` first: when a licensed Sprout UI asset is
+activated for that id they return a nine-patch `StyleBoxTexture` (with content
+margins so labels stay off the border); otherwise they return the existing
+code-drawn box. So a single switch point reskins the system menu, inventory,
+build menu, land panel, admin/worldbuilder panel, edit toolbar, terrain-paint
+controls, and quick tools at once — and a clean checkout (no Sprout) is
+unchanged.
+
+What is activated locally is deliberately conservative: the Sprout **panel**
+nine-slice (`dialog box`) and the **close** X — both confidently identifiable
+single assets. Button/slot SHEETS that don't divide cleanly headlessly stay
+**catalog-only** (manifest `candidates`) and keep the cozy code-drawn style;
+blocked/disabled states also stay code-drawn so "unavailable" always reads
+clearly. Text readability, Esc behavior, and visible Close buttons always take
+priority over a skin. Inspect tiers in `tools/art/asset_preview.tscn` (F6).

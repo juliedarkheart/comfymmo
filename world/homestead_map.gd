@@ -444,17 +444,21 @@ func _build_ground() -> void:
 			ground_tile.add_child(base)
 			_add_terrain_sprite(ground_tile, _terrain_id_for_tile(tile), tile)
 
-			var highlight := Polygon2D.new()
-			highlight.name = "Highlight"
-			highlight.polygon = _tile_inner_polygon(7.0)
-			highlight.color = _tile_highlight_color(tile)
-			ground_tile.add_child(highlight)
+			# In the Sprout/top-down projection the terrain sprite IS the tile art, so
+			# the legacy decorative highlight/patch (designed for the iso diamond) would
+			# just sit on top and obscure it. Keep them only in the legacy iso mode.
+			if not WorldProjection.is_sprout_compatible(visual_projection_mode()):
+				var highlight := Polygon2D.new()
+				highlight.name = "Highlight"
+				highlight.polygon = _tile_inner_polygon(7.0)
+				highlight.color = _tile_highlight_color(tile)
+				ground_tile.add_child(highlight)
 
-			var patch := Polygon2D.new()
-			patch.name = "Patch"
-			patch.polygon = _tile_detail_polygon()
-			patch.color = _tile_patch_color(tile)
-			ground_tile.add_child(patch)
+				var patch := Polygon2D.new()
+				patch.name = "Patch"
+				patch.polygon = _tile_detail_polygon()
+				patch.color = _tile_patch_color(tile)
+				ground_tile.add_child(patch)
 
 func _build_homestead_colliders() -> void:
 	_add_building(COTTAGE_ORIGIN, COTTAGE_FOOTPRINT, Color("#8f6f4f"), "Cottage")
