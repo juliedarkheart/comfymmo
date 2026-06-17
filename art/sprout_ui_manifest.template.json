@@ -1,0 +1,25 @@
+{
+  "_comment": "TRACKED TEMPLATE ONLY. The real local file is gitignored at licensed_assets/sprout_lands/sprout_ui_manifest.json. Keys are UI ids used by UIArtRegistry. Values in the real file are paths relative to licensed_assets/sprout_lands/ or full res:// paths. Keep active empty until UI sprites are manually reviewed for readability.",
+  "version": 1,
+  "pack": "Sprout Lands UI Pack (premium) by Cup Nooble",
+  "license": "Premium - local only, non-redistributable, credit Cup Nooble",
+  "active": {},
+  "candidate_ids": [
+    "panel",
+    "button",
+    "button_hover",
+    "slot",
+    "slot_selected",
+    "close",
+    "check",
+    "cursor",
+    "dialog_panel",
+    "inventory_panel",
+    "system_menu_panel",
+    "build_menu_panel"
+  ],
+  "example_active": {
+    "panel": "original/extracted_ui/Sprout Lands - UI Pack - Premium pack/UI Sprites/Dialouge UI/dialog box big.png",
+    "button": "original/extracted_ui/Sprout Lands - UI Pack - Premium pack/UI Sprites/buttons/square/Square Buttons 26x26.png"
+  }
+}

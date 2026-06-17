@@ -7,10 +7,11 @@ replace it later without rewriting placement, land, building, or map systems.
 
 ## Visual Target
 
-Hearthvale should read as a cozy 2D isometric village toybox: warm colors,
-chunky silhouettes, clear tile meanings, soft shadows, and friendly UI. The
-reference games are direction only. Do not copy, trace, rip, or use fan assets
-from existing IP.
+Hearthvale should read as a cozy Sprout-compatible top-down / gentle 3/4 village
+toybox: warm colors, chunky silhouettes, clear tile meanings, soft shadows, and
+friendly UI. The older 64x32 diamond isometric view is a legacy fallback, not
+the primary live visual direction. Reference games are direction only. Do not
+copy, trace, rip, or use fan assets from existing IP.
 
 Building logic can borrow the idea of gather, craft, place, move, rotate, and
 delete from survival builders, but the visual style stays cute, readable, and
@@ -47,9 +48,12 @@ rendering keep working with no code changes. Run it with
 
 ## Sizes And Anchors
 
-Current placeholder targets:
+Current targets:
 
-- Terrain tile PNG: `64x48`, centered on the isometric tile.
+- Primary Sprout terrain tile PNG: `32x32`, centered on the square tile.
+- Generated fallback terrain PNG: `64x48`, kept for legacy iso/fallback review;
+  in the live Sprout/top-down projection the map draws square color tiles
+  instead of forcing those legacy diamonds into the grid.
 - Object sprite PNG: `96x96`, bottom/center-friendly, contact shadow near the
   parent tile origin.
 - UI icon PNG: `64x64`, centered.
@@ -62,6 +66,26 @@ Anchor rules:
   tile origin.
 - Final art should preserve the same visible contact point even if resolution
   changes.
+
+## Logical Grid Vs Visual Projection
+
+Gameplay keeps using the logical tile grid for placement, land ownership,
+terrain paint, minimap records, and interactions. Visual projection is a
+separate helper in `systems/world/world_projection.gd`.
+
+Supported modes:
+
+- `sprout_topdown`: the primary live visual mode, using reviewed 32x32
+  Sprout-compatible top-down tiles on the unchanged gameplay grid.
+- `iso_64x32`: the legacy Hearthvale fallback, matching the older 64x32
+  isometric grid.
+- `topdown_16`: 16x16 top-down mode for non-Sprout packs.
+- `topdown_32`: 32x32 top-down mode for larger square tiles.
+
+The live overworld renders through `sprout_topdown`. This changes drawing and
+pick-projection only; it does not rewrite placement, land ownership, minimap,
+terrain paint, or save data. `iso_64x32` stays available as a legacy/fallback
+mode, and licensed Sprout terrain is not allowed to leak into that mode.
 
 ## Godot Import Settings
 
@@ -170,3 +194,22 @@ external derivative → generated placeholder → missing fallback**, where
 not merely present on disk. Empty manifest = all generated. Full details and the
 `tools/art/` helpers (`import_asset_pack.py`, `make_asset_contact_sheet.py`,
 `slice_spritesheet.py`) are in `docs/asset_review_workflow.md`.
+
+## Licensed (premium, local-only) layer
+
+There is a third, highest-priority resolution tier for **paid /
+non-redistributable** packs (e.g. Sprout Lands by Cup Nooble): full order is
+**local licensed → redistributable external → generated → missing**. The licensed
+manifest + assets live under the gitignored `licensed_assets/` and are never
+committed; a clean checkout falls straight through to the generated art. Tooling
+is `tools/art/sprout_integrate.py`. Full rules: docs/licensed_asset_policy.md.
+
+Reviewed Sprout terrain currently activates only obvious single-tile mappings:
+meadow grass, water, and creek. Other terrain sheets remain catalog/review
+material until a human picks safe cells. Sprout UI kit assets follow the same
+local-only rule. The local manifest is
+`licensed_assets/sprout_lands/sprout_ui_manifest.json`; the tracked template is
+`art/sprout_ui_manifest.template.json`. `UIArtRegistry` resolves local activated
+Sprout UI first, then generated icon fallback, then code-drawn/missing fallback.
+The default local manifest keeps `active` empty until manual review confirms the
+sprites help readability.

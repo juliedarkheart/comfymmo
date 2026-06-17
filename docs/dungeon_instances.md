@@ -5,6 +5,10 @@ Dungeons are still future work.
 This document exists so the current building, land, and interior decisions do
 not accidentally block them.
 
+The local Sprout Sorry pack catalog, if present, is review inventory only. Its
+dungeon images/audio/contact sheets do not create dungeon entrances, enemies,
+combat, loot, quests, economy, or runtime audio.
+
 ## Core rule
 
 Dungeons are planned as separate instances, not as part of the outdoor build

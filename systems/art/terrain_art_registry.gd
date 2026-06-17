@@ -15,18 +15,21 @@ const EXTERNAL_ACTIVE_ROOT := "res://art/generated/from_external/active/"
 
 ## Resolve a mapped art path through the preference order. Always returns a path
 ## that exists (falls back to the obvious-but-safe missing placeholder).
-static func resolve_path(mapped_path: String) -> String:
-	var override_path: String = ArtActivation.override_for(mapped_path)
+static func resolve_path(mapped_path: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> String:
+	var allow_licensed: bool = WorldProjection.is_sprout_compatible(projection_mode)
+	var override_path: String = ArtActivation.override_for(mapped_path, allow_licensed)
 	if not override_path.is_empty():
 		return override_path
 	if FileAccess.file_exists(mapped_path):
 		return mapped_path
 	return FALLBACK_PATH
 
-## Where a resolved path came from: "external", "generated", or "missing".
+## Where a resolved path came from: "licensed", "external", "generated", "missing".
 static func source_of(resolved_path: String) -> String:
 	if resolved_path == FALLBACK_PATH:
 		return "missing"
+	if resolved_path.begins_with("res://licensed_assets/"):
+		return "licensed"
 	if resolved_path.begins_with(EXTERNAL_ACTIVE_ROOT):
 		return "external"
 	return "generated"
@@ -86,37 +89,46 @@ static func required_ids() -> Array[String]:
 static func normalize_id(terrain_id: String) -> String:
 	return String(terrain_id).strip_edges().to_lower()
 
-static func texture_path(terrain_id: String) -> String:
-	return resolve_path(String(TERRAIN_PATHS.get(normalize_id(terrain_id), FALLBACK_PATH)))
+static func texture_path(terrain_id: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> String:
+	return resolve_path(String(TERRAIN_PATHS.get(normalize_id(terrain_id), FALLBACK_PATH)), projection_mode)
 
-static func texture(terrain_id: String) -> Texture2D:
-	return load(texture_path(terrain_id)) as Texture2D
+static func texture(terrain_id: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> Texture2D:
+	return load(texture_path(terrain_id, projection_mode)) as Texture2D
 
 static func variation_index(terrain_id: String, tile: Vector2i) -> int:
 	var hash_value: int = hash("%s:%d:%d" % [normalize_id(terrain_id), tile.x, tile.y])
 	return absi(hash_value) % 4
 
-static func visual_for(terrain_id: String, tile: Vector2i = Vector2i.ZERO) -> Dictionary:
+static func visual_for(terrain_id: String, tile: Vector2i = Vector2i.ZERO, projection_mode: String = WorldProjection.DEFAULT_MODE) -> Dictionary:
 	var normalized_id: String = normalize_id(terrain_id)
-	var path: String = texture_path(normalized_id)
+	var path: String = texture_path(normalized_id, projection_mode)
+	var projection: Dictionary = WorldProjection.visual_hints(projection_mode)
+	var source: String = source_of(path)
 	return {
 		"id": normalized_id,
 		"path": path,
 		"texture": load(path) as Texture2D,
 		"fallback": path == FALLBACK_PATH,
+		"source": source,
+		# Generated fallback terrain is still 64x48 diamond art. In the live
+		# Sprout/top-down projection, the map draws a square color tile instead
+		# of forcing those legacy diamonds into the grid.
+		"render_sprite": not (bool(projection.get("sprout_compatible", false)) and source == "generated"),
 		"variation": variation_index(normalized_id, tile),
-		"tile_size": TILE_SIZE,
+		"tile_size": projection.get("sprite_canvas_size", TILE_SIZE),
+		"projection": projection,
 	}
 
-static func make_tile_sprite(terrain_id: String, tile: Vector2i = Vector2i.ZERO) -> Sprite2D:
-	var visual: Dictionary = visual_for(terrain_id, tile)
+static func make_tile_sprite(terrain_id: String, tile: Vector2i = Vector2i.ZERO, projection_mode: String = WorldProjection.DEFAULT_MODE) -> Sprite2D:
+	var visual: Dictionary = visual_for(terrain_id, tile, projection_mode)
 	var tex: Texture2D = visual.get("texture", null) as Texture2D
-	if tex == null:
+	if tex == null or not bool(visual.get("render_sprite", true)):
 		return null
 	var sprite := Sprite2D.new()
 	sprite.name = "TerrainArt_%s" % String(visual.get("id", "unknown"))
 	sprite.texture = tex
 	sprite.centered = true
+	sprite.scale = (visual.get("projection", {}) as Dictionary).get("sprite_scale", Vector2.ONE) as Vector2
 	sprite.z_index = -1
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	return sprite

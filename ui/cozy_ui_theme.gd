@@ -21,6 +21,13 @@ const HONEY: Color = Color("#e0a64b")           # accent / headings
 const GOOD: Color = Color("#5f9150")            # affordable / allowed
 const BAD: Color = Color("#b5563f")             # blocked / missing
 
+static func active_ui_source() -> String:
+	return UIArtRegistry.active_source()
+
+static func _tag_ui_source(control: Control) -> void:
+	if control != null:
+		control.set_meta("ui_art_source", active_ui_source())
+
 static func panel_style(fill: Color = PARCHMENT) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill
@@ -62,16 +69,19 @@ static func slot_style(selected: bool = false, blocked: bool = false) -> StyleBo
 static func apply_panel(panel: Control, fill: Color = PARCHMENT) -> void:
 	if panel == null:
 		return
+	_tag_ui_source(panel)
 	panel.add_theme_stylebox_override("panel", panel_style(fill))
 
 static func apply_hud_panel(panel: Control) -> void:
 	if panel == null:
 		return
+	_tag_ui_source(panel)
 	panel.add_theme_stylebox_override("panel", hud_panel_style())
 
 static func apply_slot(panel: Control, selected: bool = false, blocked: bool = false) -> void:
 	if panel == null:
 		return
+	_tag_ui_source(panel)
 	panel.add_theme_stylebox_override("panel", slot_style(selected, blocked))
 
 static func heading(text: String, size: int = 18) -> Label:
@@ -101,6 +111,7 @@ static func apply_secondary_label(label: Label, size: int = 12, on_dark: bool = 
 static func apply_button(button: Button) -> void:
 	if button == null:
 		return
+	_tag_ui_source(button)
 	button.add_theme_color_override("font_color", INK)
 	button.add_theme_color_override("font_hover_color", BORDER)
 	button.add_theme_stylebox_override("normal", slot_style(false))

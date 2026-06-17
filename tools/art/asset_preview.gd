@@ -17,9 +17,10 @@ const ICON_IDS: Array[String] = [
 func _ready() -> void:
 	var rows: VBoxContainer = $Scroll/Rows
 	rows.add_theme_constant_override("separation", 12)
-	var active: int = ArtActivation.active_count()
+	var licensed: int = ArtActivation.licensed_count()
+	var external: int = ArtActivation.active_count()
 	_add_title(rows, "Hearthvale Asset Preview")
-	_add_note(rows, "Showing ACTIVE art. %d external override(s) active; everything else uses the cozy generated placeholders. Run with F6." % active)
+	_add_note(rows, "Showing ACTIVE art. %d licensed (Sprout, local) + %d external override(s) active; everything else uses the cozy generated placeholders. Sources are tagged below. Run with F6." % [licensed, external])
 
 	_add_heading(rows, "Isometric tessellation (terrain tiles)")
 	rows.add_child(_iso_cluster())
@@ -27,6 +28,7 @@ func _ready() -> void:
 	_add_terrain_section(rows, "Terrain tiles", TerrainArtRegistry.required_ids())
 	_add_object_section(rows, "Objects & prefabs", ObjectArtRegistry.required_ids())
 	_add_object_section(rows, "UI / tool icons", ICON_IDS)
+	_add_ui_section(rows, "Sprout UI kit candidates", UIArtRegistry.required_ids())
 
 # --- sections ---------------------------------------------------------------
 
@@ -54,6 +56,18 @@ func _add_object_section(parent: VBoxContainer, title: String, ids: Array) -> vo
 		var path: String = ObjectArtRegistry.texture_path(id)
 		grid.add_child(_tile(load(path) as Texture2D, id, ObjectArtRegistry.source_of(path)))
 
+func _add_ui_section(parent: VBoxContainer, title: String, ids: Array) -> void:
+	_add_heading(parent, title)
+	var grid := GridContainer.new()
+	grid.columns = 8
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	parent.add_child(grid)
+	for id_variant in ids:
+		var id: String = String(id_variant)
+		var path: String = UIArtRegistry.texture_path(id)
+		grid.add_child(_tile(load(path) as Texture2D, id, UIArtRegistry.source_of(path)))
+
 func _tile(texture: Texture2D, id: String, source: String) -> Control:
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(104, 116)
@@ -76,7 +90,7 @@ func _tile(texture: Texture2D, id: String, source: String) -> Control:
 	src_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	src_label.add_theme_font_size_override("font_size", 9)
 	src_label.add_theme_color_override("font_color",
-		CozyUITheme.BAD if source == "missing" else (CozyUITheme.HONEY if source == "external" else CozyUITheme.GOOD))
+		CozyUITheme.BAD if source == "missing" else (CozyUITheme.HONEY if source == "external" or source == "licensed_ui" else CozyUITheme.GOOD))
 	box.add_child(src_label)
 	return box
 

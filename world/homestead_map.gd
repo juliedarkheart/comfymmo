@@ -3,6 +3,7 @@ class_name HomesteadMap
 
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
+const VISUAL_PROJECTION_MODE := WorldProjection.DEFAULT_MODE
 const MAP_WIDTH := 22
 const MAP_HEIGHT := 18
 const COTTAGE_ORIGIN := Vector2i(6, 6)
@@ -84,8 +85,11 @@ func _apron_color(tile: Vector2i) -> Color:
 		return Color("#74a25e")
 	return Color("#6c9954")
 
+func visual_projection_mode() -> String:
+	return VISUAL_PROJECTION_MODE
+
 func terrain_visual_for(terrain_id: String, tile: Vector2i = Vector2i.ZERO) -> Dictionary:
-	return TerrainArtRegistry.visual_for(terrain_id, tile)
+	return TerrainArtRegistry.visual_for(terrain_id, tile, visual_projection_mode())
 
 func _terrain_id_for_tile(tile: Vector2i) -> String:
 	if _apron_is_road(tile) or (tile.y in PATH_ROW_RANGE and tile.x >= COTTAGE_ORIGIN.x):
@@ -97,7 +101,7 @@ func _terrain_id_for_tile(tile: Vector2i) -> String:
 	return "meadow"
 
 func _add_terrain_sprite(parent: Node2D, terrain_id: String, tile: Vector2i) -> void:
-	var sprite := TerrainArtRegistry.make_tile_sprite(terrain_id, tile)
+	var sprite := TerrainArtRegistry.make_tile_sprite(terrain_id, tile, visual_projection_mode())
 	if sprite != null:
 		parent.add_child(sprite)
 
@@ -321,10 +325,10 @@ func _add_field_fence(parent: Node2D, world_pos: Vector2) -> void:
 	fence.add_child(rail)
 
 func grid_to_world(tile: Vector2i) -> Vector2:
-	return IsoMapHelpers.grid_to_world(tile, TILE_WIDTH, TILE_HEIGHT)
+	return WorldProjection.tile_to_world(tile, visual_projection_mode())
 
 func world_to_grid(position: Vector2) -> Vector2i:
-	return IsoMapHelpers.world_to_grid(position, TILE_WIDTH, TILE_HEIGHT)
+	return WorldProjection.world_to_tile(position, visual_projection_mode())
 
 func get_spawn_position(spawn_id: String = "default") -> Vector2:
 	return grid_to_world(get_spawn_tile(spawn_id))
@@ -442,26 +446,13 @@ func _build_ground() -> void:
 
 			var highlight := Polygon2D.new()
 			highlight.name = "Highlight"
-			highlight.position = Vector2(0, -3)
-			highlight.polygon = PackedVector2Array([
-				Vector2(0, -11),
-				Vector2(24, 0),
-				Vector2(0, 6),
-				Vector2(-24, 0),
-			])
+			highlight.polygon = _tile_inner_polygon(7.0)
 			highlight.color = _tile_highlight_color(tile)
 			ground_tile.add_child(highlight)
 
 			var patch := Polygon2D.new()
 			patch.name = "Patch"
-			patch.position = Vector2(0, 2)
-			patch.polygon = PackedVector2Array([
-				Vector2(0, -6),
-				Vector2(10, -1),
-				Vector2(8, 6),
-				Vector2(-8, 6),
-				Vector2(-10, -1),
-			])
+			patch.polygon = _tile_detail_polygon()
 			patch.color = _tile_patch_color(tile)
 			ground_tile.add_child(patch)
 
@@ -800,4 +791,23 @@ func _tile_patch_color(tile: Vector2i) -> Color:
 	return Color("#94b66d")
 
 func _tile_diamond() -> PackedVector2Array:
-	return IsoMapHelpers.tile_diamond(TILE_WIDTH, TILE_HEIGHT)
+	return WorldProjection.tile_polygon(visual_projection_mode())
+
+func _tile_inner_polygon(inset: float = 5.0) -> PackedVector2Array:
+	return WorldProjection.tile_polygon(visual_projection_mode(), inset)
+
+func _tile_detail_polygon() -> PackedVector2Array:
+	if WorldProjection.is_sprout_compatible(visual_projection_mode()):
+		return PackedVector2Array([
+			Vector2(-7, -4),
+			Vector2(7, -4),
+			Vector2(8, 4),
+			Vector2(-8, 4),
+		])
+	return PackedVector2Array([
+		Vector2(0, -6),
+		Vector2(10, -1),
+		Vector2(8, 6),
+		Vector2(-8, 6),
+		Vector2(-10, -1),
+	])

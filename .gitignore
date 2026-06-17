@@ -17,3 +17,12 @@ Thumbs.db
 .env
 .env.*
 
+# Premium / non-redistributable LICENSED assets — LOCAL ONLY, NEVER COMMIT.
+# Sprout Lands (Cup Nooble) and any other paid/non-redistributable packs live
+# here, including originals, normalized derivatives, contact sheets, and the
+# local activation manifest. The clean checkout must work without these.
+licensed_assets/
+art/licensed_local/
+# Source/editor art files that may ship inside licensed packs.
+*.aseprite
+

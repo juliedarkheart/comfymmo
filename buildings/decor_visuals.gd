@@ -238,5 +238,5 @@ static func _shell(parent: Node2D, wall: Color, roof: Color, has_chimney: bool) 
 	_poly(parent, PackedVector2Array([Vector2(-6, 12), Vector2(6, 12), Vector2(6, 16), Vector2(-6, 16)]), CREAM)
 
 static func _terrain_tile(parent: Node2D, base: Color, edge: Color) -> void:
-	_poly(parent, PackedVector2Array([Vector2(0, -16), Vector2(30, 0), Vector2(0, 16), Vector2(-30, 0)]), edge)
-	_poly(parent, PackedVector2Array([Vector2(0, -13), Vector2(26, 0), Vector2(0, 13), Vector2(-26, 0)]), base)
+	_poly(parent, WorldProjection.tile_polygon(WorldProjection.DEFAULT_MODE), edge)
+	_poly(parent, WorldProjection.tile_polygon(WorldProjection.DEFAULT_MODE, 3.0), base)

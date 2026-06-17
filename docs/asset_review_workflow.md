@@ -57,10 +57,10 @@ art/active_art_manifest.json     the ONLY switch that makes external art live
 
 ## Why unlabeled sheets aren't auto-wired
 
-A packed sheet has no semantic names — cell N could be a wall, a barrel, or a
-roof corner. Wiring by guess (especially top-down art onto a 64×32 isometric
-world) tends to look worse than the cozy generated art, and can't be judged
-headlessly. So activation is always a deliberate, post-review step.
+A packed sheet has no semantic names - cell N could be a wall, a barrel, or a
+roof corner. Wiring by guess tends to look worse than the cozy generated art and
+can't be judged headlessly. So activation is always a deliberate, post-review
+step.
 
 ## ComfyUI / future art
 
@@ -68,3 +68,32 @@ The same path works for generated art: render sprites, drop them under
 `art/generated/from_external/active/<mirror>` (or straight into `art/...` to
 replace a placeholder), review via the contact sheet + preview scene, and
 activate. No gameplay code changes — it's all data + the activation manifest.
+
+## Premium / non-redistributable packs
+
+Paid packs that can't be redistributed (e.g. Sprout Lands by Cup Nooble) use the
+SAME review path but stay **local-only / gitignored** under `licensed_assets/`,
+with their own local `sprout_active_manifest.json`. They resolve at the highest
+priority (local licensed -> external -> generated -> missing). See
+docs/licensed_asset_policy.md.
+
+## Sprout UI and animation catalog
+
+For Sprout UI, run `python tools/art/sprout_integrate.py`. It extracts the UI
+zip locally, writes `licensed_assets/sprout_lands/sprout_ui_manifest.json`, and
+generates contact sheets under `licensed_assets/sprout_lands/contact_sheets/ui/`.
+The UI manifest's `active` map should stay empty until a human confirms the UI
+sprites improve readability over the cozy code-drawn fallback. The art manifest
+activates only reviewed Sprout/top-down ids; today that includes 9 object ids, 6
+icon ids, and the single-tile terrain ids `meadow`, `water`, and `creek`.
+
+The same command writes a local animation inventory at
+`licensed_assets/sprout_lands/manifests/animations_inventory.json` plus contact
+sheets under `contact_sheets/animations/`. This is catalog prep only, not runtime
+animation wiring.
+
+If `Sprout Sorry pack.zip` is present locally, the same command extracts/catalogs
+it under `licensed_assets/sprout_lands/contact_sheets/sorry/` and writes
+`licensed_assets/sprout_lands/manifests/audio_inventory.json`. That inventory is
+catalog-only: no runtime audio, combat, enemy, dungeon gameplay, or economy
+wiring is implied.

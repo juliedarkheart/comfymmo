@@ -47,12 +47,7 @@ func _ensure_selection_highlight() -> void:
 		return
 	_selection_fill = Polygon2D.new()
 	_selection_fill.name = "SelectionFill"
-	_selection_fill.polygon = PackedVector2Array([
-		Vector2(0, -6),
-		Vector2(28, 8),
-		Vector2(0, 22),
-		Vector2(-28, 8),
-	])
+	_selection_fill.polygon = WorldProjection.tile_polygon(WorldProjection.DEFAULT_MODE, 2.0)
 	_selection_fill.color = Color(1.0, 0.9, 0.45, 0.24)
 	_selection_fill.visible = false
 	_selection_fill.z_index = -1
@@ -64,12 +59,7 @@ func _ensure_selection_highlight() -> void:
 	_selection_outline.closed = true
 	_selection_outline.visible = false
 	_selection_outline.z_index = -1
-	_selection_outline.points = PackedVector2Array([
-		Vector2(0, -6),
-		Vector2(28, 8),
-		Vector2(0, 22),
-		Vector2(-28, 8),
-	])
+	_selection_outline.points = WorldProjection.tile_polygon(WorldProjection.DEFAULT_MODE, 2.0)
 	add_child(_selection_outline)
 
 func _art_object_id() -> String:

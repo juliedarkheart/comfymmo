@@ -1,0 +1,17 @@
+{
+  "_comment": "Tracked example only. The real local inventory is gitignored at licensed_assets/sprout_lands/manifests/animations_inventory.json.",
+  "version": 1,
+  "pack": "Sprout Lands local animation scan",
+  "categories": {
+    "water": [],
+    "crops": [],
+    "trees": [],
+    "tools": [],
+    "characters": [],
+    "doors_chests_mailbox": []
+  },
+  "notes": [
+    "Catalog only. Do not broadly wire animations in the Sprout compatibility pass.",
+    "No combat, creature, or dungeon animation work is implied by this file."
+  ]
+}

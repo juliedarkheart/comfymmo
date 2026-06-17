@@ -4,7 +4,9 @@
 
 This branch now has a first reusable Hearthvale visual direction:
 
-- `docs/visual_identity.md` defines the cozy 2D isometric storybook target.
+- `docs/visual_identity.md` defines the cozy 2D storybook target; the live view
+  is now Sprout-compatible top-down / gentle 3/4, with the older 64x32 iso view
+  kept as a fallback.
 - `docs/ui_style_guide.md` defines shared parchment/wood/honey panel styling,
   slots, tabs, selected states, and close-path expectations.
 - `docs/world_art_direction.md` defines terrain, biome, path, water, road, and
@@ -113,6 +115,9 @@ corner posts (not grey, not a debug line).
   control surfaces
 - the current PNG art is placeholder foundation art, not final production art
 - terrain transitions are scaffolded assets/helpers, not full autotiling
+- Sprout UI kit and animation catalog outputs are local review artifacts only;
+  the committed build must still run with generated placeholders when
+  `licensed_assets/` is absent.
 
 ## Manual test checklist
 
@@ -187,7 +192,38 @@ It is not claiming readiness for:
   activation layer (`art/active_art_manifest.json` + `ArtActivation`). The
   registries only use an external derivative when it's listed in the manifest, so
   imported packs can't blind-replace the cozy generated art.
-- The Kenney CC0 RPG sheet has a review contact sheet (64×64 cells) but is **not
-  activated** (top-down/medieval, not cozy-iso). No external art is active; the
-  generated placeholders remain the in-game look. Validation asserts the review
-  docs/dir, the activation manifest parses, and the safe (generated) default.
+- The Kenney CC0 RPG sheet has a review contact sheet (64x64 cells) but is **not
+  activated** (medieval/RPG cells still need semantic review). No redistributable
+  external art is active. Validation asserts the review docs/dir, the activation
+  manifest parses, and the safe generated default works.
+
+## Licensed assets (Sprout Lands, local-only)
+
+- The premium **Sprout Lands** pack (Cup Nooble) is integrated **locally and
+  gitignored** - never committed (non-redistributable license; credit required,
+  in docs/asset_credits.md). 18 ids are wired locally: 9 objects, 6 icons, and
+  reviewed top-down terrain for meadow/water/creek. Inventory icons, registry
+  placeables, and those terrain tiles can show Sprout art when the local pack is
+  present; clean checkout falls back safely.
+- Projection compatibility now lives in `systems/world/world_projection.gd`.
+  The live overworld uses `sprout_topdown` drawing on the same gameplay grid.
+  The old `iso_64x32` path remains as a legacy/fallback projection.
+- Sprout UI kit review is local-only. `tools/art/sprout_integrate.py` extracts
+  the UI pack, writes a gitignored `sprout_ui_manifest.json`, and generates UI
+  contact sheets; `UIArtRegistry` falls back to cozy code-drawn panels and
+  generated icons unless a reviewed local manifest activates specific sprites.
+- Sprout animation sheets are cataloged locally under
+  `licensed_assets/sprout_lands/manifests/animations_inventory.json` with
+  contact sheets under `contact_sheets/animations/`. They are not wired into
+  runtime animation yet.
+- If the local Sprout Sorry pack zip is present, it is cataloged under
+  `contact_sheets/sorry/` and `manifests/audio_inventory.json` only. This does
+  not add runtime audio, combat, enemies, dungeon gameplay, quests, or economy.
+- Sprout terrain is deliberately limited to reviewed single-tile mappings
+  (`meadow`, `water`, `creek`) and only in Sprout-compatible projection modes.
+  Modular/custom building pieces still do not require interiors or Sprout art.
+- Validation asserts `licensed_assets/` is gitignored, the tracked template
+  manifest has no real mappings, a present pack has license metadata + existing
+  mapped files, and (proven by hiding the manifest) a clean checkout with no
+  pack still passes and falls back to generated. Inspect in-engine via
+  `tools/art/asset_preview.tscn` (F6) — Sprout ids show a "licensed" tag.

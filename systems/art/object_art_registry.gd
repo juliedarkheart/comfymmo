@@ -24,6 +24,8 @@ static func resolve_path(mapped_path: String) -> String:
 static func source_of(resolved_path: String) -> String:
 	if resolved_path == FALLBACK_PATH:
 		return "missing"
+	if resolved_path.begins_with("res://licensed_assets/"):
+		return "licensed"
 	if resolved_path.begins_with(EXTERNAL_ACTIVE_ROOT):
 		return "external"
 	return "generated"

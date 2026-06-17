@@ -62,4 +62,16 @@ Inventory slots now show a cozy `ObjectArtRegistry` icon above the name/count
 when one resolves (materials, crops, tools, land token); items with no icon keep
 text only, and the missing-art X never appears (slots check `source_of != missing`).
 Toolbar icons exist and resolve (`build_tool`, `delete`, `rotate`, `paint`) for a
-later, low-risk build/edit toolbar adoption — text labels stay either way.
+later, low-risk build/edit toolbar adoption - text labels stay either way.
+
+## Sprout UI Kit Fallback
+
+`systems/art/ui_art_registry.gd` can read local-only Sprout UI mappings from
+`licensed_assets/sprout_lands/sprout_ui_manifest.json`. The committed template
+is `art/sprout_ui_manifest.template.json`; it contains no active licensed
+paths.
+
+Current panel styling remains `CozyUITheme` code-drawn by default. If a local
+manifest activates reviewed Sprout UI sprites later, panels can detect the
+source through `ui_art_source` metadata, but text readability, Esc behavior, and
+visible Close buttons take priority over using a sprite.

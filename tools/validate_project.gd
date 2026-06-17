@@ -13,8 +13,10 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://world/terrain_shapes.gd",
 	"res://world/iso_map_helpers.gd",
 	"res://world/outdoor_controller_helpers.gd",
+	"res://systems/world/world_projection.gd",
 	"res://systems/art/terrain_art_registry.gd",
 	"res://systems/art/object_art_registry.gd",
+	"res://systems/art/ui_art_registry.gd",
 	"res://systems/art/art_activation.gd",
 	"res://tools/art/asset_preview.tscn",
 	"res://systems/content/content_ids.gd",
@@ -109,11 +111,14 @@ const RESOURCE_PATHS: Array[String] = [
 const VISUAL_DOC_CHECKS := {
 	"res://docs/visual_identity.md": ["cozy 2D isometric", "storybook", "plot boundary", "no harsh debug"],
 	"res://docs/ui_style_guide.md": ["cozy_ui_theme.gd", "Close", "selected", "unavailable"],
-	"res://docs/world_art_direction.md": ["meadow", "forest", "creekside", "terrain_color", "minimap"],
+	"res://docs/world_art_direction.md": ["meadow", "forest", "creekside", "sprout_topdown", "minimap"],
 	"res://docs/building_art_direction.md": ["foundation", "wall", "prefab", "modular", "interiors"],
-	"res://docs/graphics_pipeline.md": ["terrain_art_registry.gd", "object_art_registry.gd", "fallback", "replacement order"],
+	"res://docs/graphics_pipeline.md": ["terrain_art_registry.gd", "object_art_registry.gd", "fallback", "sprout_topdown"],
 	"res://docs/asset_credits.md": ["no third-party assets", "CC0", "art/external", "license"],
 	"res://docs/asset_review_workflow.md": ["contact sheet", "active_art_manifest.json", "art/review", "not auto-wired"],
+	"res://docs/licensed_asset_policy.md": ["Cup Nooble", "non-redistributable", "licensed_assets/", "ArtActivation"],
+	"res://docs/examples/sprout_animation_manifest.example.json": ["Catalog only", "animations_inventory.json", "No combat"],
+	"res://docs/examples/sprout_audio_inventory.example.json": ["Catalog only", "audio_inventory.json", "No runtime audio"],
 }
 
 const REQUIRED_ART_DIRS: Array[String] = [
@@ -349,6 +354,51 @@ func _initialize() -> void:
 		push_error(external_error)
 		quit(1)
 		return
+	for projection_mode in [WorldProjection.MODE_ISO_64X32, WorldProjection.MODE_SPROUT_TOPDOWN, WorldProjection.MODE_TOPDOWN_16, WorldProjection.MODE_TOPDOWN_32]:
+		if not WorldProjection.supported_modes().has(projection_mode):
+			push_error("WorldProjection missing supported mode: %s" % projection_mode)
+			quit(1)
+			return
+	if WorldProjection.DEFAULT_MODE != WorldProjection.MODE_SPROUT_TOPDOWN:
+		push_error("WorldProjection default must be the live Sprout/top-down mode")
+		quit(1)
+		return
+	if not WorldProjection.is_primary_mode(WorldProjection.MODE_SPROUT_TOPDOWN) or not WorldProjection.is_legacy_mode(WorldProjection.MODE_ISO_64X32):
+		push_error("WorldProjection primary/legacy flags regressed")
+		quit(1)
+		return
+	var iso_projection_tile := Vector2i(4, 7)
+	if WorldProjection.world_to_tile(WorldProjection.tile_to_world(iso_projection_tile, WorldProjection.MODE_ISO_64X32), WorldProjection.MODE_ISO_64X32) != iso_projection_tile:
+		push_error("WorldProjection iso_64x32 round-trip failed")
+		quit(1)
+		return
+	var topdown_projection_tile := Vector2i(5, 6)
+	if WorldProjection.tile_size(WorldProjection.MODE_SPROUT_TOPDOWN) != Vector2i(32, 32) or WorldProjection.sprite_canvas_size(WorldProjection.MODE_SPROUT_TOPDOWN) != Vector2i(32, 32):
+		push_error("WorldProjection sprout_topdown must use the reviewed 32x32 live tile size")
+		quit(1)
+		return
+	if WorldProjection.tile_to_world(topdown_projection_tile, WorldProjection.MODE_SPROUT_TOPDOWN) != Vector2(160, 192):
+		push_error("WorldProjection sprout_topdown tile_to_world did not use 32x32 top-down spacing")
+		quit(1)
+		return
+	if WorldProjection.world_to_tile(Vector2(160, 192), WorldProjection.MODE_SPROUT_TOPDOWN) != topdown_projection_tile:
+		push_error("WorldProjection sprout_topdown world_to_tile failed")
+		quit(1)
+		return
+	if not WorldProjection.is_sprout_compatible(WorldProjection.MODE_SPROUT_TOPDOWN) or WorldProjection.is_sprout_compatible(WorldProjection.MODE_ISO_64X32):
+		push_error("WorldProjection sprout compatibility flags regressed")
+		quit(1)
+		return
+	var sprout_tile_poly: PackedVector2Array = WorldProjection.tile_polygon(WorldProjection.MODE_SPROUT_TOPDOWN)
+	if sprout_tile_poly.size() != 4 or sprout_tile_poly[0] != Vector2(-16, -16) or sprout_tile_poly[2] != Vector2(16, 16):
+		push_error("WorldProjection sprout_topdown tile polygon must be a centered 32x32 square")
+		quit(1)
+		return
+	var iso_tile_poly: PackedVector2Array = WorldProjection.tile_polygon(WorldProjection.MODE_ISO_64X32)
+	if iso_tile_poly.size() != 4 or iso_tile_poly[0].x != 0:
+		push_error("WorldProjection iso_64x32 polygon must keep the legacy diamond")
+		quit(1)
+		return
 	if TerrainArtRegistry.texture_path("__invalid_terrain__") != TerrainArtRegistry.FALLBACK_PATH:
 		push_error("TerrainArtRegistry invalid id did not return fallback path")
 		quit(1)
@@ -375,6 +425,21 @@ func _initialize() -> void:
 	var transition_visual: Dictionary = TerrainArtRegistry.transition_visual("meadow", "water")
 	if String(transition_visual.get("id", "")) != "grass_to_water" or transition_visual.get("texture", null) == null:
 		push_error("TerrainArtRegistry transition helper did not return a safe grass_to_water visual")
+		quit(1)
+		return
+	var sprout_terrain_visual: Dictionary = TerrainArtRegistry.visual_for("meadow", Vector2i.ZERO, WorldProjection.MODE_SPROUT_TOPDOWN)
+	var sprout_projection: Dictionary = sprout_terrain_visual.get("projection", {}) as Dictionary
+	if not bool(sprout_projection.get("sprout_compatible", false)) or sprout_projection.get("sprite_canvas_size", Vector2i.ZERO) != Vector2i(32, 32):
+		push_error("TerrainArtRegistry did not carry Sprout/top-down projection hints safely")
+		quit(1)
+		return
+	var generated_forest_visual: Dictionary = TerrainArtRegistry.visual_for("forest", Vector2i.ZERO, WorldProjection.MODE_SPROUT_TOPDOWN)
+	if TerrainArtRegistry.source_of(String(generated_forest_visual.get("path", ""))) != "generated" or bool(generated_forest_visual.get("render_sprite", true)):
+		push_error("Generated 64x48 terrain fallback should not render as a sprite in Sprout/top-down mode")
+		quit(1)
+		return
+	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow", WorldProjection.MODE_ISO_64X32)) == "licensed":
+		push_error("Sprout licensed terrain must not activate in legacy iso_64x32 mode")
 		quit(1)
 		return
 	if ObjectArtRegistry.texture_path("__invalid_object__") != ObjectArtRegistry.FALLBACK_PATH:
@@ -408,11 +473,12 @@ func _initialize() -> void:
 		quit(1)
 		return
 	registry_sprite.free()
-	# External-preference resolver: with no imported derivative, a real id must
-	# resolve to the generated placeholder (not missing); an unknown id resolves
-	# to missing. This proves the external -> generated -> missing order is wired.
-	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow")) != "generated":
-		push_error("Terrain external-preference resolver did not classify meadow as generated")
+	# External-preference resolver: an unactivated real id must resolve to the
+	# generated placeholder (not missing); an unknown id resolves to missing. This
+	# proves the external -> generated -> missing order is wired without fighting
+	# the local Sprout licensed layer when it is installed.
+	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("forest")) != "generated":
+		push_error("Terrain external-preference resolver did not classify forest as generated")
 		quit(1)
 		return
 	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("__nope__")) != "missing":
@@ -423,6 +489,40 @@ func _initialize() -> void:
 		push_error("Object external-preference resolver did not classify wood wall as generated")
 		quit(1)
 		return
+	if not FileAccess.file_exists("res://art/sprout_ui_manifest.template.json"):
+		push_error("Tracked Sprout UI manifest template is missing")
+		quit(1)
+		return
+	var sprout_ui_template: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://art/sprout_ui_manifest.template.json"))
+	if typeof(sprout_ui_template) != TYPE_DICTIONARY or typeof((sprout_ui_template as Dictionary).get("active", null)) != TYPE_DICTIONARY:
+		push_error("Sprout UI manifest template must parse with an active map")
+		quit(1)
+		return
+	if ((sprout_ui_template as Dictionary).get("active", {}) as Dictionary).size() != 0:
+		push_error("Sprout UI manifest template must not activate local licensed assets")
+		quit(1)
+		return
+	UIArtRegistry.reload()
+	if UIArtRegistry.texture_path("__invalid_ui__") != UIArtRegistry.FALLBACK_PATH:
+		push_error("UIArtRegistry invalid id did not return missing fallback")
+		quit(1)
+		return
+	if UIArtRegistry.source_of(UIArtRegistry.texture_path("close")) == "missing":
+		push_error("UIArtRegistry did not fall back to generated close/delete icon")
+		quit(1)
+		return
+	if UIArtRegistry.active_source() != "licensed_ui" and UIArtRegistry.active_source() != "cozy_code":
+		push_error("UIArtRegistry active_source returned an unknown value")
+		quit(1)
+		return
+	var ui_style_probe := PanelContainer.new()
+	CozyUITheme.apply_panel(ui_style_probe)
+	if not ui_style_probe.has_meta("ui_art_source"):
+		push_error("CozyUITheme did not tag panels with the active UI source")
+		ui_style_probe.free()
+		quit(1)
+		return
+	ui_style_probe.free()
 	# Manifest-driven activation: the activation manifest must exist + parse, and
 	# with no activated entries the resolver must return generated art (proving an
 	# imported pack can't blind-replace art just by sitting in the active folder).
@@ -442,7 +542,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 	# An id that is NOT in the manifest must get no override (so it stays generated).
-	if not ArtActivation.override_for("res://art/tiles/biomes/meadow.png").is_empty() and not (activation_parsed as Dictionary)["active"].has("tiles/biomes/meadow.png"):
+	if not ArtActivation.override_for("res://art/tiles/biomes/meadow.png", false).is_empty() and not (activation_parsed as Dictionary)["active"].has("tiles/biomes/meadow.png"):
 		push_error("ArtActivation returned an override for an un-activated id")
 		quit(1)
 		return
@@ -454,9 +554,148 @@ func _initialize() -> void:
 				push_error("active_art_manifest entry points at a missing derivative: %s" % active_value)
 				quit(1)
 				return
+	# --- Licensed assets (Sprout Lands, local-only) -----------------------------
+	# These must hold whether or not the premium pack is installed (clean checkout).
+	var gitignore_text: String = FileAccess.get_file_as_string("res://.gitignore")
+	if not gitignore_text.contains("licensed_assets/"):
+		push_error(".gitignore must ignore licensed_assets/ (premium assets must never be committed)")
+		quit(1)
+		return
+	# The TRACKED template manifest must exist, parse, and contain NO real mappings.
+	if not FileAccess.file_exists("res://art/sprout_active_manifest.template.json"):
+		push_error("Tracked template art/sprout_active_manifest.template.json is missing")
+		quit(1)
+		return
+	var sprout_template: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://art/sprout_active_manifest.template.json"))
+	if typeof(sprout_template) != TYPE_DICTIONARY:
+		push_error("sprout_active_manifest.template.json does not parse")
+		quit(1)
+		return
+	var template_active: Variant = (sprout_template as Dictionary).get("active_in_template", {})
+	if typeof(template_active) == TYPE_DICTIONARY and (template_active as Dictionary).size() != 0:
+		push_error("Template manifest must not contain real Sprout mappings")
+		quit(1)
+		return
+	# Loading activation must never crash with the pack absent.
+	ArtActivation.reload()
+	if ArtActivation.licensed_count() < 0:
+		push_error("ArtActivation.licensed_count regressed")
+		quit(1)
+		return
+	# If the LOCAL Sprout manifest is present, every mapped file must exist, the
+	# activated ids must resolve through the registry as "licensed", and license
+	# metadata must be preserved. (All skipped on a clean checkout.)
+	if FileAccess.file_exists(ArtActivation.LICENSED_MANIFEST_PATH):
+		if not FileAccess.file_exists("res://licensed_assets/sprout_lands/CREDIT_AND_LICENSE.txt"):
+			push_error("Sprout pack present but CREDIT_AND_LICENSE.txt metadata is missing")
+			quit(1)
+			return
+		var sprout_local: Variant = JSON.parse_string(FileAccess.get_file_as_string(ArtActivation.LICENSED_MANIFEST_PATH))
+		if typeof(sprout_local) == TYPE_DICTIONARY and typeof((sprout_local as Dictionary).get("active", null)) == TYPE_DICTIONARY:
+			for sprout_key in (sprout_local as Dictionary)["active"].keys():
+				var sprout_value: String = String((sprout_local as Dictionary)["active"][sprout_key])
+				var sprout_full: String = ArtActivation.LICENSED_NORMALIZED_ROOT + sprout_value
+				if not FileAccess.file_exists(sprout_full):
+					push_error("Sprout manifest maps a missing local file: %s" % sprout_full)
+					quit(1)
+					return
+			# A representative object id must now resolve to the licensed file.
+			if (sprout_local as Dictionary)["active"].has("objects/decor/sign.png"):
+				if ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(ContentIds.PLACEABLE_SIGNPOST)) != "licensed":
+					push_error("Active Sprout id did not resolve as a licensed override")
+					quit(1)
+					return
+			if (sprout_local as Dictionary)["active"].has("tiles/biomes/meadow.png"):
+				if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow", WorldProjection.MODE_SPROUT_TOPDOWN)) != "licensed":
+					push_error("Active Sprout terrain did not resolve as a licensed override in Sprout/top-down mode")
+					quit(1)
+					return
+				if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow", WorldProjection.MODE_ISO_64X32)) == "licensed":
+					push_error("Active Sprout terrain leaked into legacy iso mode")
+					quit(1)
+					return
+			for reviewed_sprout_terrain in ["tiles/biomes/meadow.png", "tiles/water/water.png", "tiles/water/creek.png"]:
+				if not (sprout_local as Dictionary)["active"].has(reviewed_sprout_terrain):
+					push_error("Local Sprout manifest is missing reviewed top-down terrain id: %s" % reviewed_sprout_terrain)
+					quit(1)
+					return
+	if FileAccess.file_exists(UIArtRegistry.LOCAL_UI_MANIFEST_PATH):
+		var ui_local: Variant = JSON.parse_string(FileAccess.get_file_as_string(UIArtRegistry.LOCAL_UI_MANIFEST_PATH))
+		if typeof(ui_local) != TYPE_DICTIONARY:
+			push_error("Local Sprout UI manifest does not parse")
+			quit(1)
+			return
+		for active_ui_id in ((ui_local as Dictionary).get("active", {}) as Dictionary).keys():
+			var active_ui_path: String = String(((ui_local as Dictionary).get("active", {}) as Dictionary)[active_ui_id])
+			var resolved_ui_path := active_ui_path if active_ui_path.begins_with("res://") else UIArtRegistry.LOCAL_UI_ROOT + active_ui_path
+			if not FileAccess.file_exists(resolved_ui_path):
+				push_error("Local Sprout UI manifest maps a missing file: %s" % resolved_ui_path)
+				quit(1)
+				return
+		if typeof((ui_local as Dictionary).get("candidates", null)) == TYPE_DICTIONARY and UIArtRegistry.candidate_count() == 0:
+			push_error("Local Sprout UI candidates exist but UIArtRegistry did not load them")
+			quit(1)
+			return
+	if FileAccess.file_exists("res://licensed_assets/sprout_lands/manifests/animations_inventory.json"):
+		var animation_inventory: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://licensed_assets/sprout_lands/manifests/animations_inventory.json"))
+		if typeof(animation_inventory) != TYPE_DICTIONARY or typeof((animation_inventory as Dictionary).get("categories", null)) != TYPE_DICTIONARY:
+			push_error("Local Sprout animation inventory does not parse")
+			quit(1)
+			return
+	if FileAccess.file_exists("res://licensed_assets/sprout_lands/original/Sprout Sorry pack.zip"):
+		if not FileAccess.file_exists("res://licensed_assets/sprout_lands/manifests/audio_inventory.json"):
+			push_error("Sprout Sorry pack is present but audio_inventory.json was not cataloged")
+			quit(1)
+			return
+		var audio_inventory: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://licensed_assets/sprout_lands/manifests/audio_inventory.json"))
+		if typeof(audio_inventory) != TYPE_DICTIONARY or typeof((audio_inventory as Dictionary).get("files", null)) != TYPE_ARRAY or int((audio_inventory as Dictionary).get("count", 0)) <= 0:
+			push_error("Local Sprout Sorry audio inventory does not parse")
+			quit(1)
+			return
+		if not FileAccess.file_exists("res://licensed_assets/sprout_lands/contact_sheets/sorry/sorry_overview.png"):
+			push_error("Sprout Sorry pack is present but Sorry contact sheets were not cataloged")
+			quit(1)
+			return
+	if not FileAccess.file_exists("res://docs/examples/sprout_animation_manifest.example.json"):
+		push_error("Tracked Sprout animation manifest example is missing")
+		quit(1)
+		return
+	if not FileAccess.file_exists("res://docs/examples/sprout_audio_inventory.example.json"):
+		push_error("Tracked Sprout audio inventory example is missing")
+		quit(1)
+		return
+	var git_tracked_output: Array = []
+	var git_tracked_code: int = OS.execute("git", ["ls-files", "licensed_assets"], git_tracked_output, true)
+	if git_tracked_code == 0 and not "\n".join(git_tracked_output).strip_edges().is_empty():
+		push_error("licensed_assets contains tracked files; Sprout assets must stay gitignored")
+		quit(1)
+		return
+	# Generated fallback must still resolve regardless (no licensed override for it).
+	if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("forest")) != "generated":
+		push_error("Generated fallback regressed for an un-activated terrain id")
+		quit(1)
+		return
+
 	var map_probe := HomesteadMap.new()
 	if not map_probe.has_method("terrain_visual_for"):
 		push_error("Map renderer is missing terrain_visual_for helper")
+		map_probe.free()
+		quit(1)
+		return
+	if not map_probe.has_method("visual_projection_mode") or not WorldProjection.is_sprout_compatible(String(map_probe.call("visual_projection_mode"))):
+		push_error("Map renderer is not using the Sprout/top-down visual projection")
+		map_probe.free()
+		quit(1)
+		return
+	var map_projection_tile := Vector2i(9, 11)
+	var map_world_position: Vector2 = map_probe.call("grid_to_world", map_projection_tile) as Vector2
+	if map_world_position != WorldProjection.tile_to_world(map_projection_tile, WorldProjection.MODE_SPROUT_TOPDOWN):
+		push_error("Map renderer grid_to_world does not use WorldProjection sprout_topdown")
+		map_probe.free()
+		quit(1)
+		return
+	if (map_probe.call("world_to_grid", map_world_position) as Vector2i) != map_projection_tile:
+		push_error("Map renderer world_to_grid did not round-trip through Sprout/top-down projection")
 		map_probe.free()
 		quit(1)
 		return
@@ -472,14 +711,26 @@ func _initialize() -> void:
 		push_error("HomesteadMap does not use TerrainArtRegistry for tile sprites")
 		quit(1)
 		return
+	if not graphics_homestead_map_source.contains("WorldProjection.tile_to_world") or not graphics_homestead_map_source.contains("WorldProjection.tile_polygon"):
+		push_error("HomesteadMap is not routed through WorldProjection for live tile placement/polygons")
+		quit(1)
+		return
 	if not graphics_overworld_map_source.contains("_add_terrain_sprite"):
 		push_error("OverworldMap does not route plot/terrain override sprites through the map helper")
+		quit(1)
+		return
+	if not graphics_overworld_map_source.contains("_add_road_tile") or not graphics_overworld_map_source.contains("road_sample_tiles"):
+		push_error("OverworldMap is missing Sprout/top-down road tile rendering")
 		quit(1)
 		return
 	var graphics_decor_visual_source: String = FileAccess.get_file_as_string("res://buildings/decor_visuals.gd")
 	var graphics_crate_visual_source: String = FileAccess.get_file_as_string("res://buildings/placeable_crate.gd")
 	if not graphics_decor_visual_source.contains("ObjectArtRegistry.has_art_id") or not graphics_crate_visual_source.contains("ObjectArtRegistry.apply_sprite"):
 		push_error("Placeable visuals are not wired to ObjectArtRegistry")
+		quit(1)
+		return
+	if not graphics_decor_visual_source.contains("WorldProjection.tile_polygon") or not graphics_crate_visual_source.contains("WorldProjection.tile_polygon"):
+		push_error("Placeable terrain/edit overlays are not using WorldProjection polygons")
 		quit(1)
 		return
 	if CozyUITheme.panel_style() == null or CozyUITheme.slot_style(true) == null or CozyUITheme.hud_panel_style() == null:
@@ -1936,6 +2187,16 @@ func _initialize() -> void:
 		quit(1)
 		return
 	# Owner can build at every corner of the claimed plot (full-bounds permission).
+	var expected_corner_order: Array[Vector2i] = [
+		test_rect.position,
+		Vector2i(test_rect.end.x - 1, test_rect.position.y),
+		test_rect.end - Vector2i.ONE,
+		Vector2i(test_rect.position.x, test_rect.end.y - 1),
+	]
+	if LandRegistry.corner_tiles(test_plot_id) != expected_corner_order:
+		push_error("Plot corner_tiles must return a non-crossing clockwise rectangle")
+		quit(1)
+		return
 	for corner_tile_variant in LandRegistry.corner_tiles(test_plot_id):
 		if not bool(LandClaimSystem.can_build_at(corner_tile_variant as Vector2i, "profile_a", test_plots)["allowed"]):
 			push_error("Plot owner denied building at a corner of their plot")

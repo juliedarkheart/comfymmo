@@ -1,7 +1,9 @@
 # Asset Credits
 
-This pass imports **no third-party assets**. All in-game art is project-local
-generated placeholder art (now Pillow-rendered, anti-aliased, cozy).
+This pass imports **no third-party assets** into the committed repository. A
+clean checkout uses project-local generated placeholder art (now
+Pillow-rendered, anti-aliased, cozy); optional Sprout Lands art is local-only and
+documented separately below.
 
 ## Project licensing context
 
@@ -29,10 +31,9 @@ for a verified drop-in with no code changes.
 The generated PNGs are made locally for this branch — not copied from commercial
 games, fan packs, or unknown sources. The Kenney sheet is genuine CC0 (license
 text stored locally and verified). It is kept as a tracked, license-verified
-import but is **not wired into the game**: it is a 2014 top-down 16px dungeon/RPG
-sheet that does not match Hearthvale's cozy 64×32 isometric village, and the
-unlabeled grid can't be sliced into correct named sprites without visual review.
-The cozy generated art stays active until an isometric-matched CC0/CC-BY pack is
+import but is **not wired into the game**: it is a 2014 dungeon/RPG sheet with an
+unlabeled grid that can't be sliced into correct named sprites without visual
+review. The cozy generated art stays active until a matching CC0/CC-BY pack is
 chosen and reviewed in-editor.
 
 ## License policy
@@ -97,5 +98,21 @@ External art only becomes live after human review and an explicit entry in
 `art/active_art_manifest.json` (see docs/asset_review_workflow.md). Contact sheets
 live in `art/review/`; the in-editor preview is `tools/art/asset_preview.tscn`.
 The Kenney sheet is reviewable (`art/review/kenney_rpg-pack_contactsheet.png`,
-64×64 cells) but **not activated** — it is top-down medieval/RPG art that does
-not fit the cozy isometric world.
+64x64 cells) but **not activated** - it is medieval/RPG art that needs manual
+semantic review before any cell could be trusted.
+
+## Licensed (premium, local-only) — credit required
+
+- **Sprout Lands** premium sprite pack — **by Cup Nooble** (https://cupnooble.itch.io/).
+  *Credit (required): Assets — From: Sprout Lands — By: Cup Nooble.* Premium
+  license: modify OK, commercial/non-commercial OK, **non-redistributable**, no
+  NFT/AI-training use. The pack files are **local-only and gitignored** - not in
+  this repository. 18 ids are wired locally (9 objects + 6 icons + 3 reviewed
+  Sprout/top-down terrain tiles: meadow, water, creek). Full policy:
+  docs/licensed_asset_policy.md.
+
+Sprout UI kit files, UI contact sheets, normalized derivatives, local manifests,
+the animation catalog, and the Sprout Sorry pack audio/contact-sheet catalog also
+stay under gitignored `licensed_assets/`. The committed repo contains only docs,
+templates, validation, and fallback/registry code; a clean checkout without
+Sprout installed keeps using generated cozy UI and placeholder art.

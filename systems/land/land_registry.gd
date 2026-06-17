@@ -13,8 +13,9 @@ class_name LandRegistry
 ##   build permission) picks them up automatically. The controller loads/saves
 ##   the overlay to the offline save; server-side custom plots are deferred.
 ##
-## Iso note: a tile rect projects to a diamond, so a 16x16 lot reads as a big
-## yard. Sizes/positions are chosen so corners stay inside the expanded walls.
+## Projection note: a tile rect is gameplay-authoritative; the renderer may draw
+## it as the primary top-down square grid or the legacy iso diamond fallback.
+## Sizes/positions are chosen so corners stay inside the expanded walls.
 
 const AREA_LANDING := "landing"
 const AREA_TOWN := "town"
@@ -165,8 +166,8 @@ static func corner_tiles(plot_id: String) -> Array:
 	return [
 		rect.position,
 		Vector2i(rect.end.x - 1, rect.position.y),
-		Vector2i(rect.position.x, rect.end.y - 1),
 		Vector2i(rect.end.x - 1, rect.end.y - 1),
+		Vector2i(rect.position.x, rect.end.y - 1),
 	]
 
 ## Soft per-biome ground tint for plot drawing + minimap variety. Delegates to

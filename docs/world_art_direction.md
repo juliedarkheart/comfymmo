@@ -1,8 +1,9 @@
 # Hearthvale World Art Direction
 
-The world should read as a warm storybook village laid out in readable 2D
-isometric space. The player should be able to understand paths, plots, public
-areas, wilderness, and biome changes at a glance.
+The world should read as a warm storybook village laid out in readable
+Sprout-compatible top-down / gentle 3/4 space. The older 64x32 isometric diamond
+view remains a legacy fallback. The player should be able to understand paths,
+plots, public areas, wilderness, and biome changes at a glance.
 
 ## Composition
 
@@ -66,6 +67,20 @@ grass-to-water, grass-to-farmland, soft biome edges, path edges, and water
 edges. They are extension points for a future autotiling pass, not a complete
 neighbor solver yet.
 
+## Projection Compatibility
+
+The logical grid is separate from the visual projection. `WorldProjection`
+supports the primary live `sprout_topdown` view plus legacy/fallback
+`iso_64x32` and other top-down modes (`topdown_16`, `topdown_32`). Placement,
+land ownership, minimap, terrain paint, and saves keep using logical tiles while
+the renderer projects them as 32x32 top-down cells.
+
+Clean checkout behavior must stay boring: no Sprout pack means the generated
+fallback colors/placeholders render and worldbuilder/minimap/build tools keep
+using the same logical tile positions. Local Sprout terrain is activated only for
+reviewed `meadow`, `water`, and `creek` ids in Sprout-compatible modes; it is not
+required for modular/custom building pieces and does not activate in legacy iso.
+
 ## Plot Presentation
 
 Homestead plots should feel like yards:
@@ -81,11 +96,9 @@ look like combat zones, selection boxes, or permanent debug art.
 
 ## Graphics polish pass
 
-Terrain tiles are now Pillow-rendered (anti-aliased iso diamonds with a soft 3D
-lip and per-biome texture): meadow grass blades, forest/grove leafy dapple,
-orchard blossoms, hilltop speckle, cobbled town, furrowed farmland, pebbled dirt
-paths, and rippling blue water. They overlay the existing polygon fills (which
-stay as safe fallback) via `TerrainArtRegistry`, and the same sprites flow
-through plot ground, terrain-paint overrides, and the minimap `terrain_color` /
-`minimap` tints. No external art was imported this pass (see
-docs/asset_credits.md); these are upgraded local placeholders.
+Generated terrain placeholders still exist as safe fallback art. In the live
+Sprout/top-down renderer, generated 64x48 diamond terrain sprites are not forced
+onto square cells; the map draws biome/terrain colors instead unless a reviewed
+top-down local Sprout tile exists. Plot ground, terrain-paint overrides, and the
+minimap continue to share `TerrainArtRegistry`, `terrain_color`, and `minimap`
+tints.

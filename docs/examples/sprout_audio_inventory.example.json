@@ -1,0 +1,11 @@
+{
+  "_comment": "Tracked example only. The real local inventory is gitignored at licensed_assets/sprout_lands/manifests/audio_inventory.json.",
+  "version": 1,
+  "pack": "Sprout Sorry pack by Cup Nooble",
+  "files": [],
+  "count": 0,
+  "notes": [
+    "Catalog only. Do not wire audio broadly in the Sprout compatibility pass.",
+    "No runtime audio, combat, dungeon gameplay, enemy, or economy work is implied by this file."
+  ]
+}

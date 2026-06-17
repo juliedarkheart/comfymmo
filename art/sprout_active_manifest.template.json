@@ -1,0 +1,18 @@
+{
+  "_comment": "TRACKED TEMPLATE — committed, contains NO Sprout Lands files. The REAL manifest is generated locally (gitignored) at licensed_assets/sprout_lands/sprout_active_manifest.json by tools/art/sprout_integrate.py. Keys are art ids relative to res://art/ (the same keys the generated placeholders use). Values are paths relative to licensed_assets/sprout_lands/normalized/ (or a full res:// path). ArtActivation resolves licensed -> redistributable -> generated -> missing, so an absent manifest just falls back to the cozy generated art. Categories below show what CAN be mapped once the premium pack is installed; the example values are illustrative only.",
+  "version": 1,
+  "pack": "Sprout Lands (premium) by Cup Nooble",
+  "license": "Premium — local only, non-redistributable, credit Cup Nooble (see docs/licensed_asset_policy.md)",
+  "categories": {
+    "terrain_reviewed_topdown": ["tiles/biomes/meadow.png", "tiles/water/water.png", "tiles/water/creek.png"],
+    "terrain_catalog_only": ["tiles/biomes/farmland.png", "tiles/paths/dirt_path.png", "tiles/paths/stone_path.png", "tiles/paths/tilled_soil.png"],
+    "nature": ["objects/nature/tree.png", "objects/nature/fruit_tree.png", "objects/nature/rock.png", "objects/nature/bush.png", "objects/nature/flower_patch.png"],
+    "building": ["objects/building/well.png", "objects/decor/fence.png", "objects/decor/gate.png", "objects/decor/sign.png", "objects/decor/mailbox.png", "objects/building/storage_chest.png"],
+    "icons": ["ui/icons/worn_axe.png", "ui/icons/worn_hoe.png", "ui/icons/watering_can.png", "ui/icons/wood.png", "ui/icons/carrot.png"]
+  },
+  "example_active": {
+    "objects/nature/tree.png": "objects/tree.png",
+    "ui/icons/worn_axe.png": "icons/axe.png"
+  },
+  "active_in_template": {}
+}

@@ -33,7 +33,7 @@ func get_camera_limits() -> Rect2i:
 	var bounds: Rect2 = _content_bounds_world().grow(260.0)
 	return Rect2i(bounds)
 
-## Bounding box (world px) of a tile rect's projected iso diamond.
+## Bounding box (world px) of a tile rect in the active visual projection.
 func _projected_bounds(rect: Rect2i) -> Rect2:
 	var corners: Array = [
 		grid_to_world(rect.position),
@@ -126,12 +126,27 @@ static func road_sample_tiles() -> Array:
 func _build_neighborhood_ground() -> void:
 	for plot in LandRegistry.definitions().values():
 		paint_plot_ground(plot as Dictionary)
-	# Cozy dirt avenues through the gutters between the lots.
-	for corridor in road_corridors():
-		var pts: PackedVector2Array = PackedVector2Array()
-		for t in corridor:
-			pts.append(grid_to_world(t as Vector2i))
-		TerrainShapes.add_ribbon(ground_layer, pts, 20.0, 20.0, BiomeRegistry.path_color("dirt_path"))
+	# Cozy dirt avenues through the gutters between the lots. In the primary
+	# Sprout/top-down projection, draw them as tile-aligned road cells so they
+	# match terrain paint and parcel previews.
+	if WorldProjection.is_sprout_compatible(visual_projection_mode()):
+		for road_tile_variant in road_sample_tiles():
+			_add_road_tile(road_tile_variant as Vector2i)
+	else:
+		for corridor in road_corridors():
+			var pts: PackedVector2Array = PackedVector2Array()
+			for t in corridor:
+				pts.append(grid_to_world(t as Vector2i))
+			TerrainShapes.add_ribbon(ground_layer, pts, 20.0, 20.0, BiomeRegistry.path_color("dirt_path"))
+
+func _add_road_tile(tile: Vector2i) -> void:
+	var road := Polygon2D.new()
+	road.name = "Road_%d_%d" % [tile.x, tile.y]
+	road.position = grid_to_world(tile)
+	road.polygon = _tile_diamond()
+	road.color = _terrain_base_color("dirt_path", tile)
+	ground_layer.add_child(road)
+	_add_terrain_sprite(road, "dirt_path", tile)
 
 ## Paint one plot's biome-tinted ground patch (a 1-tile skirt around the rect).
 ## Public so the in-game world-builder can draw a plot the moment it's created,
@@ -210,12 +225,7 @@ func _paint_terrain_override(tile: Vector2i, terrain_id: String) -> void:
 	_add_terrain_sprite(node, terrain_id, tile)
 	if terrain_id == "dirt_path" or terrain_id == "stone_path":
 		var inset := Polygon2D.new()
-		inset.polygon = PackedVector2Array([
-			Vector2(0, -9),
-			Vector2(20, 0),
-			Vector2(0, 9),
-			Vector2(-20, 0),
-		])
+		inset.polygon = _tile_inner_polygon(7.0)
 		inset.color = _terrain_detail_color(terrain_id)
 		node.add_child(inset)
 	elif terrain_id == "water":
@@ -227,12 +237,7 @@ func _paint_terrain_override(tile: Vector2i, terrain_id: String) -> void:
 		edge.closed = true
 		edge.width = 1.6
 		edge.default_color = Color("#d8f2ff")
-		edge.points = PackedVector2Array([
-			Vector2(0, -12),
-			Vector2(25, 0),
-			Vector2(0, 12),
-			Vector2(-25, 0),
-		])
+		edge.points = _tile_inner_polygon(4.0)
 		node.add_child(edge)
 	_terrain_override_nodes[key] = node
 
