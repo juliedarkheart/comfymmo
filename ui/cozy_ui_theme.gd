@@ -39,12 +39,22 @@ static func panel_style(fill: Color = PARCHMENT) -> StyleBoxFlat:
 	style.shadow_size = 6
 	return style
 
+## Solid dark HUD backing. The HUD floats over the bright top-down world, so it
+## needs strong contrast for its cream text — it intentionally stays a dark, mostly
+## opaque cozy card (with a honey border) rather than the pale Sprout parchment
+## panel, which left light text unreadable. Generous content margins keep text off
+## the border.
 static func hud_panel_style(fill: Color = WOOD_DARK) -> StyleBoxFlat:
-	var style := panel_style(fill)
+	var solid := Color(fill.r, fill.g, fill.b, 0.93)
+	var style := panel_style(solid)
 	style.border_color = BORDER_LIGHT
 	style.set_border_width_all(3)
 	style.set_corner_radius_all(12)
-	style.shadow_color = Color(0, 0, 0, 0.24)
+	style.content_margin_left = 16
+	style.content_margin_right = 16
+	style.content_margin_top = 12
+	style.content_margin_bottom = 14
+	style.shadow_color = Color(0, 0, 0, 0.32)
 	style.shadow_size = 8
 	return style
 
@@ -84,7 +94,11 @@ static func apply_hud_panel(panel: Control) -> void:
 	if panel == null:
 		return
 	_tag_ui_source(panel)
-	panel.add_theme_stylebox_override("panel", _ui_box("panel", hud_panel_style(), 12))
+	# HUD/minimap/prompt cards keep the solid dark cozy backing for readability over
+	# the world — they do NOT swap to the pale Sprout parchment nine-patch (which made
+	# the cream HUD text unreadable). Sprout panel art still skins the menus/dialogs
+	# via apply_panel, where the text is dark ink on parchment.
+	panel.add_theme_stylebox_override("panel", hud_panel_style())
 
 static func apply_slot(panel: Control, selected: bool = false, blocked: bool = false) -> void:
 	if panel == null:

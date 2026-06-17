@@ -14,10 +14,17 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://world/iso_map_helpers.gd",
 	"res://world/outdoor_controller_helpers.gd",
 	"res://systems/world/world_projection.gd",
+	"res://systems/visual/live_visual_policy.gd",
+	"res://systems/visual/sprout_asset_requirement.gd",
+	"res://ui/missing_assets_screen.gd",
 	"res://systems/art/terrain_art_registry.gd",
 	"res://systems/art/object_art_registry.gd",
+	"res://systems/art/character_art_registry.gd",
 	"res://systems/art/ui_art_registry.gd",
 	"res://systems/art/art_activation.gd",
+	"res://systems/art/limezu_art_registry.gd",
+	"res://systems/art/art_provider_registry.gd",
+	"res://scenes/visual_spikes/limezu_homestead_slice.tscn",
 	"res://tools/art/asset_preview.tscn",
 	"res://systems/content/content_ids.gd",
 	"res://systems/content/content_registry.gd",
@@ -43,6 +50,12 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://systems/character/character_appearance_registry.gd",
 	"res://systems/character/character_visual_builder.gd",
 	"res://avatar/avatar_visual.gd",
+	"res://villagers/simple_villager.gd",
+	"res://villagers/bram_villager.gd",
+	"res://creatures/ambient_creature.gd",
+	"res://creatures/moss_rabbit.gd",
+	"res://creatures/lantern_moth.gd",
+	"res://creatures/stump_turtle.gd",
 	"res://ui/dev_character_creator_panel.tscn",
 	# Persistent-world pass: resources, building, profiles, network, server.
 	"res://systems/resources/resource_ids.gd",
@@ -137,6 +150,8 @@ const REQUIRED_ART_DIRS: Array[String] = [
 	"res://art/ui/icons",
 	"res://art/placeholders",
 	"res://art/generated",
+	"res://art/generated/hearthvale/characters",
+	"res://art/generated/hearthvale/creatures",
 	"res://art/generated/from_external",
 	"res://art/external",
 	"res://art/review",
@@ -211,6 +226,21 @@ const REQUIRED_GENERATED_PNGS: Array[String] = [
 	"res://art/ui/icons/delete.png",
 	"res://art/ui/icons/rotate.png",
 	"res://art/ui/icons/paint.png",
+	"res://art/generated/hearthvale/ui/dialog_panel.png",
+	"res://art/generated/hearthvale/ui/inventory_panel.png",
+	"res://art/generated/hearthvale/ui/system_menu_panel.png",
+	"res://art/generated/hearthvale/ui/build_menu_panel.png",
+	"res://art/generated/hearthvale/ui/check.png",
+	"res://art/generated/hearthvale/ui/cursor.png",
+	"res://art/generated/hearthvale/characters/player.png",
+	"res://art/generated/hearthvale/characters/remote_player.png",
+	"res://art/generated/hearthvale/characters/maribel_tock.png",
+	"res://art/generated/hearthvale/characters/bram_nettle.png",
+	"res://art/generated/hearthvale/characters/rowan.png",
+	"res://art/generated/hearthvale/characters/land_clerk.png",
+	"res://art/generated/hearthvale/creatures/moss_rabbit.png",
+	"res://art/generated/hearthvale/creatures/lantern_moth.png",
+	"res://art/generated/hearthvale/creatures/stump_turtle.png",
 ]
 
 var _validation_placeable_ids: Array[String] = []
@@ -389,6 +419,14 @@ func _initialize() -> void:
 		push_error("WorldProjection sprout compatibility flags regressed")
 		quit(1)
 		return
+	if LiveVisualPolicy.PRIMARY_PROJECTION != WorldProjection.MODE_SPROUT_TOPDOWN or LiveVisualPolicy.TILE_SIZE != Vector2i(32, 32):
+		push_error("LiveVisualPolicy no longer targets Sprout/top-down 32x32 scale")
+		quit(1)
+		return
+	if LiveVisualPolicy.should_draw_broad_procedural_scenery():
+		push_error("Normal play must not draw broad procedural scenery/debug slabs")
+		quit(1)
+		return
 	var sprout_tile_poly: PackedVector2Array = WorldProjection.tile_polygon(WorldProjection.MODE_SPROUT_TOPDOWN)
 	if sprout_tile_poly.size() != 4 or sprout_tile_poly[0] != Vector2(-16, -16) or sprout_tile_poly[2] != Vector2(16, 16):
 		push_error("WorldProjection sprout_topdown tile polygon must be a centered 32x32 square")
@@ -487,6 +525,42 @@ func _initialize() -> void:
 		quit(1)
 		return
 	registry_sprite.free()
+	if CharacterArtRegistry.texture_path("__invalid_actor__") != CharacterArtRegistry.FALLBACK_PATH:
+		push_error("CharacterArtRegistry invalid id did not return fallback path")
+		quit(1)
+		return
+	if CharacterArtRegistry.texture("__invalid_actor__") == null:
+		push_error("CharacterArtRegistry fallback texture failed to load")
+		quit(1)
+		return
+	for actor_id_variant in CharacterArtRegistry.required_character_ids() + CharacterArtRegistry.required_creature_ids():
+		var actor_id: String = String(actor_id_variant)
+		var actor_visual: Dictionary = CharacterArtRegistry.visual_for(actor_id)
+		if bool(actor_visual.get("fallback", true)):
+			push_error("Required actor id resolved to fallback instead of art: %s" % actor_id)
+			quit(1)
+			return
+		if actor_visual.get("texture", null) == null:
+			push_error("Required actor id resolved to null texture: %s" % actor_id)
+			quit(1)
+			return
+		if CharacterArtRegistry.source_of(String(actor_visual.get("path", ""))) != "generated":
+			push_error("Required actor id should resolve to generated Hearthvale actor art: %s" % actor_id)
+			quit(1)
+			return
+	var actor_sprite := CharacterArtRegistry.make_sprite(CharacterArtRegistry.PLAYER)
+	if actor_sprite == null or actor_sprite.texture == null or not String(actor_sprite.name).begins_with("CharacterArt"):
+		push_error("CharacterArtRegistry.make_sprite failed for player")
+		if actor_sprite != null:
+			actor_sprite.free()
+		quit(1)
+		return
+	if actor_sprite.scale.x > 0.7 or actor_sprite.scale.y > 0.7:
+		push_error("Live actor sprites are not scaled down for Sprout 32x32 terrain")
+		actor_sprite.free()
+		quit(1)
+		return
+	actor_sprite.free()
 	# External-preference resolver: an unactivated real id must resolve to the
 	# generated placeholder (not missing); an unknown id resolves to missing. This
 	# proves the external -> generated -> missing order is wired without fighting
@@ -525,6 +599,13 @@ func _initialize() -> void:
 		push_error("UIArtRegistry did not fall back to generated close/delete icon")
 		quit(1)
 		return
+	for ui_id_variant in UIArtRegistry.required_ids():
+		var required_ui_id: String = String(ui_id_variant)
+		var required_ui_path: String = UIArtRegistry.texture_path(required_ui_id)
+		if UIArtRegistry.source_of(required_ui_path) == "missing":
+			push_error("UIArtRegistry required id resolved to missing art: %s" % required_ui_id)
+			quit(1)
+			return
 	if UIArtRegistry.active_source() != "licensed_ui" and UIArtRegistry.active_source() != "cozy_code":
 		push_error("UIArtRegistry active_source returned an unknown value")
 		quit(1)
@@ -569,7 +650,11 @@ func _initialize() -> void:
 				quit(1)
 				return
 	# --- Licensed assets (Sprout Lands, local-only) -----------------------------
-	# These must hold whether or not the premium pack is installed (clean checkout).
+	# TRACKING rules below hold regardless of whether the pack is installed (the
+	# premium assets must never be committed). NOTE: the live visual build is now
+	# Sprout-REQUIRED — a clean checkout without the pack is no longer a playable
+	# visual target; it shows a missing-assets screen (see the Sprout-required gate
+	# block further below). We intentionally do NOT assert no-Sprout playability.
 	var gitignore_text: String = FileAccess.get_file_as_string("res://.gitignore")
 	if not gitignore_text.contains("licensed_assets/"):
 		push_error(".gitignore must ignore licensed_assets/ (premium assets must never be committed)")
@@ -756,6 +841,48 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# --- Sprout-required gate (live visual mode needs the licensed pack) ---------
+	# Policy flags must declare the live build as Sprout-required.
+	if not LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE or not SproutAssetRequirement.REQUIRED:
+		push_error("Live visual mode must be flagged Sprout-required (LiveVisualPolicy / SproutAssetRequirement)")
+		quit(1)
+		return
+	# The requirement check must run and return a well-formed result.
+	var sprout_requirement: Dictionary = SproutAssetRequirement.check()
+	if typeof(sprout_requirement.get("missing", null)) != TYPE_ARRAY or typeof(sprout_requirement.get("ok", null)) != TYPE_BOOL:
+		push_error("SproutAssetRequirement.check() did not return a well-formed result")
+		quit(1)
+		return
+	# When the pack IS installed (this machine / a Sprout-provisioned CI), it must be
+	# fully satisfied. On a clean checkout with no pack we do NOT fail — the live boot
+	# shows the missing-assets screen instead (asserted next). This is the deliberate
+	# removal of the old "no-Sprout checkout must be playable" requirement.
+	if SproutAssetRequirement.pack_present() and not bool(sprout_requirement["ok"]):
+		push_error("Sprout pack present but required assets are missing/inactive: %s" % str(sprout_requirement["missing"]))
+		quit(1)
+		return
+	# The boot gate must be wired: WorldRegionManager checks the requirement and mounts
+	# the missing-assets screen instead of the overworld when Sprout is absent.
+	var region_manager_src: String = FileAccess.get_file_as_string("res://systems/world_region_manager.gd")
+	if not region_manager_src.contains("SproutAssetRequirement") or not region_manager_src.contains("_show_missing_assets_screen"):
+		push_error("WorldRegionManager does not gate the live world behind the Sprout requirement")
+		quit(1)
+		return
+	# The missing-assets screen must load, instantiate, and accept a missing list.
+	var missing_screen: MissingAssetsScreen = MissingAssetsScreen.new()
+	if not missing_screen.has_method("setup"):
+		push_error("MissingAssetsScreen is missing its setup(missing) entry point")
+		missing_screen.free()
+		quit(1)
+		return
+	missing_screen.setup(["Sprout activation manifest (sprout_active_manifest.json)"])
+	if missing_screen.find_child("Panel", true, false) == null:
+		push_error("MissingAssetsScreen did not build its diagnostic panel")
+		missing_screen.free()
+		quit(1)
+		return
+	missing_screen.free()
+
 	# --- Live visual source enforcement (no old graphics in sprout_topdown) -----
 	if load("res://systems/visual_source_report.gd") == null:
 		push_error("VisualSourceReport helper failed to load")
@@ -779,6 +906,11 @@ func _initialize() -> void:
 			push_error("Required generated Hearthvale fallback asset missing: %s" % hearthvale_asset)
 			quit(1)
 			return
+	for hearthvale_actor_asset in ["res://art/generated/hearthvale/characters/player.png", "res://art/generated/hearthvale/characters/maribel_tock.png", "res://art/generated/hearthvale/characters/bram_nettle.png", "res://art/generated/hearthvale/creatures/moss_rabbit.png"]:
+		if not FileAccess.file_exists(hearthvale_actor_asset):
+			push_error("Required generated Hearthvale actor asset missing: %s" % hearthvale_actor_asset)
+			quit(1)
+			return
 	for live_terrain_id_variant in TerrainArtRegistry.required_ids():
 		var live_terrain_id: String = String(live_terrain_id_variant)
 		var live_topdown_path: String = TerrainArtRegistry.texture_path(live_terrain_id, WorldProjection.MODE_SPROUT_TOPDOWN)
@@ -800,6 +932,293 @@ func _initialize() -> void:
 		return
 	if hmap_src.contains("res://art/tiles/") or hmap_src.contains("res://art/objects/") or omap_src.contains("res://art/tiles/") or omap_src.contains("res://art/objects/"):
 		push_error("Live map scripts must not hardcode legacy art/tiles or art/objects paths")
+		quit(1)
+		return
+	if not omap_src.contains("LiveVisualPolicy.terrain_for_plot_ground") or not omap_src.contains("LiveVisualPolicy.should_draw_broad_procedural_scenery"):
+		push_error("OverworldMap is not using the Sprout-first live visual policy")
+		quit(1)
+		return
+	var compact_hud_scene := load("res://ui/prototype_hud.tscn") as PackedScene
+	var compact_hud_probe: Node = compact_hud_scene.instantiate()
+	var compact_hud_panel: Control = compact_hud_probe.get_node_or_null("Panel") as Control
+	var compact_hud_identity: CanvasItem = compact_hud_probe.get_node_or_null("Panel/Rows/IdentityLabel") as CanvasItem
+	if compact_hud_panel == null or not LiveVisualPolicy.normal_hud_is_compact(compact_hud_panel.custom_minimum_size):
+		push_error("Normal HUD is not compact enough for Sprout-first presentation")
+		compact_hud_probe.free()
+		quit(1)
+		return
+	if compact_hud_identity == null or compact_hud_identity.visible:
+		push_error("Normal HUD still shows identity/debug-style details by default")
+		compact_hud_probe.free()
+		quit(1)
+		return
+	for legacy_icon_path in [
+		"Panel/Rows/DayRow/DayIcon",
+		"Panel/Rows/ComfortRow/ComfortIcon",
+		"Panel/Rows/InvRow/InvIcon",
+		"Panel/Rows/InvRow/CarrotIcon",
+		"Panel/Rows/InvRow/TurnipIcon",
+		"Panel/Rows/InvRow/BerryIcon",
+	]:
+		var legacy_icon: CanvasItem = compact_hud_probe.get_node_or_null(String(legacy_icon_path)) as CanvasItem
+		if legacy_icon != null and legacy_icon.visible:
+			push_error("Normal HUD still shows old generated SVG prototype icon: %s" % String(legacy_icon_path))
+			compact_hud_probe.free()
+			quit(1)
+			return
+	compact_hud_probe.free()
+	# HUD readability: the HUD/minimap/prompt card must keep a solid, dark, mostly
+	# opaque backing so its cream text stays readable over the bright world. (The
+	# regression was the HUD swapping to the pale Sprout parchment panel.)
+	var hud_style_probe: PanelContainer = PanelContainer.new()
+	CozyUITheme.apply_hud_panel(hud_style_probe)
+	var hud_box: StyleBox = hud_style_probe.get_theme_stylebox("panel")
+	if not (hud_box is StyleBoxFlat):
+		push_error("HUD panel backing is not a solid StyleBoxFlat (readability regressed)")
+		hud_style_probe.free()
+		quit(1)
+		return
+	var hud_bg: Color = (hud_box as StyleBoxFlat).bg_color
+	var hud_luma: float = 0.299 * hud_bg.r + 0.587 * hud_bg.g + 0.114 * hud_bg.b
+	if hud_bg.a < 0.85 or hud_luma > 0.45:
+		push_error("HUD panel backing is too pale/transparent for readable text (a=%.2f luma=%.2f)" % [hud_bg.a, hud_luma])
+		hud_style_probe.free()
+		quit(1)
+		return
+	hud_style_probe.free()
+	# Signs/objects must render as a SINGLE sprite, never a tiled/region texture (the
+	# "repeating sign graphics" guard).
+	var sign_sprite_probe: Sprite2D = ObjectArtRegistry.make_sprite(ContentIds.PLACEABLE_SIGNPOST)
+	if sign_sprite_probe == null or sign_sprite_probe.texture == null:
+		push_error("Signpost object sprite failed to build")
+		if sign_sprite_probe != null:
+			sign_sprite_probe.free()
+		quit(1)
+		return
+	if sign_sprite_probe.region_enabled or sign_sprite_probe.texture_repeat == CanvasItem.TEXTURE_REPEAT_ENABLED:
+		push_error("Signpost sprite is set to region/repeat (would tile the sign graphic)")
+		sign_sprite_probe.free()
+		quit(1)
+		return
+	sign_sprite_probe.free()
+	# Plot signs must not float a permanent title label (declutter): the builder keeps
+	# the name as metadata + the interaction prompt, not an always-on Label.
+	var plot_sign_src: String = FileAccess.get_file_as_string("res://world/overworld_controller.gd")
+	if plot_sign_src.contains("plate.text = title"):
+		push_error("Plot sign still floats a permanent title label (clutter regressed)")
+		quit(1)
+		return
+
+	# --- Curated demo slice (opening view is composed, not the broad overworld) ---
+	if not LiveVisualPolicy.CURATED_SLICE:
+		push_error("Curated demo slice must be enabled for the live opening view")
+		quit(1)
+		return
+	if LiveVisualPolicy.CURATED_SLICE_ZOOM < LiveVisualPolicy.OVERWORLD_WIDE_ZOOM:
+		push_error("Curated slice opening zoom must frame tighter than the wide overworld view")
+		quit(1)
+		return
+	var curated_map_probe: OverworldMap = OverworldMap.new()
+	if not curated_map_probe.has_method("_build_curated_slice"):
+		push_error("OverworldMap is missing the curated slice builder")
+		curated_map_probe.free()
+		quit(1)
+		return
+	if curated_map_probe.get_camera_zoom() != Vector2(LiveVisualPolicy.CURATED_SLICE_ZOOM, LiveVisualPolicy.CURATED_SLICE_ZOOM):
+		push_error("Overworld opening camera is not using the curated slice zoom")
+		curated_map_probe.free()
+		quit(1)
+		return
+	curated_map_probe.free()
+	var overworld_map_src: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	if not overworld_map_src.contains("LiveVisualPolicy.CURATED_SLICE") or not overworld_map_src.contains("_build_curated_slice"):
+		push_error("OverworldMap does not gate the broad overworld layers behind the curated slice")
+		quit(1)
+		return
+
+	# --- Inventory window (closed by default, compact, Sprout-styled, readable) ----
+	var inventory_scene := load("res://ui/inventory_panel.tscn") as PackedScene
+	var inventory_probe: CanvasLayer = inventory_scene.instantiate() as CanvasLayer
+	get_root().add_child(inventory_probe)
+	await process_frame
+	if inventory_probe.visible:
+		push_error("Inventory panel is open by default (must start closed)")
+		inventory_probe.queue_free()
+		quit(1)
+		return
+	var inventory_panel_node: Control = inventory_probe.get_node_or_null("Panel") as Control
+	if inventory_panel_node == null:
+		push_error("Inventory panel root is missing")
+		inventory_probe.queue_free()
+		quit(1)
+		return
+	# Window must stay within a reasonable fraction of the viewport (no parchment wall).
+	var inventory_w: float = inventory_panel_node.offset_right - inventory_panel_node.offset_left
+	var inventory_h: float = inventory_panel_node.offset_bottom - inventory_panel_node.offset_top
+	if inventory_w <= 0.0 or inventory_w > 480.0 or inventory_h <= 0.0 or inventory_h > 600.0:
+		push_error("Inventory window is too large (%.0fx%.0f); keep it a compact fraction of the viewport" % [inventory_w, inventory_h])
+		inventory_probe.queue_free()
+		quit(1)
+		return
+	# Esc/close-button behavior + Sprout-compatible styling, not hardcoded panel art.
+	var inventory_src: String = FileAccess.get_file_as_string("res://ui/inventory_panel.gd")
+	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_panel", "CozyUITheme.apply_slot", "apply_close_button"]:
+		if not inventory_src.contains(inventory_snippet):
+			push_error("Inventory panel is missing required behavior/styling: %s" % inventory_snippet)
+			inventory_probe.queue_free()
+			quit(1)
+			return
+	if inventory_src.contains("StyleBoxTexture.new(") or inventory_src.contains("preload(\"res://art/"):
+		push_error("Inventory panel hardcodes texture/panel art instead of routing through CozyUITheme/UIArtRegistry")
+		inventory_probe.queue_free()
+		quit(1)
+		return
+	inventory_probe.queue_free()
+	await process_frame
+
+	# --- LimeZu provider + visual spike (evaluation only; must not break the game) --
+	# The live game stays on Sprout; LimeZu is a separate provider used by the spike.
+	if ArtProviderRegistry.LIVE_PROVIDER != ArtProviderRegistry.PROVIDER_SPROUT:
+		push_error("Live art provider must remain Sprout while LimeZu is only being evaluated")
+		quit(1)
+		return
+	if not ArtProviderRegistry.is_known(ArtProviderRegistry.PROVIDER_LIMEZU):
+		push_error("ArtProviderRegistry does not list the LimeZu provider")
+		quit(1)
+		return
+	# Provider must resolve safely whether or not LimeZu is installed.
+	LimeZuArtRegistry.reload()
+	if LimeZuArtRegistry.texture_path("__nope__") != LimeZuArtRegistry.FALLBACK_PATH:
+		push_error("LimeZuArtRegistry unmapped id did not fall back to the missing placeholder")
+		quit(1)
+		return
+	if LimeZuArtRegistry.resolve_source_tier("__nope__") != "missing":
+		push_error("LimeZuArtRegistry unmapped id did not report the 'missing' tier")
+		quit(1)
+		return
+	if LimeZuArtRegistry.pack_ids().size() != 7:
+		push_error("LimeZuArtRegistry should expose the 7 evaluated pack ids")
+		quit(1)
+		return
+	# When LimeZu is not active, there must be a clear missing reason (no silent blank).
+	if not LimeZuArtRegistry.is_available() and LimeZuArtRegistry.missing_reason().is_empty():
+		push_error("LimeZu spike has no assets active but reports no missing reason")
+		quit(1)
+		return
+	# The spike scene must instantiate and build via _ready WITHOUT crashing, even with
+	# no LimeZu assets (it shows markers / a banner instead).
+	var spike_scene := load("res://scenes/visual_spikes/limezu_homestead_slice.tscn") as PackedScene
+	if spike_scene == null:
+		push_error("LimeZu visual spike scene failed to load")
+		quit(1)
+		return
+	var spike_probe: Node = spike_scene.instantiate()
+	get_root().add_child(spike_probe)
+	await process_frame
+	if spike_probe.get_child_count() == 0:
+		push_error("LimeZu visual spike did not build any content")
+		spike_probe.queue_free()
+		quit(1)
+		return
+	spike_probe.queue_free()
+	await process_frame
+	# No LimeZu media (zips / raw PNGs / GIFs / aseprite / audio) or local manifests may
+	# be tracked — only commit-safe code/docs/templates.
+	var limezu_tracked_output: Array = []
+	var limezu_tracked_code: int = OS.execute("git", ["ls-files", "licensed_assets/limezu"], limezu_tracked_output, true)
+	if limezu_tracked_code == 0 and not "\n".join(limezu_tracked_output).strip_edges().is_empty():
+		push_error("licensed_assets/limezu contains tracked files; LimeZu assets must stay gitignored")
+		quit(1)
+		return
+	# The spike must not paint a marker grid by default (markers are dev-only).
+	var limezu_spike_src: String = FileAccess.get_file_as_string("res://scenes/visual_spikes/limezu_homestead_slice.gd")
+	if not limezu_spike_src.contains("const DEBUG_MARKERS := false"):
+		push_error("LimeZu spike must default DEBUG_MARKERS to false (no missing-marker grid in default view)")
+		quit(1)
+		return
+	if load("res://tools/visual_spike_capture.gd") == null:
+		push_error("visual_spike_capture.gd failed to load")
+		quit(1)
+		return
+	# Real-art mapping is enforced only when the LimeZu packs are installed locally
+	# (a clean checkout without LimeZu must still pass — the spike shows its banner).
+	LimeZuArtRegistry.reload()
+	if LimeZuArtRegistry.is_available():
+		if not FileAccess.file_exists("res://licensed_assets/limezu/limezu_active_manifest.json"):
+			push_error("LimeZu packs installed but the active manifest is missing")
+			quit(1)
+			return
+		for limezu_required_id in ["terrain.grass", "terrain.dirt_path", "terrain.tilled_soil", "object.tree", "object.fence_horizontal", "object.barn"]:
+			if not LimeZuArtRegistry.has_asset(limezu_required_id):
+				push_error("LimeZu spike core id did not resolve to real art: %s" % limezu_required_id)
+				quit(1)
+				return
+		if not (LimeZuArtRegistry.has_asset("crop.carrot") or LimeZuArtRegistry.has_asset("crop.cauliflower")):
+			push_error("No LimeZu crop resolves for the spike")
+			quit(1)
+			return
+		if not (LimeZuArtRegistry.has_asset("animal.chicken") or LimeZuArtRegistry.has_asset("animal.cow")):
+			push_error("No LimeZu animal resolves for the spike")
+			quit(1)
+			return
+		if not LimeZuArtRegistry.has_asset("character.farmer_idle"):
+			push_error("No LimeZu character/farmer resolves for the spike")
+			quit(1)
+			return
+		var limezu_active_total: int = LimeZuArtRegistry.list_active_ids().size()
+		if limezu_active_total < 30:
+			push_error("LimeZu spike maps only %d real ids; expected at least 30" % limezu_active_total)
+			quit(1)
+			return
+		# Cow must be a full frame (the 32x32 slice cropped its head). Require a
+		# texture that is not obviously cropped tiny, with real opaque content.
+		var cow_tex: Texture2D = LimeZuArtRegistry.resolve_texture("animal.cow")
+		if cow_tex == null:
+			push_error("LimeZu animal.cow texture failed to load")
+			quit(1)
+			return
+		if cow_tex.get_width() < 24 or cow_tex.get_height() < 24:
+			push_error("LimeZu cow texture looks cropped too small (%dx%d) — head likely cut" % [cow_tex.get_width(), cow_tex.get_height()])
+			quit(1)
+			return
+		# Modern UI: if a panel was sliced, the slot should be too (consistency check).
+		if LimeZuArtRegistry.has_asset("ui.panel") and not LimeZuArtRegistry.has_asset("ui.slot"):
+			push_error("Modern UI panel mapped but ui.slot is missing — map both or neither")
+			quit(1)
+			return
+	# Generator workflow doc must exist when generator installers are present locally.
+	var farm_gen := FileAccess.file_exists("res://licensed_assets/limezu/modern_farm/original/Farmer Generator Setup.exe")
+	var char_gen := FileAccess.file_exists("res://licensed_assets/limezu/modern_interiors/original/Character Generator 2.0 Setup.exe")
+	if (farm_gen or char_gen) and not FileAccess.file_exists("res://docs/limezu_generator_workflow.md"):
+		push_error("LimeZu generators are present but docs/limezu_generator_workflow.md is missing")
+		quit(1)
+		return
+
+	var avatar_visual_source: String = FileAccess.get_file_as_string("res://avatar/avatar_visual.gd")
+	var remote_player_source: String = FileAccess.get_file_as_string("res://systems/network/remote_player.gd")
+	var simple_villager_source: String = FileAccess.get_file_as_string("res://villagers/simple_villager.gd")
+	var moss_rabbit_source: String = FileAccess.get_file_as_string("res://creatures/moss_rabbit.gd")
+	var lantern_moth_source: String = FileAccess.get_file_as_string("res://creatures/lantern_moth.gd")
+	var stump_turtle_source: String = FileAccess.get_file_as_string("res://creatures/stump_turtle.gd")
+	for actor_source_pair in [
+		["AvatarVisual", avatar_visual_source],
+		["RemotePlayer", remote_player_source],
+		["SimpleVillager", simple_villager_source],
+		["MossRabbit", moss_rabbit_source],
+		["LanternMoth", lantern_moth_source],
+		["StumpTurtle", stump_turtle_source],
+	]:
+		if not String(actor_source_pair[1]).contains("CharacterArtRegistry.apply_sprite"):
+			push_error("%s is not routed through CharacterArtRegistry actor sprites" % String(actor_source_pair[0]))
+			quit(1)
+			return
+	if FileAccess.get_file_as_string("res://scenes/avatar/player_avatar.tscn").contains("Polygon2D"):
+		push_error("Player avatar scene still contains a procedural Polygon2D body/shadow")
+		quit(1)
+		return
+	var live_actor_summary: Dictionary = VisualSourceReport.registry_summary(WorldProjection.MODE_SPROUT_TOPDOWN)
+	if (live_actor_summary["actors"] as Dictionary).has("missing"):
+		push_error("Live actor registry has missing generated actor art: %s" % [live_actor_summary["actors"]])
 		quit(1)
 		return
 	var map_probe := HomesteadMap.new()

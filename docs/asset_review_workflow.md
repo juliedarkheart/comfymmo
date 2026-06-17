@@ -5,6 +5,21 @@ human looks at it.** Nothing imported is wired automatically; unlabeled terrain
 sheets are explicitly **not auto-wired**. The cozy generated placeholders stay
 active until you choose otherwise.
 
+> **Note on the live build:** the playable visual prototype is now Sprout-required
+> (the licensed Sprout Lands pack must be installed/active or the game shows the
+> missing-assets screen — see docs/licensed_asset_policy.md and
+> docs/world_art_direction.md). This review pipeline is how *additional* reviewed
+> assets get wired; the generated placeholders it falls back to are diagnostic/dev
+> only, not the shipped live look.
+
+> **LimeZu evaluation:** the LimeZu "Modern" packs are being tested as a possible new
+> main visual ecosystem via a separate spike. Their review flow mirrors this one —
+> `python tools/art/limezu_integrate.py --all` extracts + catalogs + builds contact
+> sheets + candidate manifests under the gitignored `licensed_assets/limezu/` vault;
+> a human reviews the contact sheets and maps logical ids in the local
+> `limezu_active_manifest.json`. Nothing licensed is committed. See
+> docs/limezu_visual_spike.md and docs/limezu_asset_mapping.md.
+
 ## License policy (personal, non-distributed project)
 
 Allowed: **CC0 / public domain**, **CC-BY** (attribution tracked), **CC-BY-SA**
@@ -102,10 +117,13 @@ crop. See docs/licensed_asset_policy.md.
 For Sprout UI, run `python tools/art/sprout_integrate.py`. It extracts the UI
 zip locally, writes `licensed_assets/sprout_lands/sprout_ui_manifest.json`, and
 generates contact sheets under `licensed_assets/sprout_lands/contact_sheets/ui/`.
-The UI manifest's `active` map should stay empty until a human confirms the UI
-sprites improve readability over the cozy code-drawn fallback. The art manifest
-activates only reviewed Sprout/top-down ids; today that includes 9 object ids, 6
-icon ids, and the single-tile terrain ids `meadow`, `water`, and `creek`.
+Only reviewed/normalized Sprout UI derivatives should be activated, and they
+must stay under gitignored `licensed_assets/sprout_lands/normalized/ui/` or
+`modified/ui/`. Current local UI activation covers panel, button, hover, slot,
+selected slot, close, and menu/dialog panel variants; the committed clean
+checkout still falls back to original Hearthvale-generated UI. The art manifest
+activates only reviewed Sprout/top-down ids; today that includes object ids,
+icon ids, reviewed terrain tiles, and local modified biome variants.
 
 The same command writes a local animation inventory at
 `licensed_assets/sprout_lands/manifests/animations_inventory.json` plus contact

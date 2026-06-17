@@ -5,6 +5,7 @@ class_name SimpleVillager
 @export var first_visit_text: String = "Hello."
 @export var repeat_visit_text: String = "Good to see you again."
 @export var repeat_visit_lines: PackedStringArray = PackedStringArray()
+@export var visual_id: String = CharacterArtRegistry.MARIBEL
 
 var _idle_timer: float = 0.0
 var _body_node: Node2D = null
@@ -35,6 +36,9 @@ func _build_visual() -> void:
 	add_child(root)
 	_body_node = root
 
+	if CharacterArtRegistry.apply_sprite(root, _get_visual_id()):
+		return
+
 	var shadow: Polygon2D = Polygon2D.new()
 	shadow.position = Vector2(0, 2)
 	shadow.polygon = PackedVector2Array([
@@ -46,6 +50,9 @@ func _build_visual() -> void:
 
 	CharacterVisualBuilder.build(root, _get_appearance())
 	_decorate(root)
+
+func _get_visual_id() -> String:
+	return visual_id
 
 ## Default appearance is Maribel Tock: soft curls, a terracotta tunic.
 func _get_appearance() -> Dictionary:

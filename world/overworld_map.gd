@@ -63,22 +63,31 @@ func _content_bounds_world() -> Rect2:
 	return bounds
 
 func get_camera_zoom() -> Vector2:
-	# Slightly closer than 1.0 for readable detail on high-DPI / 4K monitors. Players
-	# can adjust live with PageUp/PageDown/+/- and reset with R.
-	return Vector2(1.3, 1.3)
+	# In the curated demo slice the opening view is framed tighter on the composed
+	# homestead so the first screenshot is a cozy designed scene, not far empty map.
+	# Players can still adjust live with PageUp/PageDown/+/- and reset with R.
+	var z: float = LiveVisualPolicy.CURATED_SLICE_ZOOM if LiveVisualPolicy.CURATED_SLICE else LiveVisualPolicy.OVERWORLD_WIDE_ZOOM
+	return Vector2(z, z)
 
 func _build_overworld() -> void:
 	_build_overworld_backdrop()
 	_build_region_tints()
 	_build_ground()                 # inherited: detailed homestead yard tiles at origin
 	_build_neighborhood_ground()    # buildable ground for the neighborhood plots
+	_scatter_core_detail()          # light flowers/grass/pebbles so the core isn't flat
 	_build_natural_borders()
-	_build_connecting_roads()
+	# Far-reaching visual layers (the long road to the far regions + the broad
+	# wilderness scatter) read as a worldgen test in the opening view. They are kept
+	# for the full overworld but SUPPRESSED for the curated demo slice so the first
+	# screenshot stays a composed, calm space. The gameplay world is unchanged.
+	if not LiveVisualPolicy.CURATED_SLICE:
+		_build_connecting_roads()
+		_build_overworld_wilderness()
 	_build_village_area()
 	_build_forest_area()
-	_build_overworld_wilderness()
 	_ensure_terrain_override_layer()
 	_build_homestead_colliders()    # inherited: cottage, trees, fence (homestead area)
+	_build_curated_slice()          # hand-composed cozy focal cluster around the core
 	_build_overworld_bounds()
 
 ## The neighborhood is a second buildable region east and south of the core
@@ -179,7 +188,9 @@ func paint_plot_ground(plot: Dictionary) -> Node2D:
 			# The 1-tile skirt around the plot is painted as meadow grass so the
 			# biome patch is framed by the common ground instead of meeting the
 			# background as a hard-edged rectangle.
-			var terrain_id: String = biome_id if orig.has_point(tile) else "meadow"
+			var terrain_id: String = "meadow"
+			if orig.has_point(tile):
+				terrain_id = LiveVisualPolicy.terrain_for_plot_ground(biome_id, orig, tile)
 			var tile_node := Node2D.new()
 			tile_node.position = grid_to_world(tile)
 			patch.add_child(tile_node)
@@ -233,12 +244,16 @@ func _paint_terrain_override(tile: Vector2i, terrain_id: String) -> void:
 	node.name = "TerrainOverride_%s" % key
 	node.position = grid_to_world(tile)
 	_terrain_override_layer.add_child(node)
-	if not _add_terrain_sprite(node, terrain_id, tile):
+	var has_sprite: bool = _add_terrain_sprite(node, terrain_id, tile)
+	if not has_sprite:
 		var base := Polygon2D.new()
 		base.polygon = _tile_diamond()
 		base.color = _terrain_base_color(terrain_id, tile)
 		base.z_index = -2
 		node.add_child(base)
+	if WorldProjection.is_sprout_compatible(visual_projection_mode()) and has_sprite:
+		_terrain_override_nodes[key] = node
+		return
 	if terrain_id == "dirt_path" or terrain_id == "stone_path":
 		var inset := Polygon2D.new()
 		inset.polygon = _tile_inner_polygon(7.0)
@@ -312,6 +327,8 @@ func _build_region_tints() -> void:
 	pass
 
 func _build_natural_borders() -> void:
+	if not LiveVisualPolicy.should_draw_broad_procedural_scenery():
+		return
 	# All borders are derived from the actual world bounds and drawn JUST OUTSIDE
 	# the south/north edges, so they always read as distant scenery and can never
 	# become a "grey line" cutting through play (root cause of the old artifact: a
@@ -339,7 +356,44 @@ func _build_natural_borders() -> void:
 	TerrainShapes.add_disc(_bg_layer(), Vector2(bounds.end.x + 60, bounds.position.y + bounds.size.y * 0.4), 460, 12, Color("#3f6a3c"), 0.7)
 	TerrainShapes.add_disc(_bg_layer(), Vector2(bounds.position.x - 40, bounds.position.y + bounds.size.y * 0.5), 320, 8, Color("#8b8780"), 0.62)
 
+func _add_tile_path_between(start_world: Vector2, end_world: Vector2, terrain_id: String = "dirt_path") -> void:
+	var a: Vector2i = world_to_grid(start_world)
+	var b: Vector2i = world_to_grid(end_world)
+	var steps: int = maxi(absi(b.x - a.x), absi(b.y - a.y))
+	var seen: Dictionary = {}
+	for s in range(steps + 1):
+		var t: float = float(s) / float(maxi(steps, 1))
+		var tile := Vector2i(roundi(lerpf(a.x, b.x, t)), roundi(lerpf(a.y, b.y, t)))
+		for offset in [Vector2i.ZERO, Vector2i(0, 1)]:
+			var road_tile: Vector2i = tile + offset
+			var key: String = "%d,%d" % [road_tile.x, road_tile.y]
+			if seen.has(key):
+				continue
+			seen[key] = true
+			var road_node := Node2D.new()
+			road_node.name = "CleanRoad_%s" % key
+			road_node.position = grid_to_world(road_tile)
+			ground_layer.add_child(road_node)
+			_add_terrain_sprite(road_node, terrain_id, road_tile)
+
+func _add_tile_plaza(center_world: Vector2, radius: int, terrain_id: String = "stone_path") -> void:
+	var center: Vector2i = world_to_grid(center_world)
+	for y in range(center.y - radius, center.y + radius + 1):
+		for x in range(center.x - radius, center.x + radius + 1):
+			var tile := Vector2i(x, y)
+			if Vector2(tile.x - center.x, tile.y - center.y).length() > float(radius) + 0.25:
+				continue
+			var node := Node2D.new()
+			node.name = "CleanPlaza_%d_%d" % [tile.x, tile.y]
+			node.position = grid_to_world(tile)
+			ground_layer.add_child(node)
+			_add_terrain_sprite(node, terrain_id, tile)
+
 func _build_connecting_roads() -> void:
+	if WorldProjection.is_sprout_compatible(visual_projection_mode()):
+		_add_tile_path_between(Vector2(-60, 300), Vector2(1596, 392), "dirt_path")
+		_add_tile_path_between(Vector2(1596, 392), Vector2(3060, 326), "stone_path")
+		return
 	TerrainShapes.add_ribbon(
 		_bg_layer(),
 		PackedVector2Array([Vector2(-60, 300), Vector2(320, 420), Vector2(820, 440), Vector2(1300, 392), Vector2(1596, 392)]),
@@ -353,6 +407,11 @@ func _build_connecting_roads() -> void:
 
 func _build_village_area() -> void:
 	var c: Vector2 = VILLAGE_OFFSET
+	if WorldProjection.is_sprout_compatible(visual_projection_mode()):
+		_add_tile_plaza(c + Vector2(96, 290), 5, "stone_path")
+		for off in [Vector2(-150, 110), Vector2(270, 140), Vector2(-90, 470), Vector2(310, 430)]:
+			_add_decor_tree(gameplay_layer, c + off)
+		return
 	TerrainShapes.add_disc(ground_layer, c + Vector2(96, 290), 108, 8, Color("#a08a66"), 0.5)
 	TerrainShapes.add_disc(ground_layer, c + Vector2(96, 286), 100, 8, Color("#cdbb93"), 0.5)
 	TerrainShapes.add_disc(ground_layer, c + Vector2(96, 282), 68, 8, Color("#ddd0ab"), 0.5)
@@ -420,14 +479,14 @@ func _build_forest_area() -> void:
 	var shrine: Vector2 = c + Vector2(136, 166)
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = OW_SEED
-	for i in range(42):
+	for i in range(18):
 		var p: Vector2 = c + Vector2(rng.randf_range(-380, 540), rng.randf_range(-140, 470))
 		if p.distance_to(shrine) < 96.0:
 			continue
 		_add_overworld_pine(gameplay_layer, p)
-	for i in range(8):
+	for i in range(4):
 		_add_rock(gameplay_layer, c + Vector2(rng.randf_range(-320, 500), rng.randf_range(20, 440)))
-	for i in range(10):
+	for i in range(5):
 		_add_mushroom(gameplay_layer, c + Vector2(rng.randf_range(-340, 520), rng.randf_range(0, 460)))
 
 func _build_overworld_wilderness() -> void:
@@ -435,7 +494,7 @@ func _build_overworld_wilderness() -> void:
 	# empty. Drawn in the ground layer (behind props/player), visual only.
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = OW_SEED + 7
-	for i in range(190):
+	for i in range(58):
 		var p: Vector2 = Vector2(rng.randf_range(-700, 3760), rng.randf_range(-180, 880))
 		var roll: float = rng.randf()
 		if roll < 0.40:
@@ -448,6 +507,65 @@ func _build_overworld_wilderness() -> void:
 			_add_flowers(rng, ground_layer, p)
 		else:
 			_add_decor_tree(ground_layer, p)
+
+## Light, deterministic meadow detailing over the OPEN starting core so the most-seen
+## view reads as a tended cozy yard instead of one flat grass tile repeated. Small
+## decor sprites only (Sprout flower patches + pebbles, a few generated grass tufts),
+## drawn under the player in the ground layer; skips paths/town/forest tiles, the
+## cottage footprint, the reserved spawn, and static props. No collision, no gameplay.
+func _scatter_core_detail() -> void:
+	if not WorldProjection.is_sprout_compatible(visual_projection_mode()):
+		return
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = OW_SEED + 23
+	var blocked: Array[Vector2i] = get_static_blocked_tiles()
+	for ty in range(MAP_HEIGHT):
+		for tx in range(MAP_WIDTH):
+			var tile := Vector2i(tx, ty)
+			if _terrain_id_for_tile(tile) != "meadow":
+				continue  # leave paths, the town pad, and the forest tiles clear
+			if tile in blocked or tile == get_spawn_tile():
+				continue
+			if rng.randf() > 0.12:
+				continue
+			var world_pos: Vector2 = grid_to_world(tile) + Vector2(rng.randf_range(-9.0, 9.0), rng.randf_range(-7.0, 7.0))
+			var roll: float = rng.randf()
+			if roll < 0.55:
+				_decor_sprite(ground_layer, world_pos, "flower_patch", rng.randf_range(0.28, 0.40))
+			elif roll < 0.85:
+				_decor_sprite(ground_layer, world_pos, "grass_tuft", rng.randf_range(0.30, 0.42))
+			else:
+				_decor_sprite(ground_layer, world_pos, "rock", rng.randf_range(0.24, 0.34))
+
+## Hand-composed cozy focal cluster around the homestead core so the OPENING view
+## reads as a designed yard (cottage + well + a small garden bed + flower beds +
+## framing greenery) instead of a flat worldgen test. Sprout sprites only; everything
+## here is decor (no collision) and is placed to avoid the cottage, the reserved
+## spawn, the path rows, the fence line, and the existing trees/NPC markers.
+func _build_curated_slice() -> void:
+	if not LiveVisualPolicy.CURATED_SLICE or not WorldProjection.is_sprout_compatible(visual_projection_mode()):
+		return
+	set_meta("curated_slice", true)
+	# Focal well just east of the cottage (Sprout object, decor only).
+	_decor_sprite(gameplay_layer, grid_to_world(Vector2i(11, 7)), ContentIds.PLACEABLE_WELL, 0.72)
+	# A small tended garden bed: a clean 3x2 tilled patch tucked to the south-west,
+	# drawn in the ground layer (behind the player) so it reads as a kept plot.
+	for ty in range(12, 14):
+		for tx in range(2, 5):
+			var tile := Vector2i(tx, ty)
+			var cell := Node2D.new()
+			cell.name = "CuratedBed_%d_%d" % [tx, ty]
+			cell.position = grid_to_world(tile)
+			ground_layer.add_child(cell)
+			_add_terrain_sprite(cell, "tilled_soil", tile)
+	# Flower beds: a soft border for the garden plus a couple by the cottage/path.
+	for flower_tile in [Vector2i(1, 12), Vector2i(5, 12), Vector2i(2, 14), Vector2i(4, 14), Vector2i(8, 7), Vector2i(8, 8), Vector2i(4, 7)]:
+		_decor_sprite(ground_layer, grid_to_world(flower_tile), "flower_patch", 0.46)
+	# Framing greenery at the view edges (gameplay layer so it y-sorts with the player).
+	for bush_tile in [Vector2i(1, 5), Vector2i(1, 13), Vector2i(13, 6), Vector2i(13, 12)]:
+		_decor_sprite(gameplay_layer, grid_to_world(bush_tile), "bush", 0.5)
+	for tree_tile in [Vector2i(1, 3), Vector2i(13, 3)]:
+		_decor_sprite(gameplay_layer, grid_to_world(tree_tile), "tree", 0.6)
 
 func _build_overworld_bounds() -> void:
 	# Walls are derived from the world's actual content bounds (+ a margin) and

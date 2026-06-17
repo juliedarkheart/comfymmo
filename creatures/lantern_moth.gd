@@ -40,6 +40,9 @@ func _build_visual() -> void:
 	add_child(root)
 	_body_node = root
 
+	if CharacterArtRegistry.apply_sprite(root, CharacterArtRegistry.LANTERN_MOTH):
+		return
+
 	_glow_ring = Polygon2D.new()
 	_glow_ring.polygon = PackedVector2Array([
 		Vector2(0, -12), Vector2(12, 0), Vector2(0, 12), Vector2(-12, 0),

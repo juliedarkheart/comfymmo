@@ -5,6 +5,11 @@ class_name BramVillager
 ## character, with his own appearance (fluffy hair, mossy forest apron, tiny
 ## felt hat) and signature stubble.
 
+func _get_visual_id() -> String:
+	if visual_id != CharacterArtRegistry.MARIBEL:
+		return visual_id
+	return CharacterArtRegistry.BRAM
+
 func _get_appearance() -> Dictionary:
 	return {
 		"skin_tone": "honey",

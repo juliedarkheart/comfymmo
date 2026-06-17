@@ -31,6 +31,7 @@ OUT = ROOT / "art/generated/hearthvale"
 TERRAIN_OUT = OUT / "terrain"
 UI_OUT = OUT / "ui"
 TILE = 32  # top-down tile edge (matches WorldProjection.MODE_SPROUT_TOPDOWN)
+NEAREST = Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST
 
 # Deterministic value noise so tiles are reproducible run to run.
 def _noise(x: int, y: int, seed: int) -> float:
@@ -252,9 +253,43 @@ def ui_slot_selected():
     return _panel(28, SLOT_SEL, HONEY, radius=5, bw=3)
 
 
+def ui_dialog_panel():
+    return _panel(48, PARCHMENT, BORDER, radius=10, bw=4)
+
+
+def ui_inventory_panel():
+    return _panel(48, PARCHMENT, BORDER_LIGHT, radius=8, bw=4)
+
+
+def ui_system_menu_panel():
+    return _panel(48, (230, 206, 158), BORDER, radius=10, bw=4)
+
+
+def ui_build_menu_panel():
+    return _panel(48, (238, 218, 170), BORDER, radius=10, bw=4)
+
+
+def ui_check():
+    img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.line([(7, 17), (13, 23), (25, 8)], fill=(90, 145, 80, 255), width=4)
+    return img
+
+
+def ui_cursor():
+    img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.polygon([(7, 5), (24, 17), (16, 19), (13, 27), (9, 26), (12, 19), (7, 22)],
+              fill=(250, 236, 194, 255), outline=(94, 62, 34, 255))
+    return img
+
+
 UI = {
     "panel": ui_panel, "button": ui_button, "button_hover": ui_button_hover,
     "slot": ui_slot, "slot_selected": ui_slot_selected,
+    "dialog_panel": ui_dialog_panel, "inventory_panel": ui_inventory_panel,
+    "system_menu_panel": ui_system_menu_panel, "build_menu_panel": ui_build_menu_panel,
+    "check": ui_check, "cursor": ui_cursor,
 }
 
 
@@ -569,11 +604,139 @@ OBJECTS = {
 
 
 OBJ_OUT = OUT / "objects"
+CHARACTER_OUT = OUT / "characters"
+CREATURE_OUT = OUT / "creatures"
+
+
+# --- original cozy top-down CHARACTER / CREATURE sprites ----------------------
+# 48px pixel canvas upscaled 2x. These are deliberately simple, readable
+# top-down/chibi sprites so live actors stop using Polygon2D prototype bodies.
+PIX = 48
+
+
+def _pixel_sprite():
+    return Image.new("RGBA", (PIX, PIX), (0, 0, 0, 0))
+
+
+def _upscale(img: Image.Image) -> Image.Image:
+    return img.resize((96, 96), NEAREST)
+
+
+def _character(hair, outfit, accent, skin=(226, 170, 132), accessory="none"):
+    img = _pixel_sprite(); d = ImageDraw.Draw(img)
+    d.ellipse([13, 39, 35, 45], fill=(24, 18, 12, 54))
+    d.rectangle([19, 29, 29, 41], fill=outfit, outline=_mix(outfit, (40, 30, 24), 0.35))
+    d.rectangle([17, 34, 22, 43], fill=outfit, outline=_mix(outfit, (40, 30, 24), 0.35))
+    d.rectangle([26, 34, 31, 43], fill=outfit, outline=_mix(outfit, (40, 30, 24), 0.35))
+    d.rectangle([17, 42, 22, 45], fill=(88, 70, 52))
+    d.rectangle([26, 42, 31, 45], fill=(88, 70, 52))
+    d.ellipse([15, 12, 33, 31], fill=skin, outline=(168, 110, 86))
+    d.rectangle([17, 26, 31, 32], fill=skin)
+    d.pieslice([13, 8, 35, 29], 180, 360, fill=hair, outline=_mix(hair, (40, 30, 24), 0.3))
+    d.rectangle([14, 18, 18, 30], fill=hair)
+    d.rectangle([30, 18, 34, 30], fill=hair)
+    d.rectangle([20, 28, 28, 31], fill=_mix(skin, (255, 230, 205), 0.18))
+    d.point([(21, 22), (27, 22)], fill=(48, 36, 28))
+    d.rectangle([23, 25, 25, 26], fill=(118, 70, 68))
+    d.rectangle([20, 31, 28, 34], fill=accent)
+    if accessory == "glasses":
+        d.rectangle([18, 21, 22, 23], outline=(70, 48, 34))
+        d.rectangle([26, 21, 30, 23], outline=(70, 48, 34))
+        d.line([22, 22, 26, 22], fill=(70, 48, 34))
+    elif accessory == "hat":
+        d.rectangle([17, 7, 31, 11], fill=accent, outline=_mix(accent, (40, 30, 24), 0.35))
+        d.rectangle([20, 3, 28, 8], fill=accent, outline=_mix(accent, (40, 30, 24), 0.35))
+    elif accessory == "leaf":
+        d.ellipse([29, 12, 35, 17], fill=(112, 166, 90), outline=(68, 120, 62))
+    return _upscale(img)
+
+
+def c_player():
+    return _character((112, 92, 60), (94, 148, 94), (224, 178, 76), accessory="leaf")
+
+
+def c_remote_player():
+    return _character((94, 84, 130), (92, 142, 178), (210, 190, 118))
+
+
+def c_maribel():
+    return _character((120, 78, 48), (196, 108, 82), (218, 174, 76), skin=(218, 158, 112), accessory="glasses")
+
+
+def c_bram():
+    return _character((104, 74, 46), (90, 132, 74), (150, 120, 74), skin=(214, 154, 108), accessory="hat")
+
+
+def c_rowan():
+    return _character((94, 116, 74), (124, 154, 96), (226, 202, 120), accessory="leaf")
+
+
+def c_land_clerk():
+    return _character((76, 64, 52), (132, 108, 76), (226, 190, 96), skin=(204, 136, 96), accessory="glasses")
+
+
+def cr_moss_rabbit():
+    img = _pixel_sprite(); d = ImageDraw.Draw(img)
+    d.ellipse([12, 35, 36, 42], fill=(24, 18, 12, 46))
+    d.rounded_rectangle([13, 20, 35, 37], radius=8, fill=(176, 164, 132), outline=(126, 104, 80))
+    d.ellipse([17, 25, 31, 36], fill=(216, 206, 176))
+    d.rounded_rectangle([15, 8, 21, 24], radius=3, fill=(194, 160, 122), outline=(126, 104, 80))
+    d.rounded_rectangle([27, 8, 33, 24], radius=3, fill=(194, 160, 122), outline=(126, 104, 80))
+    d.rectangle([17, 12, 19, 21], fill=(232, 176, 160))
+    d.rectangle([29, 12, 31, 21], fill=(232, 176, 160))
+    d.point([(19, 24), (29, 24)], fill=(54, 38, 28))
+    d.rectangle([23, 27, 25, 28], fill=(192, 100, 100))
+    d.ellipse([30, 33, 39, 40], fill=(232, 224, 204), outline=(178, 164, 132))
+    return _upscale(img)
+
+
+def cr_lantern_moth():
+    img = _pixel_sprite(); d = ImageDraw.Draw(img)
+    d.ellipse([8, 16, 40, 40], fill=(240, 226, 116, 46))
+    d.polygon([(22, 24), (5, 15), (10, 33)], fill=(120, 186, 142, 210), outline=(80, 132, 96))
+    d.polygon([(26, 24), (43, 15), (38, 33)], fill=(120, 186, 142, 210), outline=(80, 132, 96))
+    d.rounded_rectangle([20, 15, 28, 34], radius=4, fill=(230, 210, 118), outline=(138, 112, 58))
+    d.ellipse([21, 24, 27, 31], fill=(255, 244, 160))
+    d.point([(24, 19)], fill=(64, 48, 28))
+    return _upscale(img)
+
+
+def cr_stump_turtle():
+    img = _pixel_sprite(); d = ImageDraw.Draw(img)
+    d.ellipse([10, 36, 38, 43], fill=(24, 18, 12, 50))
+    for x, y in [(13, 30), (31, 30), (16, 36), (28, 36)]:
+        d.rectangle([x, y, x + 5, y + 5], fill=(130, 150, 92), outline=(86, 104, 60))
+    d.rounded_rectangle([19, 29, 29, 39], radius=4, fill=(158, 176, 104), outline=(86, 104, 60))
+    d.point([(22, 33), (27, 33)], fill=(54, 42, 28))
+    d.rounded_rectangle([11, 16, 37, 34], radius=8, fill=(110, 78, 48), outline=(76, 52, 32))
+    d.ellipse([15, 13, 33, 25], fill=(130, 96, 60), outline=(76, 52, 32))
+    d.arc([17, 15, 31, 25], 180, 360, fill=(176, 136, 86), width=1)
+    d.polygon([(14, 16), (24, 10), (34, 16), (24, 21)], fill=(98, 148, 78), outline=(64, 112, 58))
+    return _upscale(img)
+
+
+CHARACTERS = {
+    "player": c_player,
+    "remote_player": c_remote_player,
+    "maribel_tock": c_maribel,
+    "bram_nettle": c_bram,
+    "rowan": c_rowan,
+    "land_clerk": c_land_clerk,
+}
+
+
+CREATURES = {
+    "moss_rabbit": cr_moss_rabbit,
+    "lantern_moth": cr_lantern_moth,
+    "stump_turtle": cr_stump_turtle,
+}
 
 
 def main() -> None:
     TERRAIN_OUT.mkdir(parents=True, exist_ok=True)
     UI_OUT.mkdir(parents=True, exist_ok=True)
+    CHARACTER_OUT.mkdir(parents=True, exist_ok=True)
+    CREATURE_OUT.mkdir(parents=True, exist_ok=True)
     for name, fn in TERRAIN.items():
         fn().save(TERRAIN_OUT / f"{name}.png")
     for name, fn in UI.items():
@@ -582,10 +745,15 @@ def main() -> None:
         dest = OBJ_OUT / f"{rel}.png"
         dest.parent.mkdir(parents=True, exist_ok=True)
         fn().save(dest)
+    for name, fn in CHARACTERS.items():
+        fn().save(CHARACTER_OUT / f"{name}.png")
+    for name, fn in CREATURES.items():
+        fn().save(CREATURE_OUT / f"{name}.png")
     # A short README so the tracked folder explains itself.
     (OUT / "README.md").write_text(
         "# Hearthvale generated gap-fill art (original, committable)\n\n"
-        "Original procedural top-down tiles + simple UI shapes for the "
+        "Original procedural top-down tiles, object sprites, actor sprites, and "
+        "simple UI shapes for the "
         "`sprout_topdown` visual mode, generated by "
         "`tools/art/generate_hearthvale_gap_assets.py`. NOT derived from Sprout "
         "Lands or any third-party media. These are the GENERATED fallback the "
@@ -595,6 +763,8 @@ def main() -> None:
     print(f"Wrote {len(TERRAIN)} terrain tiles -> {TERRAIN_OUT.relative_to(ROOT)}")
     print(f"Wrote {len(UI)} UI shapes -> {UI_OUT.relative_to(ROOT)}")
     print(f"Wrote {len(OBJECTS)} object sprites -> {OBJ_OUT.relative_to(ROOT)}")
+    print(f"Wrote {len(CHARACTERS)} character sprites -> {CHARACTER_OUT.relative_to(ROOT)}")
+    print(f"Wrote {len(CREATURES)} creature sprites -> {CREATURE_OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

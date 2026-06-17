@@ -26,3 +26,17 @@ art/licensed_local/
 # Source/editor art files that may ship inside licensed packs.
 *.aseprite
 
+# LimeZu (Modern Farm / Modern UI / Modern Exteriors / Modern Interiors /
+# Modern Office / Fungus Cave / RPG-Arsenal "Fantasy Battlers") is being evaluated
+# as a possible new visual ecosystem. Like Sprout, the ENTIRE vault — original
+# zips + .exe generators, extracted packs, normalized/modified derivatives, contact
+# sheets, and local activation manifests — is LOCAL ONLY and NEVER committed.
+# (licensed_assets/ above already covers this; these are explicit, defensive entries.)
+licensed_assets/limezu/
+licensed_assets/**/original/
+licensed_assets/**/extracted/
+licensed_assets/**/normalized/
+licensed_assets/**/modified/
+licensed_assets/**/contact_sheets/
+licensed_assets/**/manifests/
+

@@ -163,8 +163,9 @@ multi-region spine.
 - `CreatureSystem`
   Placeholder creature records for future spawning and bonding work.
 - `AmbientCreature` / `MossRabbit` / `LanternMoth` / `StumpTurtle`
-  Session-local ambient life nodes spawned by region controllers. No save
-  persistence. State resets on region load.
+  Session-local ambient life nodes spawned by region controllers. Their live
+  sprites resolve through `CharacterArtRegistry`; no save persistence. State
+  resets on region load.
 - `SurvivalSystem`
   Placeholder stat store for `energy`, `hunger`, and `comfort`.
 - `TaskIntegrationSystem`
@@ -256,11 +257,13 @@ current phase — no branching, no schedules.
 Villager scripts live in `villagers/`. Scenes live in `scenes/villagers/`.
 
 - `simple_villager.gd` — `Node2D` base: gentle sine-wave idle bob, `_build_visual()`
-  for procedural art, exports `villager_name`, `first_visit_text`, `repeat_visit_text`,
+  routes through `CharacterArtRegistry` first, exports `visual_id`,
+  `villager_name`, `first_visit_text`, `repeat_visit_text`,
   `repeat_visit_lines: PackedStringArray`. `get_repeat_line(visit_count)` returns the
   correct rotating line, falling back to `repeat_visit_text` if the array is empty.
-- `bram_villager.gd` — extends `SimpleVillager`, overrides `_build_visual()` to draw
-  Bram's hat, work jacket, and stubble. All dialogue data lives in the `.tscn`.
+- `bram_villager.gd` — extends `SimpleVillager`, defaults its `visual_id` to
+  Bram's registry sprite and keeps the old hat/stubble drawing as fallback-only.
+  All dialogue data lives in the `.tscn`.
 - `scenes/villagers/maribel_tock.tscn` — Maribel Tock. Sets name, first-visit text,
   and three rotating repeat lines.
 - `scenes/villagers/bram_nettle.tscn` — Bram Nettle. Same structure, different values.
@@ -277,7 +280,7 @@ Ambient creatures live in `creatures/`:
 
 - `ambient_creature.gd` — base class: idle/wander/flee state machine, no physics
   collision, no navmesh. Uses `Node2D` position updates only.
-- `moss_rabbit.gd` — ground creature with procedural visual and hop animation.
+- `moss_rabbit.gd` — ground creature with a registry sprite and hop animation.
 - `lantern_moth.gd` — slow drifting creature with wing flutter and glow pulse.
 - `stump_turtle.gd` — very slow ground creature with long idle pauses, a mossy
   stump shell, and a gentle shell wobble / head bob. Sets slower speed and longer

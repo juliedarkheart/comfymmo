@@ -1,7 +1,7 @@
 # Character customization — foundation (v1)
 
-Status: **data + visual builder + wardrobe + dev panel + save integration +
-profile integration + network sync.** The F9 panel doubles as the player-facing
+Status: **data + wardrobe/dev panel + save integration + profile integration +
+network sync + registry-backed live sprites.** The F9 panel doubles as the player-facing
 Wardrobe (mirror beside the cottage, "Press F to open wardrobe"); appearance
 persists in `player.appearance` AND the active local profile, and is sent to
 the server in the multiplayer join payload so other players see your look.
@@ -25,15 +25,17 @@ the wardrobe/F9 panel writes both thereafter.
 - `systems/character/character_appearance.gd` — the appearance data model:
   a plain Dictionary, one id per slot, with `default_appearance()` and
   `normalized()` (fills missing slots, replaces unknown ids with defaults).
-- `systems/character/character_visual_builder.gd` — turns an appearance dict
-  into Polygon2D children: chibi proportions, three hair styles, three
-  outfits, three accessories, shared face.
-- `avatar/avatar_visual.gd` — the player's `Body` node; builds the default
-  appearance in `_ready()` and exposes `rebuild(appearance)` for a future
-  character creator.
-- Villagers (`villagers/simple_villager.gd`, `bram_villager.gd`) use the same
-  builder with their own `_get_appearance()` + `_decorate()` overrides, so
-  every new appearance option automatically works for NPCs too.
+- `systems/art/character_art_registry.gd` — live actor sprite lookup for the
+  player, remote players, villagers, and ambient creatures. It resolves original
+  generated sprites under `art/generated/hearthvale/{characters,creatures}/`.
+- `systems/character/character_visual_builder.gd` — legacy/dev fallback that
+  turns an appearance dict into Polygon2D children. It is no longer the normal
+  live render path.
+- `avatar/avatar_visual.gd` — the player's `Body` node; rebuilds on wardrobe
+  changes but uses the `CharacterArtRegistry` player sprite first.
+- Villagers (`villagers/simple_villager.gd`, `bram_villager.gd`) carry a
+  `visual_id` and use `CharacterArtRegistry` first. Their `_get_appearance()` /
+  `_decorate()` hooks remain fallback-only.
 
 ## Slots and current options
 
@@ -85,8 +87,10 @@ Rules (enforced by `LocalSaveSystem.get/set_player_appearance` and checked by
 
 `ui/dev_character_creator_panel.tscn` — toggled with **F9** in the overworld.
 Prev/next buttons per slot (hair style/color, skin tone, outfit style/color,
-accessory), plus Reset Default and Close. Every change applies live via
-`AvatarVisual.rebuild()` and persists immediately. It is instanced by
+accessory), plus Reset Default and Close. Every change still applies via
+`AvatarVisual.rebuild()` and persists immediately, but the current live sprite
+is a fixed registry-backed actor sprite until final character sheet variants are
+available. It is instanced by
 `OverworldController._setup_dev_overlay`, which also applies the saved
 appearance to the avatar at boot. The panel touches no gameplay state — it is
 an overlay only, and the real player-facing character creator remains future

@@ -140,7 +140,24 @@ func _load_starting_region() -> void:
 	# Outdoor traversal is now one continuous overworld; it never scene-swaps. Only
 	# future instances (dungeons, caves, interiors) will use region swapping. Any
 	# legacy outdoor current_region_id resolves to the overworld.
+	#
+	# Sprout-required gate: the live visual build needs the licensed Sprout pack. When
+	# it is missing/inactive we mount a clear missing-assets screen instead of silently
+	# rendering the old generated/procedural fallback (see SproutAssetRequirement).
+	if SproutAssetRequirement.REQUIRED:
+		var requirement: Dictionary = SproutAssetRequirement.check()
+		if not bool(requirement["ok"]):
+			push_warning("[sprout-required] %s" % String(requirement["summary"]))
+			_show_missing_assets_screen(requirement["missing"] as Array)
+			return
 	_load_region(OVERWORLD_REGION_ID, "default")
+
+func _show_missing_assets_screen(missing: Array) -> void:
+	var screen := MissingAssetsScreen.new()
+	screen.name = "MissingAssetsScreen"
+	_region_root.add_child(screen)
+	screen.setup(missing)
+	_active_region = null
 
 func _get_active_region_id() -> String:
 	if _active_region != null and is_instance_valid(_active_region) and _active_region is BaseRegionController:

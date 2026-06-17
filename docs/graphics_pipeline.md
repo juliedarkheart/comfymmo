@@ -29,6 +29,8 @@ art/tiles/water/       water, creek, water edge
 art/objects/building/  modular pieces, prefabs, workbench, storage
 art/objects/nature/    trees, rocks, bushes, flowers, crops
 art/objects/decor/     fence, gate, sign, mailbox
+art/generated/hearthvale/characters/  original live actor sprites
+art/generated/hearthvale/creatures/    original live ambient creature sprites
 art/ui/icons/          resource, tool, build/edit icons
 art/placeholders/      safe missing-art fallback
 art/generated/         notes for locally generated placeholders
@@ -56,6 +58,9 @@ Current targets:
   instead of forcing those legacy diamonds into the grid.
 - Object sprite PNG: `96x96`, bottom/center-friendly, contact shadow near the
   parent tile origin.
+- Character/creature sprite PNG: `96x96`, pixel-canvas upscaled, centered with
+  a contact shadow baked into the sprite. Live rendering scales these down via
+  `CharacterArtRegistry` so actors fit the 32x32 Sprout terrain grid.
 - UI icon PNG: `64x64`, centered.
 
 Anchor rules:
@@ -121,6 +126,13 @@ tools, and UI action ids to sprites/icons. It provides:
 
 Map code and placeable visuals should ask these registries for art paths. Avoid
 scattering raw `res://art/...` paths through gameplay systems.
+
+`systems/art/character_art_registry.gd` maps live player, remote player,
+villager, and ambient creature ids to actor sprites under
+`art/generated/hearthvale/{characters,creatures}/`. The old
+`CharacterVisualBuilder` polygon body remains only as a dev fallback if a sprite
+cannot load; normal gameplay actors should route through `CharacterArtRegistry`
+first so characters do not visually drift away from the terrain/object style.
 
 ## Fallback Strategy
 
@@ -202,21 +214,32 @@ packs (e.g. Sprout Lands by Cup Nooble): full order is **local licensed → loca
 licensed_modified → redistributable external → generated → missing**. The
 licensed manifest + assets live under the gitignored `licensed_assets/` and are
 never committed (including the `modified/` recolors/tints that resolve as the
-`licensed_modified` tier); a clean checkout falls straight through to the
-generated art. Tooling is `tools/art/sprout_integrate.py`. Full rules:
+`licensed_modified` tier). Tooling is `tools/art/sprout_integrate.py`. Full rules:
 docs/licensed_asset_policy.md.
+
+**Sprout-required live build.** The resolver still *technically* falls through to
+generated art when Sprout is absent, but the live game no longer ships that
+fallback as the playable look: `WorldRegionManager` checks
+`SproutAssetRequirement` at boot and mounts the missing-assets screen
+(`ui/missing_assets_screen.gd`) instead of the overworld when the pack is
+missing/inactive. The generated tier is therefore a diagnostic/dev fallback and a
+non-visual smoke-test prop, not the intended live presentation. Policy flag:
+`LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE`.
 
 ## Original Hearthvale top-down gap-fill (`art/generated/hearthvale/`)
 
 `tools/art/generate_hearthvale_gap_assets.py` renders **original, committable**
-top-down 32x32 terrain tiles (every terrain id) plus simple UI shapes under
+top-down 32x32 terrain tiles (every terrain id) plus UI panels/buttons/slots,
+cursor/check fallbacks, object sprites, and actor sprites under
 `art/generated/hearthvale/`. In the live `sprout_topdown` mode the terrain
-registry prefers these over the legacy 64x48 isometric diamonds, so a clean
-checkout with **no** Sprout pack still reads as a coherent top-down farming world
-(paths look like paths, soil like soil, plot markers like cozy posts). They
-resolve as the `generated` source tier and are **not** derived from Sprout (or
-any third-party) media — the script draws them procedurally. Licensed Sprout art,
-when installed locally, still wins over them per the order above.
+registry prefers these over the legacy 64x48 isometric diamonds. They resolve as
+the `generated` source tier and are **not** derived from Sprout (or any
+third-party) media — the script draws them procedurally. Licensed Sprout art, when
+installed locally, wins over them per the order above. **These generated tiles are
+now a diagnostic/dev fallback only** — they are not the shipped live look, because
+the live build is Sprout-required (a no-Sprout boot shows the missing-assets
+screen rather than this fallback). They still back the registries for non-visual
+validation/smoke tests and for inspecting source tiers.
 
 The same script also renders **original top-down OBJECT sprites** (96x96,
 bottom-anchored) under `art/generated/hearthvale/objects/{nature,building,decor}/`
@@ -226,6 +249,14 @@ top-down → legacy placeholder → missing**), and terrain-placeable objects ro
 the Hearthvale terrain tiles. So placed buildings, props, and the world's
 trees/bushes/rocks/flowers/mushrooms/pines render as cozy top-down sprites instead
 of the old procedural polygons.
+
+It also renders **original top-down ACTOR sprites** under
+`art/generated/hearthvale/characters/` and `art/generated/hearthvale/creatures/`.
+`AvatarVisual`, `RemotePlayer`, `SimpleVillager`, and the ambient creature nodes
+resolve these through `CharacterArtRegistry` before falling back to polygon
+builders. This is a containment layer, not final animation-sheet support: final
+commissioned/licensed character sheets can replace the registry outputs later
+without changing movement, dialogue, networking, or creature behavior.
 
 ### The "old graphics still showing" fix (live render path)
 
@@ -246,12 +277,53 @@ Normal play keeps broad biome/region debug overlays off. Admin/world-builder
 overlays remain explicit tools (F7 or `/overlay`) and may show plot/parcel/marker
 information, but they are separate from the calm default render path.
 
+The current Sprout-first pass tightens that further through
+`systems/visual/live_visual_policy.gd`: broad procedural border scenery,
+market/fountain slabs, and biome rectangle carpets stay out of normal play.
+Connecting roads/plazas render as tile sprites; plot ground is meadow-first with
+only small special-case accents; actor sprites are scaled to the 32x32 terrain
+grid.
+
 Reviewed Sprout terrain currently activates only obvious single-tile mappings:
 meadow grass, water, and creek. Other terrain sheets remain catalog/review
 material until a human picks safe cells. Sprout UI kit assets follow the same
 local-only rule. The local manifest is
 `licensed_assets/sprout_lands/sprout_ui_manifest.json`; the tracked template is
 `art/sprout_ui_manifest.template.json`. `UIArtRegistry` resolves local activated
-Sprout UI first, then generated icon fallback, then code-drawn/missing fallback.
-The default local manifest keeps `active` empty until manual review confirms the
-sprites help readability.
+Sprout UI first, then generated Hearthvale UI fallback, then code-drawn/missing
+fallback. Current local-only activated UI includes panel, button, hover, slot,
+selected slot, close, and menu/dialog panel variants; none of those Sprout
+derivatives are committed.
+
+### Single-sprite objects / signs (no tiling)
+
+Object and sign art renders as a **single** `Sprite2D` via `ObjectArtRegistry`
+(`make_sprite`) — never a tiled/region texture and never reused as a UI nine-patch
+background. The Sprout signpost is a small source, so world signs are drawn at a
+reduced scale and without a permanent floating title plate to avoid a "repeated
+sign" look. The HUD keeps a solid dark code-drawn backing for contrast rather than a
+stretched Sprout panel (see docs/ui_style_guide.md). Generated/dev art remains a
+temporary fallback and must not visually dominate over Sprout/modified-Sprout art.
+
+### Curated demo slice
+
+Normal play opens in a curated demo slice (`LiveVisualPolicy.CURATED_SLICE`,
+`OverworldMap._build_curated_slice`): the opening camera frames a small composed
+homestead and the broad procedural layers (far connecting roads, wilderness scatter)
+are suppressed in normal play. The full overworld renderer is unchanged and returns
+when the flag is off; the gameplay/data world is intact underneath. This is a
+presentation gate, not a gameplay change — see docs/world_art_direction.md.
+
+### LimeZu provider (under evaluation)
+
+LimeZu ("Modern" ecosystem) is being tested as a possible future main visual
+ecosystem. It is wired as a SEPARATE licensed provider — `systems/art/limezu_art_registry.gd`
+(logical-id resolver over a gitignored local manifest) selected via
+`systems/art/art_provider_registry.gd` — and is exercised only by the visual spike
+`scenes/visual_spikes/limezu_homestead_slice.tscn`. The live game stays on Sprout
+(`ArtProviderRegistry.LIVE_PROVIDER == "sprout"`); no live resolution is rerouted.
+Extraction/cataloging is `tools/art/limezu_integrate.py` (writes `.gdignore` into the
+raw `extracted/` trees so Godot never imports the ~120k licensed PNGs — only the few
+reviewed `normalized/` derivatives import). All LimeZu media stays local/gitignored;
+only code, the manifest *template*, and docs are commit-safe. See
+docs/limezu_visual_spike.md and docs/limezu_asset_mapping.md.

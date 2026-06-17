@@ -16,10 +16,6 @@ script = ExtResource("1_avatar")
 position = Vector2(0, -10)
 shape = SubResource("CapsuleShape2D_player")
 
-[node name="Shadow" type="Polygon2D" parent="."]
-color = Color(0.192157, 0.160784, 0.12549, 0.22)
-polygon = PackedVector2Array(-14, 0, -10, -3, -5, -5, 0, -5.5, 5, -5, 10, -3, 14, 0, 10, 3, 5, 5, 0, 5.5, -5, 5, -10, 3)
-
 [node name="Body" type="Node2D" parent="."]
 script = ExtResource("3_visual")
 

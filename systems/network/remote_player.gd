@@ -16,7 +16,8 @@ func setup(display_name: String, appearance: Dictionary, start_position: Vector2
 	var body: Node2D = Node2D.new()
 	body.name = "Body"
 	add_child(body)
-	CharacterVisualBuilder.build(body, appearance)
+	if not CharacterArtRegistry.apply_sprite(body, CharacterArtRegistry.REMOTE_PLAYER):
+		CharacterVisualBuilder.build(body, appearance)
 
 	Nameplate.attach(self, display_name, "Player", Color("#bfe0ff"))
 

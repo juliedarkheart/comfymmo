@@ -5,6 +5,34 @@ Some Hearthvale art is **premium, paid, non-redistributable** and must stay
 CC0/CC-BY "external" pipeline (docs/asset_review_workflow.md), which *can* be
 committed.
 
+> **Sprout-required live build.** The playable visual prototype now *requires* the
+> Sprout pack. With `licensed_assets/` absent the live world refuses to mount and
+> shows a missing-assets screen (`ui/missing_assets_screen.gd`) — the generated
+> fallback is no longer the shipped live look, only a diagnostic/dev and
+> non-visual-smoke-test prop. See `systems/visual/sprout_asset_requirement.gd`.
+
+## LimeZu (Modern ecosystem) — premium, local only, UNDER EVALUATION
+
+LimeZu's Modern packs (`modern_farm`, `modern_ui`, `modern_exteriors`,
+`modern_interiors`, `modern_office`, `fungus_cave`, and `rpg_arsenal` = the "Fantasy
+Battlers" pack) are being evaluated as a possible new main visual ecosystem. They
+follow the **same local-only rules as Sprout**:
+
+- The entire `licensed_assets/limezu/` vault — original zips, the `.exe` generators,
+  extracted packs, `normalized/`/`modified/` derivatives, contact sheets, per-pack
+  inventory/candidate manifests, and the local `limezu_active_manifest.json` — is
+  gitignored and **never committed**. `git check-ignore` confirms every pack's
+  `original/` is excluded; `git ls-files licensed_assets` is empty.
+- Commit-safe only: `tools/art/limezu_integrate.py`, provider code
+  (`systems/art/limezu_art_registry.gd`, `art_provider_registry.gd`), the visual spike
+  scene, `tools/art/templates/limezu_manifest_template.json` (empty `active`), and docs.
+- `.gdignore` in each pack's `original/`, `extracted/`, `contact_sheets/`, and
+  `manifests/` stops Godot importing the raw licensed PNGs; only reviewed
+  `normalized/` derivatives import.
+- Sprout remains the live provider; LimeZu is spike-only. `ArtProviderRegistry.LIVE_PROVIDER`
+  is the single intended pivot point if LimeZu is later chosen. See
+  docs/limezu_visual_spike.md and docs/limezu_asset_mapping.md.
+
 ## Sprout Lands (Cup Nooble) — premium, local only
 
 - **Pack:** Sprout Lands premium sprite pack by **Cup Nooble**.
@@ -57,8 +85,11 @@ licensed_assets/sprout_lands/
 
 Source tiers reported by `source_of`: `licensed`, `licensed_modified`,
 `external`, `generated`, `missing` (UI adds `licensed_ui`). A clean checkout (no
-`licensed_assets/`) resolves everything to the generated Hearthvale/legacy art
-and runs identically — validated by `tools/validate_project.gd`.
+`licensed_assets/`) still resolves the registries to the generated
+Hearthvale/legacy art for non-visual smoke tests and validation
+(`tools/validate_project.gd` stays green), but the **live visual build is
+Sprout-required**: it boots to the missing-assets screen rather than presenting
+that fallback as the game. Validation does not demand no-Sprout playability.
 
 ## What is wired from Sprout (this pass)
 

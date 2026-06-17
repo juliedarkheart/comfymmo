@@ -30,6 +30,9 @@ func _build_visual() -> void:
 	add_child(root)
 	_body_node = root
 
+	if CharacterArtRegistry.apply_sprite(root, CharacterArtRegistry.MOSS_RABBIT):
+		return
+
 	var shadow: Polygon2D = Polygon2D.new()
 	shadow.position = Vector2(0, 10)
 	shadow.polygon = PackedVector2Array([

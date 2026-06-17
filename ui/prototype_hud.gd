@@ -11,11 +11,11 @@ extends CanvasLayer
 @onready var _mode_label: Label = $Panel/Rows/ModeLabel
 @onready var _controls_label: Label = $Panel/Rows/ControlsLabel
 
-var _controls_text: String = "Move WASD/Left Stick | Interact F/A | Menu Esc/Start | Inventory I | Build B | Help H | Map M | Fullscreen F11"
+var _controls_text: String = "Inventory I | Build B | Help H | Map M | Esc/Start | Fullscreen F11"
 var _mood_display: String = "Morning"
 var _day_number: int = 1
 var _current_mode_name: String = "Explore"
-var _current_help_text: String = "Move with WASD or arrows. B to build. E to edit."
+var _current_help_text: String = "Explore"
 var _survival_text: String = "Comfort: 100"
 var _interaction_prompt_text: String = ""
 var _inventory_text: String = "Carrots: 0 | Turnips: 0 | Berries: 0"
@@ -30,6 +30,7 @@ var _inventory_panel_open: bool = false
 
 func _ready() -> void:
 	_apply_style()
+	_apply_compact_normal_layout()
 	set_mood(WorldMood.DEFAULT_MOOD)
 	_hide_interaction_prompt()
 	hide_mailbox()
@@ -46,8 +47,30 @@ func _apply_style() -> void:
 		$InteractionPrompt/Label, $MailboxPanel/Margin/MailboxLabel,
 		$InventoryPanel/Margin/InventoryLabel,
 	]:
-		CozyUITheme.apply_body_label(label as Label, 14, true)
-	CozyUITheme.apply_heading_label($Panel/Rows/TitleLabel, 22)
+		CozyUITheme.apply_body_label(label as Label, 12, true)
+	CozyUITheme.apply_heading_label($Panel/Rows/TitleLabel, 15)
+
+func _apply_compact_normal_layout() -> void:
+	$Panel.custom_minimum_size = Vector2(300, 0)
+	$Panel.set_meta("normal_hud_role", "compact_status_card")
+	_identity_label.visible = false
+	# The bare-number crop row reads as a meaningless "0  0  0" once its old prototype
+	# icons are hidden, so the whole row is hidden in normal play. Crop counts stay in
+	# the inventory panel (I); the HUD keeps the compact build-materials line.
+	var inv_row: CanvasItem = get_node_or_null("Panel/Rows/InvRow") as CanvasItem
+	if inv_row != null:
+		inv_row.visible = false
+	for node_path in [
+		"Panel/Rows/DayRow/DayIcon",
+		"Panel/Rows/ComfortRow/ComfortIcon",
+		"Panel/Rows/InvRow/InvIcon",
+		"Panel/Rows/InvRow/CarrotIcon",
+		"Panel/Rows/InvRow/TurnipIcon",
+		"Panel/Rows/InvRow/BerryIcon",
+	]:
+		var node := get_node_or_null(node_path)
+		if node is CanvasItem:
+			(node as CanvasItem).visible = false
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_fullscreen"):
@@ -73,6 +96,7 @@ func _flash_controls(text: String) -> void:
 func set_identity_line(text: String) -> void:
 	if _identity_label != null:
 		_identity_label.text = text
+		_identity_label.visible = false
 
 func set_area_line(text: String) -> void:
 	if _area_label != null:
@@ -91,8 +115,16 @@ func set_day(day_count: int) -> void:
 
 func set_mode_text(mode_name: String, help_text: String) -> void:
 	_current_mode_name = mode_name
-	_current_help_text = help_text
+	_current_help_text = _compact_help_text(help_text)
 	_refresh_text()
+
+func _compact_help_text(help_text: String) -> String:
+	var text := help_text.strip_edges()
+	if text.is_empty():
+		return "Explore"
+	text = text.replace("Press ", "")
+	text = text.replace("Use ", "")
+	return text.substr(0, 38) + ("..." if text.length() > 38 else "")
 
 func set_interaction_prompt(prompt_text: String) -> void:
 	_interaction_prompt_text = prompt_text
@@ -191,7 +223,7 @@ func _refresh_text() -> void:
 	_carrot_label.text = str(int(_inventory_counts.get("carrot", 0)))
 	_turnip_label.text = str(int(_inventory_counts.get("turnip", 0)))
 	_berry_label.text = str(int(_inventory_counts.get("berry", 0)))
-	_mode_label.text = "Mode: %s - %s" % [_current_mode_name, _current_help_text]
+	_mode_label.text = "%s | %s" % [_current_mode_name, _current_help_text]
 	_controls_label.text = _controls_text
 
 func _hide_interaction_prompt() -> void:

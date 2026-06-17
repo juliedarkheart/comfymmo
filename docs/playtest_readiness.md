@@ -1,5 +1,74 @@
 # Playtest Readiness
 
+## Sprout-required (live visual mode)
+
+The playable visual build now **requires** the licensed Sprout Lands pack
+(local-only, gitignored under `licensed_assets/`). A clean checkout without Sprout
+is **not** a playable visual target:
+
+- With Sprout installed + activated, the overworld mounts normally.
+- With Sprout missing/inactive, `WorldRegionManager` mounts a clear missing-assets
+  screen (`ui/missing_assets_screen.gd`) instead of the world — verified by
+  `SproutAssetRequirement.check()`. This is intentional, not a crash.
+- The generated Hearthvale art still in the repo is a temporary diagnostic/dev
+  fallback, never the shipped live look. Validation does **not** require the
+  no-Sprout checkout to be playable; it only requires the gate to be wired and the
+  pack (when present) to be fully active.
+
+To confirm the failure path locally: move the two Sprout manifests aside, boot,
+see the missing-assets screen, then restore them.
+
+## Screenshot cleanup pass (visual quality)
+
+A screenshot-driven cleanup (no architecture changes) addressed the most visible
+problems:
+
+- **HUD readability:** the HUD/minimap/prompt cards keep a solid dark, mostly-opaque
+  cozy backing (not the pale Sprout parchment panel that left cream text
+  unreadable). The bare-number crop row is hidden; only essential rows remain.
+- **Signs:** rendered as single small sprites with no permanent floating title plate
+  (the name shows on the interaction prompt / land panel). There is no texture
+  tiling/repeat — the previous "repeating signs" was many identical signs + labels.
+- **Terrain:** meadow-first with a light, deterministic scatter of small flowers/
+  pebbles/grass over the open core so it reads as a tended yard, not a flat slab.
+- **Generated/dev art** is temporary and must not dominate; Sprout/modified-Sprout
+  art leads. Validation now also checks HUD backing contrast and that the signpost
+  sprite is not region/repeat.
+
+## Curated demo slice + inventory cleanup
+
+Because the full overworld is too ambitious for the current art state, **normal play
+now opens in a curated demo slice**, not the broad procedural world:
+
+- `LiveVisualPolicy.CURATED_SLICE` frames the opening view tighter (zoom 1.7) on a
+  hand-composed homestead — cottage + a focal Sprout well + a small tilled garden bed
+  + flower beds + framing trees/bushes (`OverworldMap._build_curated_slice`).
+- The broad/ugly layers (the long connecting road to the far regions and the
+  wilderness scatter) are **suppressed** in normal play. The dirt path was narrowed
+  to a tidy 2-tile lane. **Full overworld visual polish is deferred** — the
+  gameplay/data world (plots, NPCs, resources) is unchanged and still walkable.
+- Default UI panels (inventory, build, admin, land) are **closed at launch**; only
+  the compact HUD, small minimap, and toolbelt show.
+- **Inventory redesigned:** a compact ~300×400 right-side window (was 364×520), one
+  short status line (no verbose profile id), owned-items-only grouped into sections
+  (empty sections are skipped, not "None yet" filler), tidy Sprout-styled 60×60 slots
+  with centered icons + counts and the name on a line beneath. Closes with Esc and
+  the Close button. Validation enforces: closed by default, size within a viewport
+  fraction, Esc/close wired, and CozyUITheme/UIArtRegistry styling (no hardcoded art).
+- Sprout assets are required for live visual mode (missing-assets screen otherwise);
+  generated/dev art remains temporary and must not dominate the slice.
+
+## LimeZu visual spike (evaluation, separate from the live game)
+
+The LimeZu "Modern" ecosystem is being tested as a possible new main visual
+direction. It is wired as a separate provider and exercised only by
+`scenes/visual_spikes/limezu_homestead_slice.tscn` (Run Current Scene). The live
+Sprout game, curated slice, and inventory are unchanged. All LimeZu media is
+local/gitignored; only code/docs/templates are commit-safe. Validation asserts the
+provider + spike load, the spike survives missing assets (markers/banner, no crash),
+and no LimeZu media is tracked. Honest coverage + next steps:
+docs/limezu_visual_spike.md.
+
 ## Visual/UI foundation checks
 
 This branch now has a first reusable Hearthvale visual direction:
@@ -21,20 +90,24 @@ This branch now has a first reusable Hearthvale visual direction:
 
 Manual visual pass:
 
-1. Open the system menu, inventory, build menu, land panel, admin panel, edit
+1. Confirm the normal HUD is a compact top-left card and does not cover the
+   world; debug/account/server detail should not be visible by default.
+2. Open the system menu, inventory, build menu, land panel, admin panel, edit
    toolbar, quick tools, and minimap.
-2. Confirm the panels share parchment/wood/honey styling and readable text.
-3. Confirm important panels have visible Close/Resume/Cancel paths.
-4. Confirm inventory categories read as item slots rather than a plain text dump.
-5. Confirm build-menu tabs, selected item info, costs, unavailable states, and
+3. Confirm the panels use Sprout-normalized panel/button/slot art (the live build
+   is Sprout-required; with the pack absent you get the missing-assets screen, not
+   the world).
+4. Confirm important panels have visible Close/Resume/Cancel paths.
+5. Confirm inventory categories read as item slots rather than a plain text dump.
+6. Confirm build-menu tabs, selected item info, costs, unavailable states, and
    controls are visible.
-6. Confirm the minimap is clipped, styled like a small map object, and uses
+7. Confirm the minimap is clipped, styled like a small map object, and uses
    readable plot/player/landmark markers.
-7. Walk meadow, forest, orchard, creekside, hilltop, grove, town, and farmland
-   areas and confirm terrain and HUD labels are distinguishable.
-8. Paint dirt path, stone path, water, and farmland through admin terrain tools
+8. Walk meadow, forest, orchard, creekside, hilltop, grove, town, and farmland
+   areas and confirm labels/props distinguish them without giant biome blocks.
+9. Paint dirt path, stone path, water, and farmland through admin terrain tools
    and confirm the same sprite palette appears in-world.
-9. Place crate, mailbox, fence/gate, wall, floor/foundation, roof, workbench,
+10. Place crate, mailbox, fence/gate, wall, floor/foundation, roof, workbench,
    cottage shell, and shed and confirm mapped registry sprites appear where
    available while old procedural decor still remains readable.
 
@@ -159,6 +232,16 @@ The live `sprout_topdown` world now renders from the top-down art stack only:
 - **Normal play hides debug regions:** the old broad alpha region-tint discs are
   not drawn in normal play. Admin/world-builder overlays still show explicit
   plot, parcel, and marker information when toggled through F7 or `/overlay`.
+- **Sprout-first normal composition:** plot ground is meadow-first instead of
+  pasted biome rectangles, with only small farmland/town terrain accents; broad
+  procedural borders, old market/fountain slabs, and heavy wilderness dressing
+  are hidden or reduced until proper sprite replacements exist.
+- **Compact HUD + more Sprout UI:** the normal HUD is a small top-left card.
+  Local Sprout UI now activates panel, button, hover, slot, selected slot, close,
+  and menu/dialog panel variants from gitignored normalized derivatives; clean
+  checkout uses original generated Hearthvale UI fallbacks.
+- **Actor scale:** generated actor sprites are scaled down through
+  `CharacterArtRegistry` to sit naturally on 32x32 Sprout terrain.
 - **Tell which tier is rendering:** the overworld prints
   `[visual-source] …` on boot (terrain/object/UI tier counts + any legacy
   regressions + live sprite/polygon counts). F6 (`tools/art/asset_preview.tscn`)
@@ -175,14 +258,16 @@ The live `sprout_topdown` world now renders from the top-down art stack only:
   else the original Hearthvale top-down sprites).
 - Floating nameplates are smaller, and role subtitles such as Villager/Mentor/
   Land Office/You are hidden by default to reduce clutter.
-- UI uses the Sprout panel/close where installed, else the cozy theme.
-- A clean checkout (no Sprout) looks coherent on the Hearthvale top-down assets.
+- UI uses normalized Sprout panel/button/slot/menu art (Sprout-required live).
+- With Sprout absent the world does not load at all — the missing-assets screen
+  appears instead of the old generated/procedural fallback.
 
 ### Still needs manual art replacement (deferred)
 
-A few distinctive procedural props remain (village fountain, market stall, the
-plot/region background tints, mountain/river border scenery, plot-decoration
-flourishes); the recolor tints and the Hearthvale object silhouettes are
+A few distinctive procedural props remain quarantined or deferred (plot signs,
+plot-decoration flourishes, debug/admin previews, and legacy fallback branches);
+the old village fountain/market and broad border scenery are hidden in normal
+play until sprite replacements exist. The recolor tints and Hearthvale silhouettes are
 functional-but-simple and would benefit from a hand-art pass; audio/animation
 stay catalog-only.
 
@@ -203,9 +288,11 @@ stay catalog-only.
   control surfaces
 - the current PNG art is placeholder foundation art, not final production art
 - terrain transitions are scaffolded assets/helpers, not full autotiling
-- Sprout UI kit and animation catalog outputs are local review artifacts only;
-  the committed build must still run with generated placeholders when
-  `licensed_assets/` is absent.
+- Sprout UI kit and animation catalog outputs are local review artifacts only.
+  The live visual build is Sprout-required: with `licensed_assets/` absent the
+  committed build boots to the missing-assets screen rather than rendering the
+  generated placeholders as the live game. The generated placeholders remain only
+  for diagnostics/dev and for non-visual smoke tests.
 
 ## Manual test checklist
 
@@ -321,6 +408,8 @@ It is not claiming readiness for:
   Modular/custom building pieces still do not require interiors or Sprout art.
 - Validation asserts `licensed_assets/` is gitignored, the tracked template
   manifest has no real mappings, a present pack has license metadata + existing
-  mapped files, and (proven by hiding the manifest) a clean checkout with no
-  pack still passes and falls back to generated. Inspect in-engine via
-  `tools/art/asset_preview.tscn` (F6) — Sprout ids show a "licensed" tag.
+  mapped files, the Sprout-required boot gate is wired, and a present pack is
+  fully active. A clean checkout with no pack still passes validation (it does not
+  demand no-Sprout playability) — the live boot would show the missing-assets
+  screen. Inspect in-engine via `tools/art/asset_preview.tscn` (F6) — Sprout ids
+  show a "licensed" tag.

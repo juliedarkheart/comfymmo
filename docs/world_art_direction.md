@@ -5,6 +5,51 @@ Sprout-compatible top-down / gentle 3/4 space. The older 64x32 isometric diamond
 view remains a legacy fallback. The player should be able to understand paths,
 plots, public areas, wilderness, and biome changes at a glance.
 
+## Sprout-required visual policy
+
+The live visual build is **Sprout-required**. The licensed Sprout Lands pack
+(Cup Nooble, local-only under gitignored `licensed_assets/`) is the intended art
+direction for the playable world. A clean checkout **without** Sprout is no
+longer a playable visual target:
+
+- When Sprout is missing/inactive the game shows a clear missing-assets screen
+  (`ui/missing_assets_screen.gd`) instead of mounting the overworld — it does
+  **not** silently render the generated/procedural fallback as the live look.
+- The boot gate lives in `systems/world_region_manager.gd`; the installed/active
+  check lives in `systems/visual/sprout_asset_requirement.gd`; the policy flag is
+  `LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE`.
+- The original Hearthvale generated art that still ships in the repo is a
+  **temporary diagnostic/dev fallback**, not the intended live style. Prefer a
+  missing-assets report over shipping ugly fallback as the live game.
+
+## Curated demo slice (opening view)
+
+The full overworld is too ambitious for the current art state, so normal play opens
+in a small, **hand-composed demo slice** instead of framing the broad procedural map:
+
+- The opening camera frames a curated homestead (`LiveVisualPolicy.CURATED_SLICE`,
+  zoom 1.7): cottage focal point + a Sprout well + a small tilled garden bed + flower
+  beds + framing trees/bushes (`OverworldMap._build_curated_slice`). Sprout sprites
+  only; the additions are decor (no collision).
+- Broad/ugly layers are **suppressed** in normal play: the long connecting road to
+  the far regions and the wilderness scatter are not drawn, and the dirt path is a
+  tidy 2-tile lane (not a 3-tile band). No giant fields, biome blocks, or empty flat
+  areas should sit in the opening camera view.
+- **The rest of the overworld visual polish is deferred.** The gameplay/data world
+  (plots, NPCs, resources, claiming) is intact and still walkable — only the broad
+  *visual* layers are held back until they have art. Turn `CURATED_SLICE` off to
+  render the whole overworld again.
+
+## LimeZu ecosystem (under evaluation)
+
+The LimeZu "Modern" packs (farm, exteriors, interiors, office, UI, plus fungus_cave
+and the Fantasy Battlers pack) are being evaluated as a possible new main art
+direction, separate from Sprout. The live world is unchanged; LimeZu is exercised
+only in `scenes/visual_spikes/limezu_homestead_slice.tscn` via the LimeZu provider.
+Coverage findings (honest): strong for farming/building/interiors/office/UI, weaker
+for cozy dungeon tilesets and tameable-companion creatures. Full report:
+docs/limezu_visual_spike.md.
+
 ## Composition
 
 - Important paths should lead the eye between homestead, neighborhood, town, and
@@ -81,9 +126,12 @@ along screen axes in top-down mode (the iso skew is legacy-only), and the parcel
 tool + world-builder overlay previews expand their footprints by half a tile in
 top-down so they cover the visible cells rather than stopping at tile centers.
 
-Clean checkout behavior must stay boring: no Sprout pack means the generated
-fallback renders and worldbuilder/minimap/build tools keep using the same logical
-tile positions.
+No-Sprout behavior is intentional, not boring-but-playable: with the pack absent
+the live world refuses to mount and the missing-assets screen explains why (see
+the Sprout-required visual policy above). The logical grid, worldbuilder, minimap,
+and build tools still operate on the same tile positions when Sprout is present;
+the generated fallback tiles exist only for diagnostics/dev, never as the shipped
+live style.
 
 ### Terrain source split (Sprout / modified / Hearthvale generated)
 
@@ -110,9 +158,11 @@ The original `art/tiles/` 64x48 isometric diamonds remain only as the legacy
 
 ## Plot Presentation
 
-Homestead plots should feel like yards:
+Homestead plots should feel like yards, not giant biome swatches:
 
-- biome-tinted ground patch
+- shared meadow/grass base in normal play
+- only small terrain accents for special cases, such as a tiny tilled patch on
+  farmland or a narrow path accent in town plots
 - soft plot boundary
 - warm corner posts
 - readable claim sign
@@ -141,10 +191,47 @@ tints, borders, connecting roads) sits on a `z = −10` layer beneath the tiles.
 World decoration and structures (trees, bushes, rocks, flowers, mushrooms, pines,
 the cottage, fences) render through `ObjectArtRegistry` as top-down sprites
 (`art/generated/hearthvale/objects/`, or licensed Sprout) rather than procedural
-polygons. `systems/visual_source_report.gd` logs the live tiers on boot. Because the generated
-Hearthvale tiles carry their own texture, the legacy iso decorative
+polygons. Live player/NPC/creature bodies render through `CharacterArtRegistry`
+as original top-down actor sprites under `art/generated/hearthvale/characters/`
+and `art/generated/hearthvale/creatures/`; the old polygon character builder is
+only a fallback. `systems/visual_source_report.gd` logs terrain/object/UI/actor
+tiers on boot. Because the generated Hearthvale tiles carry their own texture,
+the legacy iso decorative
 highlight/patch overlays are skipped in Sprout-compatible mode (they would just
 cover the tile art); they still draw in the legacy `iso_64x32` view. Plot ground,
 terrain-paint overrides, road tiles, and the minimap continue to share
 `TerrainArtRegistry`, `terrain_color`, and `minimap` tints, so painted/authored
 terrain matches the world.
+
+The Sprout-first live policy is centralized in
+`systems/visual/live_visual_policy.gd`: primary scale is 32x32 terrain, generated
+actor canvases render scaled down against that grid, broad procedural scenery is
+off in normal play, and old market/fountain/border slabs stay deferred until
+they have sprite replacements. Connecting roads/plazas render as tile sprites,
+not broad ribbons.
+
+## Terrain composition (screenshot cleanup)
+
+The live world should read as a cozy farmed map, not a flat grid of one repeated
+tile:
+
+- **Meadow/grass is the base.** Plots are meadow-first with only small special-case
+  accents (a tiny tilled patch on farmland, a narrow stone strip in town), never
+  giant biome rectangles or flower-field slabs.
+- **Break up flat grass with sparse detail.** `OverworldMap._scatter_core_detail()`
+  sprinkles a light, deterministic layer of small Sprout flower patches + pebbles
+  and a few generated grass tufts over the OPEN starting core (skipping paths, the
+  town pad, the cottage, the spawn, and props). It is decor-only (no collision), in
+  the ground layer under the player, and intentionally low-density so it reads as a
+  tended yard rather than clutter.
+- Prefer Sprout / modified-Sprout terrain and decor over generated art. Where only
+  generated art exists, prefer clean, low-noise tiles over fake detail.
+
+### Remaining terrain art tasks (deferred)
+
+- Reviewed Sprout path/soil/edge tiles (dirt/stone path, tilled soil, biome edges)
+  to replace the generated Hearthvale support tiles.
+- Neighbor-aware edge/corner transitions (only a deterministic edge-hint scaffold
+  exists today).
+- A crisp single signpost sprite at native resolution (the current Sprout sign is a
+  small source upscaled, so it is drawn small to stay tidy).

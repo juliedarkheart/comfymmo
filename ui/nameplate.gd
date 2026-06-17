@@ -12,7 +12,7 @@ class_name Nameplate
 static func attach(parent: Node2D, character_name: String, subtitle: String = "", name_color: Color = Color("#f5f0e6"), show_subtitle: bool = false) -> Node2D:
 	var holder: Node2D = Node2D.new()
 	holder.name = "Nameplate"
-	holder.position = Vector2(0, -82)
+	holder.position = Vector2(0, -52)
 	holder.z_index = 50
 	parent.add_child(holder)
 
@@ -40,5 +40,5 @@ static func _make_label(text: String, font_size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color(0.14, 0.1, 0.07, 0.92))
-	label.add_theme_constant_override("outline_size", 5)
+	label.add_theme_constant_override("outline_size", 4)
 	return label

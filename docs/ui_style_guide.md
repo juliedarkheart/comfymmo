@@ -37,17 +37,78 @@ The reusable helper is `ui/cozy_ui_theme.gd`.
 
 ## HUD Expectations
 
-The HUD should answer the playtester's first questions quickly:
+The default HUD is compact. It should answer the playtester's first questions
+without covering the world:
 
-- Who am I playing as?
-- Am I offline or on a server?
-- Where am I: town, plot, protected area, biome, or wilderness?
-- What time or day/night phase is active if implemented?
-- What mode is active: explore, build, edit, move, or terrain/admin tool?
-- What are the main controls: Esc/Start menu, F11 fullscreen, I inventory,
-  B build, E edit, H help, M minimap?
+- Day/time and comfort.
+- Key crop/resource counts.
+- Current area and mode/tool.
+- Main controls: Esc/Start menu, F11 fullscreen, I inventory, B build, H help,
+  M minimap.
 
-Keep the HUD compact. It should orient the player without covering the world.
+Debug/account/server detail belongs in explicit panels or debug/admin overlays,
+not in the normal HUD card.
+
+### HUD readability rules
+
+- **Readability beats skinning.** The HUD/minimap/prompt cards keep a **solid dark,
+  mostly-opaque** cozy backing (`CozyUITheme.hud_panel_style`) with a honey border —
+  they do **not** swap to the pale Sprout parchment nine-patch. Cream text on pale
+  parchment is unreadable; cream text on the dark card is not. Sprout panel art still
+  skins the menus/dialogs (`apply_panel`), where text is dark ink on parchment.
+- Keep generous content padding so text never touches the border.
+- Show only essential always-on rows: day/time, comfort, current mode/tool, a compact
+  resources line, and a short controls hint. The bare-number crop row is hidden in
+  normal play (crop counts live in the inventory panel); identity/account lines stay
+  hidden unless debug.
+- Validation enforces this: the HUD `panel` stylebox must be a `StyleBoxFlat` with a
+  dark (`luma < 0.45`), mostly-opaque (`alpha >= 0.85`) fill.
+
+### Signs and world labels
+
+- Signs render as a **single sprite**, never a tiled/repeated/region texture, and a
+  sign sprite is never reused as a panel/nine-patch background. Validation asserts the
+  signpost sprite is not `region_enabled`/`texture_repeat`.
+- Plot/area signs do **not** float a permanent title plate — that yard-full of
+  always-on labels was the main clutter source. The name is shown by the interaction
+  prompt ("Press F to view <name>") when the player is near and in the land panel on
+  F. Names are kept as node metadata, not always-on text.
+- Keep sign sprites small/tidy so a cluster of identical signs does not read as a
+  repeated graphic.
+
+### Default panel visibility
+
+The default screenshot must be mostly world, not UI. Inventory, build menu, admin/
+worldbuilder, and land panels are **closed at launch** and open only on their key
+(inventory on I, build on B, admin on F7). Only the compact HUD, small minimap, and
+compact toolbelt show by default. Debug/admin overlays stay hidden unless enabled.
+
+### Inventory window
+
+The inventory is a **compact** right-side window (~300×400, well under a viewport
+fraction — not a full-height parchment wall), closed by default, opened with I and
+closed with Esc or the Close button:
+
+- Sprout styling via `CozyUITheme`: `apply_panel` frame, `apply_slot` item slots,
+  `apply_close_button`. No hardcoded panel/texture art.
+- One short status line (`@user · mode · plot`) — no verbose profile id / duplicated
+  display name.
+- **Owned items only**, grouped into sections; empty sections are skipped entirely
+  (no "None yet" filler) and a single quiet line shows when nothing is owned.
+- Tidy fixed **60×60 slots**: centered icon (Sprout where reviewed) + count, with the
+  item name on a line beneath — icons stay aligned and labels never overlap.
+- Validation enforces: closed by default, size within a viewport fraction, Esc/close
+  wired, and CozyUITheme/UIArtRegistry styling rather than hardcoded art.
+
+### Modern UI (LimeZu) evaluation
+
+The LimeZu Modern UI pack is being evaluated as a possible replacement for the Sprout
+UI kit. A Modern UI **inventory mock** lives in the visual spike
+(`scenes/visual_spikes/limezu_homestead_slice.tscn`, `_build_inventory_mock`): a
+compact window with a title, close button, and a Sprout-free item-slot grid that
+pulls LimeZu icons through `LimeZuArtRegistry`. It demonstrates whether Modern UI
+should replace the current Sprout-styled live inventory. The live inventory is
+unchanged for now; nothing licensed is committed. See docs/limezu_visual_spike.md.
 
 ## Accessibility And Readability
 
@@ -77,6 +138,14 @@ never crash — they fall through to the code-drawn theme. The local mapping liv
 in the gitignored `licensed_assets/sprout_lands/sprout_ui_manifest.json`; the
 committed template `art/sprout_ui_manifest.template.json` has no active paths.
 
+**Sprout-required live build.** The Sprout UI manifest is one of the assets the
+boot-time Sprout requirement checks (`systems/visual/sprout_asset_requirement.gd`):
+with it absent the live game shows the missing-assets screen, so the activated
+Sprout UI — not the code-drawn fallback — is the intended live UI skin. The
+code-drawn `CozyUITheme` boxes now serve diagnostics (including the missing-assets
+screen itself, which must not depend on the Sprout UI it reports as missing) and
+non-visual tests, rather than being a parallel shipped UI style.
+
 ### How the live wiring works
 
 Every panel already styles itself through `CozyUITheme` (`apply_panel`,
@@ -86,13 +155,14 @@ activated for that id they return a nine-patch `StyleBoxTexture` (with content
 margins so labels stay off the border); otherwise they return the existing
 code-drawn box. So a single switch point reskins the system menu, inventory,
 build menu, land panel, admin/worldbuilder panel, edit toolbar, terrain-paint
-controls, and quick tools at once — and a clean checkout (no Sprout) is
-unchanged.
+controls, and quick tools at once. (With Sprout absent the live world does not
+mount at all — see the Sprout-required note above — so this skinning is the live
+UI, not an optional layer.)
 
-What is activated locally is deliberately conservative: the Sprout **panel**
-nine-slice (`dialog box`) and the **close** X — both confidently identifiable
-single assets. Button/slot SHEETS that don't divide cleanly headlessly stay
-**catalog-only** (manifest `candidates`) and keep the cozy code-drawn style;
-blocked/disabled states also stay code-drawn so "unavailable" always reads
-clearly. Text readability, Esc behavior, and visible Close buttons always take
-priority over a skin. Inspect tiers in `tools/art/asset_preview.tscn` (F6).
+What is activated locally is deliberately reviewed and normalized under the
+gitignored `licensed_assets/sprout_lands/normalized/ui/`: panel, button,
+button-hover, slot, slot-selected, close, and panel variants used by dialog,
+inventory, system, and build menus. Blocked/disabled states still keep a clear
+code-drawn fallback so "unavailable" always reads. Text readability, Esc
+behavior, and visible Close buttons take priority over skinning. Inspect tiers in
+`tools/art/asset_preview.tscn` (F6).

@@ -601,6 +601,7 @@ func _setup_landing_area() -> void:
 
 	var rowan: SimpleVillager = SimpleVillager.new()
 	rowan.villager_name = "Farmer Rowan"
+	rowan.visual_id = CharacterArtRegistry.ROWAN
 	rowan.position = map.grid_to_world(Vector2i(3, 8))
 	gameplay_layer.add_child(rowan)
 	Nameplate.attach(rowan, "Farmer Rowan", "Mentor", Color("#bfe6a0"))
@@ -697,6 +698,7 @@ func _setup_plot_markers() -> void:
 	# Land clerk near the entrance.
 	var clerk: BramVillager = BramVillager.new()
 	clerk.villager_name = "Clerk Hazel"
+	clerk.visual_id = CharacterArtRegistry.LAND_CLERK
 	clerk.position = map.grid_to_world(Vector2i(13, 18))
 	gameplay_layer.add_child(clerk)
 	Nameplate.attach(clerk, "Clerk Hazel", "Land Office", Color("#9fc4e8"))
@@ -770,6 +772,10 @@ func _decorate_plot(plot: Dictionary, container: Node2D) -> void:
 			_decor_flowers(container, map.grid_to_world(east))
 
 func _decor_tree(parent: Node2D, world_pos: Vector2, deep: bool) -> void:
+	# Prefer the Sprout/top-down tree sprite so plot decor matches the rest of the
+	# world; the cozy procedural tree below is only the legacy/no-sprite fallback.
+	if map._decor_sprite(parent, world_pos, "pine" if deep else "tree", 0.6):
+		return
 	var tree := Node2D.new()
 	tree.position = world_pos
 	tree.z_index = 5
@@ -802,6 +808,8 @@ func _decor_pond(parent: Node2D, world_pos: Vector2) -> void:
 	pond.add_child(glint)
 
 func _decor_rock(parent: Node2D, world_pos: Vector2) -> void:
+	if map._decor_sprite(parent, world_pos, "rock", 0.5):
+		return
 	var rock := Polygon2D.new()
 	rock.position = world_pos
 	rock.z_index = 4
@@ -810,6 +818,8 @@ func _decor_rock(parent: Node2D, world_pos: Vector2) -> void:
 	parent.add_child(rock)
 
 func _decor_flowers(parent: Node2D, world_pos: Vector2) -> void:
+	if map._decor_sprite(parent, world_pos, "flower_patch", 0.5):
+		return
 	var bed := Node2D.new()
 	bed.position = world_pos
 	bed.z_index = 3
@@ -869,27 +879,28 @@ func _make_plot_sign(world_pos: Vector2, title: String, accent: Color, parent: N
 	var sign_marker: Node2D = Node2D.new()
 	sign_marker.position = world_pos
 	parent.add_child(sign_marker)
-	for px: float in [-12.0, 12.0]:
-		var post: Polygon2D = Polygon2D.new()
-		post.polygon = PackedVector2Array([Vector2(px - 3, 0), Vector2(px + 3, 0), Vector2(px + 3, -34), Vector2(px - 3, -34)])
-		post.color = Color("#8a5e3c")
-		sign_marker.add_child(post)
-	var board: Polygon2D = Polygon2D.new()
-	board.polygon = PackedVector2Array([Vector2(-30, -56), Vector2(30, -56), Vector2(33, -48), Vector2(30, -30), Vector2(-30, -30), Vector2(-33, -48)])
-	board.color = Color("#e0bf8a")
-	sign_marker.add_child(board)
-	var ribbon: Polygon2D = Polygon2D.new()
-	ribbon.polygon = PackedVector2Array([Vector2(-30, -52), Vector2(30, -52), Vector2(30, -47), Vector2(-30, -47)])
-	ribbon.color = accent
-	sign_marker.add_child(ribbon)
-	var plate: Label = Label.new()
-	plate.text = title
-	plate.position = Vector2(-60, -48)
-	plate.custom_minimum_size = Vector2(120, 0)
-	plate.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	plate.add_theme_font_size_override("font_size", 11)
-	plate.add_theme_color_override("font_color", Color("#4a3420"))
-	sign_marker.add_child(plate)
+	# Prefer the reviewed Sprout signpost sprite, drawn small so it reads as a single
+	# tidy post (not a big blurry board) and so a yard full of signs doesn't look like
+	# a repeated graphic. Only draw the procedural board when no sprite is available.
+	if not map._decor_sprite(sign_marker, Vector2.ZERO, ContentIds.PLACEABLE_SIGNPOST, 0.6):
+		for px: float in [-12.0, 12.0]:
+			var post: Polygon2D = Polygon2D.new()
+			post.polygon = PackedVector2Array([Vector2(px - 3, 0), Vector2(px + 3, 0), Vector2(px + 3, -34), Vector2(px - 3, -34)])
+			post.color = Color("#8a5e3c")
+			sign_marker.add_child(post)
+		var board: Polygon2D = Polygon2D.new()
+		board.polygon = PackedVector2Array([Vector2(-30, -56), Vector2(30, -56), Vector2(33, -48), Vector2(30, -30), Vector2(-30, -30), Vector2(-33, -48)])
+		board.color = Color("#e0bf8a")
+		sign_marker.add_child(board)
+		var ribbon: Polygon2D = Polygon2D.new()
+		ribbon.polygon = PackedVector2Array([Vector2(-30, -52), Vector2(30, -52), Vector2(30, -47), Vector2(-30, -47)])
+		ribbon.color = accent
+		sign_marker.add_child(ribbon)
+	# The plot/area name is NOT floated permanently over the sign anymore — a yard of
+	# always-on title plates was the main source of label clutter. The name is shown
+	# by the interaction prompt ("Press F to view <name>") when the player is near and
+	# in the land panel on F, so the world stays calm. Kept as metadata for tooling.
+	sign_marker.set_meta("sign_title", title)
 	return sign_marker
 
 func _talk_land_clerk() -> void:
@@ -1447,6 +1458,9 @@ func _make_sign(world_pos: Vector2, accent: Color) -> Node2D:
 	var sign_marker: Node2D = Node2D.new()
 	sign_marker.position = world_pos
 	gameplay_layer.add_child(sign_marker)
+	# Reviewed Sprout signpost sprite first (small + tidy), procedural board fallback.
+	if map._decor_sprite(sign_marker, Vector2.ZERO, ContentIds.PLACEABLE_SIGNPOST, 0.5):
+		return sign_marker
 	var post: Polygon2D = Polygon2D.new()
 	post.polygon = PackedVector2Array([Vector2(-2, 0), Vector2(2, 0), Vector2(2, -20), Vector2(-2, -20)])
 	post.color = Color("#8a5e3c")

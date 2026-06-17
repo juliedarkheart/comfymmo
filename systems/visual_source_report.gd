@@ -36,6 +36,11 @@ static func registry_summary(mode: String = WorldProjection.DEFAULT_MODE) -> Dic
 		var path: String = UIArtRegistry.texture_path(String(id_variant))
 		var src: String = UIArtRegistry.source_of(path)
 		ui[src] = int(ui.get(src, 0)) + 1
+	var actors: Dictionary = {}
+	for id_variant in CharacterArtRegistry.required_character_ids() + CharacterArtRegistry.required_creature_ids():
+		var path: String = CharacterArtRegistry.texture_path(String(id_variant))
+		var src: String = CharacterArtRegistry.source_of(path)
+		actors[src] = int(actors.get(src, 0)) + 1
 	return {
 		"mode": mode,
 		"terrain": terrain,
@@ -43,19 +48,34 @@ static func registry_summary(mode: String = WorldProjection.DEFAULT_MODE) -> Dic
 		"objects": objects,
 		"object_legacy_in_live": object_legacy,
 		"ui": ui,
+		"actors": actors,
+	}
+
+## How many ids in each registry still resolve to a GENERATED (dev/temporary) tier
+## in the live projection — i.e. art the player sees that has no reviewed Sprout
+## option yet. Sprout-required play wants these to stay low and documented.
+static func generated_fallback_counts(mode: String = WorldProjection.DEFAULT_MODE) -> Dictionary:
+	var summary: Dictionary = registry_summary(mode)
+	return {
+		"terrain": int((summary["terrain"] as Dictionary).get("generated", 0)),
+		"objects": int((summary["objects"] as Dictionary).get("generated", 0)),
+		"ui": int((summary["ui"] as Dictionary).get("generated", 0)),
+		"actors": int((summary["actors"] as Dictionary).get("generated", 0)),
 	}
 
 ## True when the registries resolve NO legacy old art in the live projection.
 static func is_clean(mode: String = WorldProjection.DEFAULT_MODE) -> bool:
 	var summary: Dictionary = registry_summary(mode)
 	return (summary["terrain_legacy_in_live"] as Array).is_empty() \
-		and (summary["object_legacy_in_live"] as Array).is_empty()
+		and (summary["object_legacy_in_live"] as Array).is_empty() \
+		and not (summary["actors"] as Dictionary).has("missing")
 
 ## What a live map scene actually spawned: counts of registry sprites vs raw
 ## procedural Polygon2D nodes, and any sprite still using a legacy texture.
 static func scene_summary(map: Node) -> Dictionary:
 	var terrain_sprites: int = 0
 	var object_sprites: int = 0
+	var actor_sprites: int = 0
 	var legacy_textures: Array[String] = []
 	if map != null:
 		for node in map.find_children("*", "Sprite2D", true, false):
@@ -63,6 +83,8 @@ static func scene_summary(map: Node) -> Dictionary:
 			var path: String = sprite.texture.resource_path if sprite.texture != null else ""
 			if String(sprite.name).begins_with("TerrainArt"):
 				terrain_sprites += 1
+			elif String(sprite.name).begins_with("CharacterArt"):
+				actor_sprites += 1
 			else:
 				object_sprites += 1
 			if path.begins_with("res://art/tiles/") or path.begins_with("res://art/objects/"):
@@ -71,9 +93,15 @@ static func scene_summary(map: Node) -> Dictionary:
 	return {
 		"terrain_sprites": terrain_sprites,
 		"object_sprites": object_sprites,
+		"actor_sprites": actor_sprites,
 		"polygon_nodes": polygons,
 		"legacy_textures": legacy_textures,
 	}
+
+## Soft budget for procedural Polygon2D nodes the live scene may still draw in normal
+## play (signs, plot boundaries, the wardrobe mirror — no reviewed Sprout option yet).
+## Above this we warn so the count is tracked, not silently creeping back up.
+const PROCEDURAL_POLYGON_BUDGET := 600
 
 static func print_report(map: Node = null, mode: String = WorldProjection.DEFAULT_MODE) -> void:
 	var r: Dictionary = registry_summary(mode)
@@ -81,11 +109,33 @@ static func print_report(map: Node = null, mode: String = WorldProjection.DEFAUL
 	print("[visual-source] terrain tiers=", r["terrain"], " legacy_in_live=", r["terrain_legacy_in_live"])
 	print("[visual-source] object tiers=", r["objects"], " legacy_in_live=", r["object_legacy_in_live"])
 	print("[visual-source] ui tiers=", r["ui"])
+	print("[visual-source] actor tiers=", r["actors"])
+	# Sprout-required status: the live build expects the licensed pack to be active.
+	var sprout: Dictionary = SproutAssetRequirement.check()
+	print("[visual-source] sprout_required=", SproutAssetRequirement.REQUIRED,
+		" status=", sprout["summary"])
+	# Curated demo slice: opening view frames the composed homestead; the broad
+	# overworld visual layers (wilderness scatter, far connecting roads) are suppressed
+	# in normal play. The gameplay/data world is unchanged underneath.
+	print("[visual-source] curated_slice=", LiveVisualPolicy.CURATED_SLICE,
+		" opening_zoom=", LiveVisualPolicy.CURATED_SLICE_ZOOM if LiveVisualPolicy.CURATED_SLICE else LiveVisualPolicy.OVERWORLD_WIDE_ZOOM)
+	# Provider readiness: live stays on Sprout; LimeZu is an evaluation spike provider.
+	print("[visual-source] art_providers=", ArtProviderRegistry.status())
+	print("[visual-source] limezu_spike active_ids=", LimeZuArtRegistry.list_active_ids().size(),
+		" by_category=", LimeZuArtRegistry.list_active_ids_by_category().keys())
+	if not bool(sprout["ok"]):
+		push_warning("[visual-source] Sprout assets missing/inactive: %s" % str(sprout["missing"]))
+	print("[visual-source] generated_dev_fallback (temporary, no reviewed Sprout yet)=",
+		generated_fallback_counts(mode))
 	if not is_clean(mode):
 		push_warning("[visual-source] LIVE sprout_topdown is resolving LEGACY old art for some ids (see lists)")
 	if map != null:
 		var s: Dictionary = scene_summary(map)
 		print("[visual-source] live scene: terrain_sprites=", s["terrain_sprites"],
-			" object_sprites=", s["object_sprites"], " procedural_polygons=", s["polygon_nodes"])
+			" object_sprites=", s["object_sprites"], " actor_sprites=", s["actor_sprites"],
+			" procedural_polygons=", s["polygon_nodes"])
 		if not (s["legacy_textures"] as Array).is_empty():
 			push_warning("[visual-source] live scene has %d sprite(s) on legacy textures" % (s["legacy_textures"] as Array).size())
+		if int(s["polygon_nodes"]) > PROCEDURAL_POLYGON_BUDGET:
+			push_warning("[visual-source] live scene draws %d procedural polygons (budget %d) — quarantine more props"
+				% [int(s["polygon_nodes"]), PROCEDURAL_POLYGON_BUDGET])
