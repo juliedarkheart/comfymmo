@@ -66,15 +66,17 @@ func _build_apron() -> void:
 			if x >= 0 and x < MAP_WIDTH and y >= 0 and y < MAP_HEIGHT:
 				continue
 			var tile := Vector2i(x, y)
-			var filler := Polygon2D.new()
-			filler.position = grid_to_world(tile)
-			filler.polygon = _tile_diamond()
-			if _apron_is_road(tile):
-				filler.color = Color("#c2a071")
-			else:
-				filler.color = _apron_color(tile)
-			_add_terrain_sprite(filler, _terrain_id_for_tile(tile), tile)
-			ground_layer.add_child(filler)
+			var tile_node := Node2D.new()
+			tile_node.position = grid_to_world(tile)
+			ground_layer.add_child(tile_node)
+			var has_sprite: bool = _add_terrain_sprite(tile_node, _terrain_id_for_tile(tile), tile)
+			# Skip the flat color fill when a top-down sprite covers the cell.
+			if not (WorldProjection.is_sprout_compatible(visual_projection_mode()) and has_sprite):
+				var filler := Polygon2D.new()
+				filler.polygon = _tile_diamond()
+				filler.color = Color("#c2a071") if _apron_is_road(tile) else _apron_color(tile)
+				filler.z_index = -2
+				tile_node.add_child(filler)
 
 func _apron_is_road(tile: Vector2i) -> bool:
 	# East road corridor continuing out of the playable core toward village_square.
@@ -100,10 +102,35 @@ func _terrain_id_for_tile(tile: Vector2i) -> String:
 		return "forest"
 	return "meadow"
 
-func _add_terrain_sprite(parent: Node2D, terrain_id: String, tile: Vector2i) -> void:
+## Adds the top-down terrain sprite for this tile. Returns true if one was added,
+## so callers can SKIP the legacy colored ground polygon that would otherwise be
+## drawn on top of (and hide) the sprite in the live top-down view.
+func _add_terrain_sprite(parent: Node2D, terrain_id: String, tile: Vector2i) -> bool:
 	var sprite := TerrainArtRegistry.make_tile_sprite(terrain_id, tile, visual_projection_mode())
 	if sprite != null:
 		parent.add_child(sprite)
+		return true
+	return false
+
+## True in the live top-down projection: world decoration + structures use the
+## registry's top-down object sprites instead of the old procedural polygons.
+func _use_object_sprites() -> bool:
+	return WorldProjection.is_sprout_compatible(visual_projection_mode())
+
+## Place a registry object sprite (top-down) at world_pos, scaled down for cozy
+## decoration. Returns true when a sprite was added (so callers skip the legacy
+## procedural drawing). No-op outside sprout-compatible mode.
+func _decor_sprite(parent: Node2D, world_pos: Vector2, art_id: String, prop_scale: float = 0.5) -> bool:
+	if not _use_object_sprites() or not ObjectArtRegistry.has_art_id(art_id):
+		return false
+	var holder := Node2D.new()
+	holder.position = world_pos
+	holder.scale = Vector2(prop_scale, prop_scale)
+	parent.add_child(holder)
+	if ObjectArtRegistry.apply_sprite(holder, art_id):
+		return true
+	holder.queue_free()
+	return false
 
 func _build_topology() -> void:
 	# Gentle world-shape cues: a road curving toward the village exit, a shallow
@@ -199,6 +226,8 @@ func _add_tree_cluster(rng: RandomNumberGenerator, parent: Node2D, world_pos: Ve
 		_add_decor_tree(parent, world_pos + offset)
 
 func _add_decor_tree(parent: Node2D, world_pos: Vector2) -> void:
+	if _decor_sprite(parent, world_pos, "tree", 0.5):
+		return
 	# Round toy tree: tapered trunk under three overlapping leaf blobs.
 	var tree := Node2D.new()
 	tree.position = world_pos
@@ -224,6 +253,8 @@ func _add_decor_tree(parent: Node2D, world_pos: Vector2) -> void:
 	tree.add_child(canopy_hi)
 
 func _add_shrub(parent: Node2D, world_pos: Vector2) -> void:
+	if _decor_sprite(parent, world_pos, "bush", 0.42):
+		return
 	var shrub := Node2D.new()
 	shrub.position = world_pos
 	parent.add_child(shrub)
@@ -242,6 +273,8 @@ func _add_shrub(parent: Node2D, world_pos: Vector2) -> void:
 		shrub.add_child(berry)
 
 func _add_rock(parent: Node2D, world_pos: Vector2) -> void:
+	if _decor_sprite(parent, world_pos, "rock", 0.42):
+		return
 	var rock := Node2D.new()
 	rock.position = world_pos
 	parent.add_child(rock)
@@ -259,6 +292,8 @@ func _add_rock(parent: Node2D, world_pos: Vector2) -> void:
 	rock.add_child(moss)
 
 func _add_mushroom(parent: Node2D, world_pos: Vector2) -> void:
+	if _decor_sprite(parent, world_pos, "mushroom", 0.36):
+		return
 	# Chunky friendly toadstool: cream stem, terracotta cap, cream speckles.
 	var mushroom := Node2D.new()
 	mushroom.position = world_pos
@@ -278,6 +313,8 @@ func _add_mushroom(parent: Node2D, world_pos: Vector2) -> void:
 		mushroom.add_child(dot)
 
 func _add_flowers(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	if _decor_sprite(parent, world_pos, "flower_patch", 0.4):
+		return
 	var patch := Node2D.new()
 	patch.position = world_pos
 	parent.add_child(patch)
@@ -292,6 +329,8 @@ func _add_flowers(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2
 		patch.add_child(bloom)
 
 func _add_grass_tuft(rng: RandomNumberGenerator, parent: Node2D, world_pos: Vector2) -> void:
+	if _decor_sprite(parent, world_pos, "grass_tuft", 0.4):
+		return
 	var tuft := Node2D.new()
 	tuft.position = world_pos
 	parent.add_child(tuft)
@@ -437,17 +476,23 @@ func _build_ground() -> void:
 			ground_tile.position = grid_to_world(tile)
 			ground_layer.add_child(ground_tile)
 
-			var base := Polygon2D.new()
-			base.name = "Base"
-			base.polygon = _tile_diamond()
-			base.color = _tile_color(tile)
-			ground_tile.add_child(base)
-			_add_terrain_sprite(ground_tile, _terrain_id_for_tile(tile), tile)
+			var sprout_mode: bool = WorldProjection.is_sprout_compatible(visual_projection_mode())
+			var has_sprite: bool = _add_terrain_sprite(ground_tile, _terrain_id_for_tile(tile), tile)
+			# Only draw the flat colored base when no top-down sprite covers the tile
+			# (legacy iso, or a missing sprite). Otherwise the opaque base would hide
+			# the Sprout/Hearthvale tile art that this whole pivot is about.
+			if not (sprout_mode and has_sprite):
+				var base := Polygon2D.new()
+				base.name = "Base"
+				base.polygon = _tile_diamond()
+				base.color = _tile_color(tile)
+				base.z_index = -2
+				ground_tile.add_child(base)
 
 			# In the Sprout/top-down projection the terrain sprite IS the tile art, so
 			# the legacy decorative highlight/patch (designed for the iso diamond) would
 			# just sit on top and obscure it. Keep them only in the legacy iso mode.
-			if not WorldProjection.is_sprout_compatible(visual_projection_mode()):
+			if not sprout_mode:
 				var highlight := Polygon2D.new()
 				highlight.name = "Highlight"
 				highlight.polygon = _tile_inner_polygon(7.0)
@@ -476,6 +521,21 @@ func _add_building(origin: Vector2i, footprint: Vector2i, _color: Color, label: 
 	building.name = label
 	building.position = grid_to_world(origin)
 	gameplay_layer.add_child(building)
+
+	# Live top-down: use the cozy top-down cottage sprite (keep body + collision);
+	# the procedural billboard cottage below stays as the legacy-iso fallback.
+	if _use_object_sprites():
+		var cottage_holder := Node2D.new()
+		cottage_holder.scale = Vector2(1.1, 1.1)
+		building.add_child(cottage_holder)
+		if ObjectArtRegistry.apply_sprite(cottage_holder, ContentIds.PLACEABLE_COTTAGE_SHELL):
+			var sprite_collision := CollisionShape2D.new()
+			var sprite_shape := RectangleShape2D.new()
+			sprite_shape.size = Vector2(52 * footprint.x, 24 * footprint.y)
+			sprite_collision.shape = sprite_shape
+			building.add_child(sprite_collision)
+			return
+		cottage_holder.queue_free()
 
 	var pad := Polygon2D.new()
 	pad.name = "GroundPad"
@@ -618,6 +678,22 @@ func _add_tree(tile: Vector2i) -> void:
 	tree.name = "Tree_%s_%s" % [tile.x, tile.y]
 	tree.position = grid_to_world(tile)
 	gameplay_layer.add_child(tree)
+
+	# Live top-down: cozy top-down tree sprite (keep body + collision); the
+	# procedural billboard tree below is the legacy-iso fallback.
+	if _use_object_sprites():
+		var tree_holder := Node2D.new()
+		tree_holder.scale = Vector2(0.7, 0.7)
+		tree.add_child(tree_holder)
+		if ObjectArtRegistry.apply_sprite(tree_holder, "tree"):
+			var sprite_tree_collision := CollisionShape2D.new()
+			var sprite_tree_shape := CircleShape2D.new()
+			sprite_tree_shape.radius = 14.0
+			sprite_tree_collision.position = Vector2(0, -6)
+			sprite_tree_collision.shape = sprite_tree_shape
+			tree.add_child(sprite_tree_collision)
+			return
+		tree_holder.queue_free()
 
 	var shadow := Polygon2D.new()
 	shadow.name = "Shadow"

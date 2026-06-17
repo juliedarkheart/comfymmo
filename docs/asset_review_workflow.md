@@ -62,6 +62,21 @@ roof corner. Wiring by guess tends to look worse than the cozy generated art and
 can't be judged headlessly. So activation is always a deliberate, post-review
 step.
 
+## Verifying the LIVE visual source
+
+Two tools confirm the running game actually uses the top-down stack (not old art):
+
+- **Boot log:** the overworld prints `[visual-source] …` once on startup — terrain
+  / object / UI tier counts, any id that resolves to legacy art while live
+  (`legacy_in_live`), and live sprite-vs-procedural-polygon counts.
+  `systems/visual_source_report.gd` is the helper; `VisualSourceReport.is_clean()`
+  is asserted by `tools/validate_project.gd`.
+- **F6 preview** (`tools/art/asset_preview.tscn`): every id is tagged
+  `licensed / licensed_modified / generated / missing`; an id that still resolves
+  to old `art/tiles/` or `art/objects/` art in live mode is flagged **`legacy!`**
+  in red, and the old iso art is shown only in a separate "Legacy iso art"
+  reference strip — never presented as the current direction.
+
 ## ComfyUI / future art
 
 The same path works for generated art: render sprites, drop them under

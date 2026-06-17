@@ -218,6 +218,34 @@ resolve as the `generated` source tier and are **not** derived from Sprout (or
 any third-party) media — the script draws them procedurally. Licensed Sprout art,
 when installed locally, still wins over them per the order above.
 
+The same script also renders **original top-down OBJECT sprites** (96x96,
+bottom-anchored) under `art/generated/hearthvale/objects/{nature,building,decor}/`
+for every placeable + decoration id. `ObjectArtRegistry` prefers these over the
+old `art/objects/` 96px placeholders (order: **licensed Sprout → Hearthvale
+top-down → legacy placeholder → missing**), and terrain-placeable objects route to
+the Hearthvale terrain tiles. So placed buildings, props, and the world's
+trees/bushes/rocks/flowers/mushrooms/pines render as cozy top-down sprites instead
+of the old procedural polygons.
+
+### The "old graphics still showing" fix (live render path)
+
+Manual playtest showed the old prototype look even though the resolver returned
+top-down tiles. Root cause: the live map drew an **opaque colored ground polygon
+(z 0) on top of each terrain sprite (z −1)**, and the overworld backdrop/region
+tints (z 0) also sat above the sprites — so the correct top-down tiles were
+created but hidden behind flat procedural color. Fixes: `_add_terrain_sprite`
+now reports success and the maps **skip the colored fill when a sprite covers the
+cell**; the overworld backdrop/region-tint/border/road scenery moved to a
+`z = −10` background layer; and the heavy procedural decoration routes through the
+object registry. Net result at boot dropped procedural polygons from ~13.6k to
+~0.7k with ~13k terrain sprites now visible. `systems/visual_source_report.gd`
+prints the live tier counts on overworld boot (`[visual-source] …`) and is asserted
+by validation (`VisualSourceReport.is_clean`).
+
+Normal play keeps broad biome/region debug overlays off. Admin/world-builder
+overlays remain explicit tools (F7 or `/overlay`) and may show plot/parcel/marker
+information, but they are separate from the calm default render path.
+
 Reviewed Sprout terrain currently activates only obvious single-tile mappings:
 meadow grass, water, and creek. Other terrain sheets remain catalog/review
 material until a human picks safe cells. Sprout UI kit assets follow the same

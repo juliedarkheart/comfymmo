@@ -76,6 +76,9 @@ The project validator and boot checks cover the following for this branch:
 
 The game can now be closed without Alt+F4:
 
+- Default launch is a normal **bordered windowed** mode at `1600x900`, and
+  `DisplaySettings` clamps/centers the window inside the usable screen so a
+  1080p monitor does not hide the OS title bar/close button.
 - **Esc** (when no panel is open) opens the system/pause menu: Resume, Toggle
   Fullscreen/Windowed, Quit to Desktop, Close.
 - The **Quit to Desktop** button calls `get_tree().quit()` and works even in a
@@ -97,6 +100,91 @@ well south of the play area (world_y ~1980, below the ~1820 south wall) and
 recolored a softer water-blue, so it now reads as a distant water border rather
 than a grey line. Plot boundaries remain a subtle soft-yellow outline plus
 corner posts (not grey, not a debug line).
+
+## Player-facing polish (this pass)
+
+Now that `sprout_topdown` is the live projection, the prototype was tuned to feel
+better to actually play:
+
+- **Movement matches the view.** `AvatarController` now moves straight along
+  screen axes in top-down mode (pressing up goes up) instead of applying the old
+  isometric skew. The skew is kept only for the legacy `iso_64x32` projection; the
+  avatar resolves its mode from the owning map. Camera keeps its gentle position
+  smoothing and PgUp/PgDn/R zoom.
+- **Delete is two-step.** In Edit mode, the first Delete (key or the danger
+  toolbar button) *arms* a confirmation ("Press Delete again to confirm"); a
+  second Delete on the same selected object within ~4s removes it. Changing
+  selection or leaving edit mode disarms it, so a stray keypress never deletes a
+  piece outright. Move/select/cancel/Esc behave as before.
+- **Worldbuilder previews align to whole cells.** The parcel tool preview and the
+  admin world-builder overlay now expand their footprints by half a tile in
+  top-down mode, so the previewed rectangle covers the visible tiles instead of
+  stopping a half-tile short at the tile centers. (Legacy iso keeps the centers
+  diamond.)
+
+### Controls (current)
+
+Move WASD/arrows (or left stick) · Interact/confirm **F** / A · Build **B**
+(Tab cycles piece) · Edit **E** (Move **M**; **Delete** twice to confirm) ·
+Inventory **I** · Craft **K** · Skills **P** · Help **H** · Minimap **M** ·
+Admin/world-builder **F7** · System menu **Esc** · Fullscreen **F11** · Zoom
+PgUp/PgDn (**R** reset). Esc closes any open panel first; with nothing open it
+opens the system menu (while building, Esc exits the build/edit mode).
+
+### Manual test focus
+
+Walk the homestead/neighborhood and confirm up/down/left/right go the way you
+press (no diagonal drift); place a piece and confirm the ghost lines up with the
+tile under the cursor; in Edit mode select a piece, press Delete once (it should
+ask to confirm), press it again to remove; stake a parcel (F7) and confirm the
+preview rectangle covers full tiles; toggle the world overlay and confirm plot
+footprints sit on the tiles.
+
+## Live visual stack (old-graphics purge)
+
+The live `sprout_topdown` world now renders from the top-down art stack only:
+
+- **Root cause of the lingering "old graphics":** the resolver was already
+  returning top-down tiles, but the map drew an opaque colored ground polygon
+  **on top of** each terrain sprite (and the backdrop/region tints sat above the
+  sprites too), so the correct Sprout/Hearthvale tiles were created but hidden
+  behind flat procedural color. The world looked like the old prototype.
+- **Fixes:** the colored ground fill is skipped when a top-down sprite covers the
+  cell; background scenery moved to a `z = −10` layer beneath the tiles; placed
+  objects + world decoration (trees, bushes, rocks, flowers, mushrooms, pines, the
+  cottage) now render through the object registry as top-down sprites; and a new
+  original top-down OBJECT set under `art/generated/hearthvale/objects/` replaced
+  the old `art/objects/` placeholders. Terrain remains licensed Sprout / modified
+  Sprout / generated Hearthvale; no legacy `art/tiles/` diamonds in live mode.
+- **Normal play hides debug regions:** the old broad alpha region-tint discs are
+  not drawn in normal play. Admin/world-builder overlays still show explicit
+  plot, parcel, and marker information when toggled through F7 or `/overlay`.
+- **Tell which tier is rendering:** the overworld prints
+  `[visual-source] …` on boot (terrain/object/UI tier counts + any legacy
+  regressions + live sprite/polygon counts). F6 (`tools/art/asset_preview.tscn`)
+  tags every id `licensed / licensed_modified / generated / missing`, flags any
+  live id that resolves to old art as **`legacy!`** (red), and keeps a separate
+  "Legacy iso art" reference strip.
+
+### What a human should see now
+
+- Square/top-down terrain tiles (no diamond ground), with no flat procedural color
+  squares dominating; paths read as paths, water/creek read as water.
+- Trees, bushes, rocks, flowers, mushrooms, pines, the cottage, fences, signs, and
+  placed build pieces render as cozy top-down sprites (Sprout where wired locally,
+  else the original Hearthvale top-down sprites).
+- Floating nameplates are smaller, and role subtitles such as Villager/Mentor/
+  Land Office/You are hidden by default to reduce clutter.
+- UI uses the Sprout panel/close where installed, else the cozy theme.
+- A clean checkout (no Sprout) looks coherent on the Hearthvale top-down assets.
+
+### Still needs manual art replacement (deferred)
+
+A few distinctive procedural props remain (village fountain, market stall, the
+plot/region background tints, mountain/river border scenery, plot-decoration
+flourishes); the recolor tints and the Hearthvale object silhouettes are
+functional-but-simple and would benefit from a hand-art pass; audio/animation
+stay catalog-only.
 
 ## Known limitations
 

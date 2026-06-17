@@ -47,6 +47,12 @@ var _world_space_hint: WorldSpaceHint
 var _edit_toolbar: CanvasLayer
 var _edit_feedback_text: String = "Click a placed object to select it."
 var _edit_feedback_is_error: bool = false
+# Two-step delete safety: the first Delete (key or toolbar button) arms a
+# confirmation; a second Delete on the SAME selected object within the window
+# actually removes it. Prevents accidental one-press deletion.
+const DELETE_CONFIRM_WINDOW_MS: int = 4000
+var _delete_armed_record_id: String = ""
+var _delete_armed_ms: int = 0
 var _mailbox_has_new_mail: bool = false
 var _region_id: String = "homestead"
 
@@ -671,9 +677,22 @@ func _cancel_move_selected_object() -> void:
 
 func _remove_selected_object() -> void:
 	if _selected_record_id.is_empty():
+		_disarm_delete()
 		_set_edit_feedback("Select a placed object before deleting it.", true)
 		_refresh_edit_toolbar()
 		return
+
+	# First press arms; a second confirming press (same object, within the window)
+	# actually deletes. So a stray Delete never removes a piece outright.
+	var now_ms: int = Time.get_ticks_msec()
+	var armed: bool = _delete_armed_record_id == _selected_record_id and (now_ms - _delete_armed_ms) <= DELETE_CONFIRM_WINDOW_MS
+	if not armed:
+		_delete_armed_record_id = _selected_record_id
+		_delete_armed_ms = now_ms
+		_set_edit_feedback("Delete %s? Press Delete again (or the Delete button) to confirm." % _record_summary(_selected_record_id), true)
+		_refresh_edit_toolbar()
+		return
+	_disarm_delete()
 
 	var index_to_remove: int = -1
 	for index in range(_placed_objects.size()):
@@ -743,7 +762,12 @@ func _find_record_id_at_tile(tile: Vector2i) -> String:
 			return String(record.get("record_id", ""))
 	return ""
 
+func _disarm_delete() -> void:
+	_delete_armed_record_id = ""
+	_delete_armed_ms = 0
+
 func _clear_selection() -> void:
+	_disarm_delete()
 	_set_record_highlight(_selected_record_id, false)
 	_set_record_highlight(_hovered_record_id, false)
 	_selected_record_id = ""
@@ -808,7 +832,7 @@ func _emit_mode_label_changed() -> void:
 		InteractionMode.EDIT:
 			decorating_mode_label_changed.emit(
 				"Edit Mode",
-				"Click object to select. Use Move/Delete below. Q checks rotate. Cancel exits edit."
+				"Click an object to select. Move (M). Delete twice to confirm. Cancel/Esc exits edit."
 			)
 		InteractionMode.MOVE:
 			decorating_mode_label_changed.emit(
@@ -904,7 +928,7 @@ func _refresh_edit_toolbar() -> void:
 	if _interaction_mode == InteractionMode.MOVE:
 		controls_text = "Mouse: click a tile to confirm. Keyboard/controller: confirm places, cancel reverts."
 	else:
-		controls_text = "Mouse: click an object to select. Buttons or M/Q/Delete handle move/rotate/delete."
+		controls_text = "Mouse: click an object to select. M moves; Delete twice (or the Delete button twice) confirms removal."
 	_edit_toolbar.call("set_mode_text", "Move Mode" if _interaction_mode == InteractionMode.MOVE else "Edit Mode")
 	_edit_toolbar.call("set_selection_text", selected_summary)
 	_edit_toolbar.call("set_feedback_text", _edit_feedback_text, _edit_feedback_is_error)

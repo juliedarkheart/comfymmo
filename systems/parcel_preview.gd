@@ -35,6 +35,15 @@ func clear() -> void:
 	visible = false
 	queue_redraw()
 
+## Half a tile in world px when the map is in a top-down projection (so previews
+## cover whole cells); Vector2.ZERO in legacy iso (keep the centers diamond).
+func _half_tile() -> Vector2:
+	if _map != null and _map.has_method("visual_projection_mode"):
+		var mode: String = String(_map.call("visual_projection_mode"))
+		if WorldProjection.is_sprout_compatible(mode):
+			return Vector2(WorldProjection.tile_size(mode)) * 0.5
+	return Vector2.ZERO
+
 func pending_rect() -> Rect2i:
 	return _rect
 
@@ -45,6 +54,14 @@ func _draw() -> void:
 	var right: Vector2 = _map.call("grid_to_world", Vector2i(_rect.end.x - 1, _rect.position.y))
 	var bottom: Vector2 = _map.call("grid_to_world", Vector2i(_rect.end.x - 1, _rect.end.y - 1))
 	var left: Vector2 = _map.call("grid_to_world", Vector2i(_rect.position.x, _rect.end.y - 1))
+	# grid_to_world returns tile CENTERS. In top-down mode push the corners out by
+	# half a tile so the preview covers the full visible cells instead of stopping
+	# a half-tile short on every side. (Legacy iso keeps the centers-diamond look.)
+	var half: Vector2 = _half_tile()
+	top += Vector2(-half.x, -half.y)
+	right += Vector2(half.x, -half.y)
+	bottom += Vector2(half.x, half.y)
+	left += Vector2(-half.x, half.y)
 	var base: Color = BiomeRegistry.ground_color(_biome)
 	var points := PackedVector2Array([top, right, bottom, left])
 	draw_colored_polygon(points, Color(base.r, base.g, base.b, 0.30))

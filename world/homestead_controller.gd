@@ -913,7 +913,7 @@ func _open_help_panel() -> void:
 		"Move: WASD / Arrow keys\n"
 		+ "Interact / talk / gather / claim: F (when a prompt shows)\n"
 		+ "Inventory: I    Craft: K    Skills: P    Help: H    Minimap: M\n"
-		+ "Build: B (Tab switches item)    Edit/move/remove: E\n"
+		+ "Build: B (Tab switches item)    Edit: E (Move M; Delete twice to confirm)\n"
 		+ "Controller: left stick move    A interact/confirm    B cancel    Start menu\n"
 		+ "Eat carrot: C    Cycle time: T    Zoom: PgUp/PgDn (R reset)\n"
 		+ "Chat: Enter    Multiplayer/profile: F8    Wardrobe: F9\n"

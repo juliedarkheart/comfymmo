@@ -13,10 +13,33 @@ const ICON_SIZE := Vector2i(64, 64)
 ## order: activated external derivative -> generated placeholder -> missing.
 const EXTERNAL_ACTIVE_ROOT := "res://art/generated/from_external/active/"
 
+## Original, committable Hearthvale top-down object/decor sprites. In the live
+## top-down game these are preferred over the legacy 96x48 prototype placeholders
+## under art/objects/ (and over legacy art/tiles/ art for terrain-placeables), so
+## a clean checkout still reads as a coherent top-down world. Order:
+## licensed Sprout -> Hearthvale top-down generated -> legacy placeholder -> missing.
+const HEARTHVALE_OBJECT_ROOT := "res://art/generated/hearthvale/objects/"
+const HEARTHVALE_TERRAIN_ROOT := "res://art/generated/hearthvale/terrain/"
+const LEGACY_OBJECT_ROOT := "res://art/objects/"
+const LEGACY_TILE_ROOT := "res://art/tiles/"
+
+static func _hearthvale_object_path(mapped_path: String) -> String:
+	var candidate: String = ""
+	if mapped_path.begins_with(LEGACY_OBJECT_ROOT):
+		candidate = HEARTHVALE_OBJECT_ROOT + mapped_path.substr(LEGACY_OBJECT_ROOT.length())
+	elif mapped_path.begins_with(LEGACY_TILE_ROOT):
+		candidate = HEARTHVALE_TERRAIN_ROOT + mapped_path.get_file()
+	if not candidate.is_empty() and FileAccess.file_exists(candidate):
+		return candidate
+	return ""
+
 static func resolve_path(mapped_path: String) -> String:
 	var override_path: String = ArtActivation.override_for(mapped_path)
 	if not override_path.is_empty():
 		return override_path
+	var hearthvale_path: String = _hearthvale_object_path(mapped_path)
+	if not hearthvale_path.is_empty():
+		return hearthvale_path
 	if FileAccess.file_exists(mapped_path):
 		return mapped_path
 	return FALLBACK_PATH
@@ -118,6 +141,12 @@ const OBJECT_PATHS := {
 	"build_tool": "res://art/ui/icons/build_tool.png",
 	"delete": "res://art/ui/icons/delete.png",
 	"rotate": "res://art/ui/icons/rotate.png",
+	# Decoration-only ids (no legacy placeholder) — original Hearthvale top-down
+	# sprites the world map drawers use instead of procedural polygons.
+	"pine": "res://art/generated/hearthvale/objects/nature/pine.png",
+	"mushroom": "res://art/generated/hearthvale/objects/nature/mushroom.png",
+	"grass_tuft": "res://art/generated/hearthvale/objects/nature/grass_tuft.png",
+	"stump": "res://art/generated/hearthvale/objects/nature/stump.png",
 }
 
 static func required_ids() -> Array[String]:

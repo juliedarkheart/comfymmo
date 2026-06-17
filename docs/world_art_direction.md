@@ -11,7 +11,8 @@ plots, public areas, wilderness, and biome changes at a glance.
   forest landmarks.
 - Landmarks should have strong silhouettes and a distinct color accent.
 - Public roads should look authored and cozy, not like debug corridors.
-- Normal gameplay should not show harsh grey construction or measurement lines.
+- Normal gameplay should not show harsh grey construction, measurement lines, or
+  broad rectangular/region-tint debug blocks.
 - Admin overlays can be clearer and more technical, but they should remain off
   by default.
 
@@ -75,6 +76,11 @@ supports the primary live `sprout_topdown` view plus legacy/fallback
 land ownership, minimap, terrain paint, and saves keep using logical tiles while
 the renderer projects them as 32x32 top-down cells.
 
+Player-facing systems follow the active projection too: the avatar moves straight
+along screen axes in top-down mode (the iso skew is legacy-only), and the parcel
+tool + world-builder overlay previews expand their footprints by half a tile in
+top-down so they cover the visible cells rather than stopping at tile centers.
+
 Clean checkout behavior must stay boring: no Sprout pack means the generated
 fallback renders and worldbuilder/minimap/build tools keep using the same logical
 tile positions.
@@ -115,12 +121,27 @@ Homestead plots should feel like yards:
 Plot boundaries must remain visible enough for playtesting, but they should not
 look like combat zones, selection boxes, or permanent debug art.
 
+## Label Readability
+
+World-space labels should be sparse. Character nameplates use a smaller name
+line, and role subtitles (`Villager`, `Mentor`, `Land Office`, `You`) are hidden
+by default unless a future hover/selection/debug state deliberately opts in.
+Plot labels should live on physical sign boards or panel/HUD context, not as
+always-on floating text over every yard.
+
 ## Graphics polish pass
 
 In the live Sprout/top-down renderer the map draws real 32x32 square tiles: a
 licensed Sprout tile when present, otherwise the original Hearthvale top-down
 generated tile (`art/generated/hearthvale/terrain/`). Only the legacy 64x48
-isometric diamonds are suppressed in top-down mode. Because the generated
+isometric diamonds are suppressed in top-down mode. The map **skips the old
+colored ground polygon whenever a tile sprite covers the cell** (the opaque fill
+used to hide the sprites), and the broad background scenery (backdrop, region
+tints, borders, connecting roads) sits on a `z = −10` layer beneath the tiles.
+World decoration and structures (trees, bushes, rocks, flowers, mushrooms, pines,
+the cottage, fences) render through `ObjectArtRegistry` as top-down sprites
+(`art/generated/hearthvale/objects/`, or licensed Sprout) rather than procedural
+polygons. `systems/visual_source_report.gd` logs the live tiers on boot. Because the generated
 Hearthvale tiles carry their own texture, the legacy iso decorative
 highlight/patch overlays are skipped in Sprout-compatible mode (they would just
 cover the tile art); they still draw in the legacy `iso_64x32` view. Plot ground,

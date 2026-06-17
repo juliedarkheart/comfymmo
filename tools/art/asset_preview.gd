@@ -33,8 +33,37 @@ func _ready() -> void:
 	_add_object_section(rows, "Objects & prefabs", ObjectArtRegistry.required_ids())
 	_add_object_section(rows, "UI / tool icons", ICON_IDS)
 	_add_ui_section(rows, "Sprout UI kit (panel/button/slot/close)", UIArtRegistry.required_ids())
+	_add_legacy_section(rows, "Legacy iso art (reference only — NOT used in live sprout_topdown)")
 
 # --- sections ---------------------------------------------------------------
+
+## In the live (sprout_topdown) sections, any id that still resolves to an old
+## res://art/tiles/ diamond or res://art/objects/ placeholder is a regression and
+## is flagged as "legacy!" (red) rather than a normal source tier.
+func _live_source(path: String, source: String) -> String:
+	if path.begins_with("res://art/tiles/") or path.begins_with("res://art/objects/"):
+		return "legacy!"
+	return source
+
+## A clearly-separated reference strip of the OLD iso art, so the legacy set is
+## visible for comparison but never presented as the current visual direction.
+func _add_legacy_section(parent: VBoxContainer, title: String) -> void:
+	_add_heading(parent, title)
+	_add_note(parent, "These old 64x48 diamond tiles + 96px placeholders are the iso_64x32 fallback only. They must NOT appear with a 'legacy!' tag in the live sections above; if they do, the live resolver regressed.")
+	var grid := GridContainer.new()
+	grid.columns = 8
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	parent.add_child(grid)
+	var legacy_paths: Array[String] = [
+		"res://art/tiles/biomes/meadow.png", "res://art/tiles/biomes/forest.png",
+		"res://art/tiles/paths/dirt_path.png", "res://art/tiles/water/water.png",
+		"res://art/objects/nature/tree.png", "res://art/objects/nature/rock.png",
+		"res://art/objects/building/crate.png", "res://art/objects/decor/sign.png",
+	]
+	for legacy_path in legacy_paths:
+		if FileAccess.file_exists(legacy_path):
+			grid.add_child(_tile(load(legacy_path) as Texture2D, legacy_path.get_file().get_basename(), "legacy"))
 
 func _add_terrain_section(parent: VBoxContainer, title: String, ids: Array) -> void:
 	_add_heading(parent, title)
@@ -46,7 +75,7 @@ func _add_terrain_section(parent: VBoxContainer, title: String, ids: Array) -> v
 	for id_variant in ids:
 		var id: String = String(id_variant)
 		var path: String = TerrainArtRegistry.texture_path(id)
-		grid.add_child(_tile(load(path) as Texture2D, id, TerrainArtRegistry.source_of(path)))
+		grid.add_child(_tile(load(path) as Texture2D, id, _live_source(path, TerrainArtRegistry.source_of(path))))
 
 func _add_object_section(parent: VBoxContainer, title: String, ids: Array) -> void:
 	_add_heading(parent, title)
@@ -58,7 +87,7 @@ func _add_object_section(parent: VBoxContainer, title: String, ids: Array) -> vo
 	for id_variant in ids:
 		var id: String = String(id_variant)
 		var path: String = ObjectArtRegistry.texture_path(id)
-		grid.add_child(_tile(load(path) as Texture2D, id, ObjectArtRegistry.source_of(path)))
+		grid.add_child(_tile(load(path) as Texture2D, id, _live_source(path, ObjectArtRegistry.source_of(path))))
 
 func _add_ui_section(parent: VBoxContainer, title: String, ids: Array) -> void:
 	_add_heading(parent, title)
@@ -74,8 +103,10 @@ func _add_ui_section(parent: VBoxContainer, title: String, ids: Array) -> void:
 
 func _source_color(source: String) -> Color:
 	match source:
-		"missing":
+		"missing", "legacy!":
 			return CozyUITheme.BAD
+		"legacy":
+			return CozyUITheme.INK_SOFT
 		"licensed", "licensed_ui":
 			return CozyUITheme.HONEY
 		"licensed_modified":

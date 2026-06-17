@@ -6,19 +6,22 @@ class_name Nameplate
 ## stay readable over any terrain. Purely presentational — no collision, no
 ## input. Returns the holder Node2D so callers can update or free it.
 
-static func attach(parent: Node2D, character_name: String, subtitle: String = "", name_color: Color = Color("#f5f0e6")) -> Node2D:
+## Floating name above a character. The role SUBTITLE is hidden by default to keep
+## the scene uncluttered (every NPC stacking a "Villager"/"Mentor" line read as
+## noise); pass show_subtitle=true only where a role line is genuinely useful.
+static func attach(parent: Node2D, character_name: String, subtitle: String = "", name_color: Color = Color("#f5f0e6"), show_subtitle: bool = false) -> Node2D:
 	var holder: Node2D = Node2D.new()
 	holder.name = "Nameplate"
-	holder.position = Vector2(0, -84)
+	holder.position = Vector2(0, -82)
 	holder.z_index = 50
 	parent.add_child(holder)
 
-	var name_label: Label = _make_label(character_name, 13, name_color)
+	var name_label: Label = _make_label(character_name, 11, name_color)
 	holder.add_child(name_label)
 
-	if not subtitle.is_empty():
-		var subtitle_label: Label = _make_label(subtitle, 11, Color(0.82, 0.88, 0.78, 0.92))
-		subtitle_label.position.y = 15.0
+	if show_subtitle and not subtitle.is_empty():
+		var subtitle_label: Label = _make_label(subtitle, 10, Color(0.82, 0.88, 0.78, 0.92))
+		subtitle_label.position.y = 13.0
 		holder.add_child(subtitle_label)
 	return holder
 

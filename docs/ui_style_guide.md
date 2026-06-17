@@ -16,7 +16,9 @@ The reusable helper is `ui/cozy_ui_theme.gd`.
 - Item slots use pale parchment; selected slots use honey; unavailable slots are
   muted with a clear blocked border.
 - Close buttons should be visible on major panels.
-- Destructive buttons, such as Delete or Quit, use the danger treatment.
+- Destructive buttons, such as Delete or Quit, use the danger treatment. In Edit
+  mode, Delete is **two-step** (first press arms a confirmation, second press
+  within a few seconds removes), so a single stray press never deletes a piece.
 
 ## Panel Expectations
 
@@ -51,6 +53,8 @@ Keep the HUD compact. It should orient the player without covering the world.
 
 - Target 1080p readability first.
 - Avoid tiny labels inside dense panels.
+- Avoid always-on floating role subtitles in the world. Nameplates should stay
+  compact; secondary role lines are opt-in for hover, selection, or debug states.
 - Keep button text short and concrete.
 - Prefer item slots or grouped rows over long walls of text.
 - Use clear denial feedback when an action is blocked.

@@ -7,6 +7,9 @@ class_name DisplaySettings
 ## player is never trapped in fullscreen with no way out.
 
 const SETTINGS_PATH := "user://display_settings.cfg"
+const MAX_WINDOWED_SIZE := Vector2i(1600, 900)
+const WINDOWED_SCREEN_MARGIN := Vector2i(120, 140)
+const MIN_WINDOWED_SIZE := Vector2i(800, 600)
 
 ## Apply the saved window mode (call once at boot, e.g. from the HUD _ready).
 static func apply_saved() -> void:
@@ -43,3 +46,25 @@ static func _apply_window_mode(fullscreen: bool) -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
+	_fit_windowed_to_screen()
+
+## Size the windowed window to fit comfortably INSIDE the usable screen (minus the
+## taskbar) and center it, so the OS title bar/borders are always visible. The
+## project's 1920x1080 default would otherwise open screen-sized on a 1080p
+## monitor, pushing the borders off-screen and reading as "borderless".
+static func _fit_windowed_to_screen() -> void:
+	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED:
+		return
+	var screen: int = DisplayServer.window_get_current_screen()
+	var usable: Rect2i = DisplayServer.screen_get_usable_rect(screen)
+	if usable.size.x <= 0 or usable.size.y <= 0:
+		return
+	# Leave margin so the title bar + borders are clearly on-screen.
+	var target := Vector2i(
+		mini(MAX_WINDOWED_SIZE.x, usable.size.x - WINDOWED_SCREEN_MARGIN.x),
+		mini(MAX_WINDOWED_SIZE.y, usable.size.y - WINDOWED_SCREEN_MARGIN.y)
+	)
+	target.x = maxi(target.x, MIN_WINDOWED_SIZE.x)
+	target.y = maxi(target.y, MIN_WINDOWED_SIZE.y)
+	DisplayServer.window_set_size(target)
+	DisplayServer.window_set_position(usable.position + (usable.size - target) / 2)

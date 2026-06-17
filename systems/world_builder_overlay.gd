@@ -36,18 +36,39 @@ func refresh() -> void:
 func _tile_to_world(tile: Vector2i) -> Vector2:
 	return _map.call("grid_to_world", tile)
 
+## Half a tile in world px for top-down projections (so footprints cover whole
+## cells instead of stopping at tile centers); ZERO in legacy iso.
+func _half_tile() -> Vector2:
+	if _map != null and _map.has_method("visual_projection_mode"):
+		var mode: String = String(_map.call("visual_projection_mode"))
+		if WorldProjection.is_sprout_compatible(mode):
+			return Vector2(WorldProjection.tile_size(mode)) * 0.5
+	return Vector2.ZERO
+
+## Expand a [TL, TR, BR, BL] corner set outward by half a tile (top-down only).
+func _expand(corners: Array, half: Vector2) -> Array:
+	if half == Vector2.ZERO:
+		return corners
+	return [
+		corners[0] + Vector2(-half.x, -half.y),
+		corners[1] + Vector2(half.x, -half.y),
+		corners[2] + Vector2(half.x, half.y),
+		corners[3] + Vector2(-half.x, half.y),
+	]
+
 func _draw() -> void:
 	if _map == null or not visible:
 		return
+	var half: Vector2 = _half_tile()
 	# Homestead training core grid (the original 0..W x 0..H buildable square).
 	if _core_size.x > 0 and _core_size.y > 0:
 		var w: int = _core_size.x
 		var h: int = _core_size.y
 		_draw_diamond(
-			[
+			_expand([
 				_tile_to_world(Vector2i(0, 0)), _tile_to_world(Vector2i(w - 1, 0)),
 				_tile_to_world(Vector2i(w - 1, h - 1)), _tile_to_world(Vector2i(0, h - 1)),
-			],
+			], half),
 			Color(0.6, 0.8, 1.0, 0.08), Color(0.7, 0.85, 1.0, 0.45), 2.0
 		)
 		draw_string(_font, _tile_to_world(Vector2i(0, 0)) + Vector2(-36, -10),
@@ -66,9 +87,10 @@ func _draw() -> void:
 		var base: Color = LandRegistry.biome_color(String(plot.get("biome", "meadow")))
 		var fill := Color(base.r, base.g, base.b, 0.22)
 		var line: Color = Color(base.r, base.g, base.b, 0.95).lightened(0.2)
-		_draw_diamond([top, right, bottom, left], fill, line, 2.5)
-		for corner in [top, right, bottom, left]:
-			draw_circle(corner, 3.0, Color(1, 1, 1, 0.85))
+		var plot_corners: Array = _expand([top, right, bottom, left], half)
+		_draw_diamond(plot_corners, fill, line, 2.5)
+		for corner in plot_corners:
+			draw_circle(corner as Vector2, 3.0, Color(1, 1, 1, 0.85))
 		var center: Vector2 = (top + bottom) * 0.5
 		draw_string(_font, center + Vector2(-48, -2), String(plot.get("display_name", "plot")),
 			HORIZONTAL_ALIGNMENT_CENTER, 96, 12, Color(1, 1, 0.95, 0.95))

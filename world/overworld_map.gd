@@ -22,6 +22,10 @@ const TERRAIN_PAINT_IDS: Array[String] = [
 
 var _terrain_override_layer: Node2D = null
 var _terrain_override_nodes: Dictionary = {}
+# Distant background scenery (backdrop, region tints, borders, connecting roads)
+# lives below the terrain tiles so the top-down tile sprites are never hidden by
+# the broad procedural color fills.
+var _background_layer: Node2D = null
 
 func _ready() -> void:
 	_build_overworld()
@@ -140,13 +144,17 @@ func _build_neighborhood_ground() -> void:
 			TerrainShapes.add_ribbon(ground_layer, pts, 20.0, 20.0, BiomeRegistry.path_color("dirt_path"))
 
 func _add_road_tile(tile: Vector2i) -> void:
-	var road := Polygon2D.new()
-	road.name = "Road_%d_%d" % [tile.x, tile.y]
-	road.position = grid_to_world(tile)
-	road.polygon = _tile_diamond()
-	road.color = _terrain_base_color("dirt_path", tile)
-	ground_layer.add_child(road)
-	_add_terrain_sprite(road, "dirt_path", tile)
+	var road_node := Node2D.new()
+	road_node.name = "Road_%d_%d" % [tile.x, tile.y]
+	road_node.position = grid_to_world(tile)
+	ground_layer.add_child(road_node)
+	# Skip the flat dirt fill when the top-down path sprite covers the cell.
+	if not _add_terrain_sprite(road_node, "dirt_path", tile):
+		var road := Polygon2D.new()
+		road.polygon = _tile_diamond()
+		road.color = _terrain_base_color("dirt_path", tile)
+		road.z_index = -2
+		road_node.add_child(road)
 
 ## Paint one plot's biome-tinted ground patch (a 1-tile skirt around the rect).
 ## Public so the in-game world-builder can draw a plot the moment it's created,
@@ -156,9 +164,9 @@ func paint_plot_ground(plot: Dictionary) -> Node2D:
 	var rect_variant: Variant = plot.get("rect", null)
 	if not (rect_variant is Rect2i):
 		return null
-	var r: Rect2i = (rect_variant as Rect2i).grow(1)
-	var base: Color = LandRegistry.biome_color(String(plot.get("biome", "meadow")))
-	var alt: Color = base.darkened(0.06)
+	var orig: Rect2i = rect_variant as Rect2i
+	var r: Rect2i = orig.grow(1)
+	var biome_id: String = String(plot.get("biome", "meadow"))
 	var patch := Node2D.new()
 	patch.name = "PlotGround_%s" % String(plot.get("plot_id", "plot"))
 	patch.z_index = -8
@@ -168,12 +176,19 @@ func paint_plot_ground(plot: Dictionary) -> Node2D:
 			if tx >= 0 and tx < MAP_WIDTH and ty >= 0 and ty < MAP_HEIGHT:
 				continue  # don't repaint the homestead core
 			var tile := Vector2i(tx, ty)
-			var ground := Polygon2D.new()
-			ground.position = grid_to_world(tile)
-			ground.polygon = _tile_diamond()
-			ground.color = base if (tx + ty) % 2 == 0 else alt
-			_add_terrain_sprite(ground, String(plot.get("biome", "meadow")), tile)
-			patch.add_child(ground)
+			# The 1-tile skirt around the plot is painted as meadow grass so the
+			# biome patch is framed by the common ground instead of meeting the
+			# background as a hard-edged rectangle.
+			var terrain_id: String = biome_id if orig.has_point(tile) else "meadow"
+			var tile_node := Node2D.new()
+			tile_node.position = grid_to_world(tile)
+			patch.add_child(tile_node)
+			if not _add_terrain_sprite(tile_node, terrain_id, tile):
+				var ground := Polygon2D.new()
+				ground.polygon = _tile_diamond()
+				ground.color = LandRegistry.biome_color(terrain_id)
+				ground.z_index = -2
+				tile_node.add_child(ground)
 	return patch
 
 func terrain_paint_ids() -> Array:
@@ -218,11 +233,12 @@ func _paint_terrain_override(tile: Vector2i, terrain_id: String) -> void:
 	node.name = "TerrainOverride_%s" % key
 	node.position = grid_to_world(tile)
 	_terrain_override_layer.add_child(node)
-	var base := Polygon2D.new()
-	base.polygon = _tile_diamond()
-	base.color = _terrain_base_color(terrain_id, tile)
-	node.add_child(base)
-	_add_terrain_sprite(node, terrain_id, tile)
+	if not _add_terrain_sprite(node, terrain_id, tile):
+		var base := Polygon2D.new()
+		base.polygon = _tile_diamond()
+		base.color = _terrain_base_color(terrain_id, tile)
+		base.z_index = -2
+		node.add_child(base)
 	if terrain_id == "dirt_path" or terrain_id == "stone_path":
 		var inset := Polygon2D.new()
 		inset.polygon = _tile_inner_polygon(7.0)
@@ -259,6 +275,15 @@ func _terrain_base_color(terrain_id: String, tile: Vector2i) -> Color:
 func _terrain_detail_color(terrain_id: String) -> Color:
 	return BiomeRegistry.terrain_detail_color(terrain_id)
 
+func _bg_layer() -> Node2D:
+	if _background_layer != null and is_instance_valid(_background_layer):
+		return _background_layer
+	_background_layer = Node2D.new()
+	_background_layer.name = "BackgroundScenery"
+	_background_layer.z_index = -10
+	ground_layer.add_child(_background_layer)
+	return _background_layer
+
 func _build_overworld_backdrop() -> void:
 	var limits: Rect2i = get_camera_limits()
 	var m: float = 240.0
@@ -270,15 +295,21 @@ func _build_overworld_backdrop() -> void:
 		Vector2(limits.end.x + m, limits.end.y + m),
 		Vector2(limits.position.x - m, limits.end.y + m),
 	])
-	bg.color = BiomeRegistry.terrain_color("meadow").darkened(0.08)
-	ground_layer.add_child(bg)
+	# Calm, uniform grass tone matching the Hearthvale/Sprout meadow tile, so the
+	# tiled patches (core, plots) blend into the background instead of reading as
+	# bright rectangles floating on a different-colored field.
+	bg.color = BACKDROP_GRASS
+	_bg_layer().add_child(bg)
+
+## Soft grass tone matching the top-down meadow tile (art/generated/hearthvale).
+const BACKDROP_GRASS := Color("#7faf68")
 
 func _build_region_tints() -> void:
-	# Broad terrain color forms so the three areas read as distinct land without hard
-	# seams (homestead meadow, village outskirts, forest floor).
-	TerrainShapes.add_disc(ground_layer, Vector2(60, 300), 760, 16, BiomeRegistry.terrain_color("meadow"), 0.62)
-	TerrainShapes.add_disc(ground_layer, VILLAGE_OFFSET + Vector2(96, 272), 720, 16, BiomeRegistry.terrain_color("town"), 0.62)
-	TerrainShapes.add_disc(ground_layer, FOREST_OFFSET + Vector2(40, 260), 840, 16, BiomeRegistry.terrain_color("forest"), 0.62)
+	# Region differentiation now comes from the actual terrain tiles + props, and a
+	# detailed biome readout is available on the admin/world-builder overlay (F7).
+	# The old broad alpha-0.62 color discs read as ugly debug blocks in normal play,
+	# so they are intentionally NOT drawn here anymore.
+	pass
 
 func _build_natural_borders() -> void:
 	# All borders are derived from the actual world bounds and drawn JUST OUTSIDE
@@ -292,12 +323,12 @@ func _build_natural_borders() -> void:
 	var step: float = bounds.size.x / 9.0
 	for i in range(10):
 		var x: float = bounds.position.x + i * step
-		TerrainShapes.add_disc(ground_layer, Vector2(x, north_y), 280, 7, Color("#84899e"), 0.5)
-		TerrainShapes.add_disc(ground_layer, Vector2(x + 130, north_y + 60), 200, 7, Color("#9aa1b4"), 0.5)
+		TerrainShapes.add_disc(_bg_layer(), Vector2(x, north_y), 280, 7, Color("#84899e"), 0.5)
+		TerrainShapes.add_disc(_bg_layer(), Vector2(x + 130, north_y + 60), 200, 7, Color("#9aa1b4"), 0.5)
 	# A clear blue river hugging the south edge, well past the south wall.
 	var river_y: float = bounds.end.y + 180.0
 	TerrainShapes.add_ribbon(
-		ground_layer,
+		_bg_layer(),
 		PackedVector2Array([
 			Vector2(bounds.position.x - 200, river_y - 30), Vector2(cx - 600, river_y + 30),
 			Vector2(cx, river_y - 20), Vector2(cx + 700, river_y + 30), Vector2(bounds.end.x + 200, river_y - 10),
@@ -305,17 +336,17 @@ func _build_natural_borders() -> void:
 		64.0, 70.0, BiomeRegistry.water_color()
 	)
 	# Forest wall east, soft cliff west.
-	TerrainShapes.add_disc(ground_layer, Vector2(bounds.end.x + 60, bounds.position.y + bounds.size.y * 0.4), 460, 12, Color("#3f6a3c"), 0.7)
-	TerrainShapes.add_disc(ground_layer, Vector2(bounds.position.x - 40, bounds.position.y + bounds.size.y * 0.5), 320, 8, Color("#8b8780"), 0.62)
+	TerrainShapes.add_disc(_bg_layer(), Vector2(bounds.end.x + 60, bounds.position.y + bounds.size.y * 0.4), 460, 12, Color("#3f6a3c"), 0.7)
+	TerrainShapes.add_disc(_bg_layer(), Vector2(bounds.position.x - 40, bounds.position.y + bounds.size.y * 0.5), 320, 8, Color("#8b8780"), 0.62)
 
 func _build_connecting_roads() -> void:
 	TerrainShapes.add_ribbon(
-		ground_layer,
+		_bg_layer(),
 		PackedVector2Array([Vector2(-60, 300), Vector2(320, 420), Vector2(820, 440), Vector2(1300, 392), Vector2(1596, 392)]),
 		30.0, 30.0, BiomeRegistry.path_color("dirt_path")
 	)
 	TerrainShapes.add_ribbon(
-		ground_layer,
+		_bg_layer(),
 		PackedVector2Array([Vector2(1596, 392), Vector2(2100, 420), Vector2(2600, 360), Vector2(3060, 326)]),
 		28.0, 24.0, BiomeRegistry.terrain_color("road", true)
 	)
@@ -467,6 +498,8 @@ func _add_overworld_fountain(world_pos: Vector2) -> void:
 	fountain.add_child(spout)
 
 func _add_overworld_pine(parent: Node2D, world_pos: Vector2) -> void:
+	if _decor_sprite(parent, world_pos, "pine", 0.55):
+		return
 	# Cute rounded pine: stacked soft tiers getting lighter toward the top.
 	var pine: Node2D = Node2D.new()
 	pine.position = world_pos

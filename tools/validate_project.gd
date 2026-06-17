@@ -684,6 +684,34 @@ func _initialize() -> void:
 		push_error("licensed_assets contains tracked files; Sprout assets must stay gitignored")
 		quit(1)
 		return
+	var tracked_files_output: Array = []
+	var tracked_files_code: int = OS.execute("git", ["ls-files"], tracked_files_output, true)
+	if tracked_files_code == 0:
+		var tracked_lines: PackedStringArray = "\n".join(tracked_files_output).split("\n", false)
+		for tracked_path_variant in tracked_lines:
+			var tracked_path: String = String(tracked_path_variant).replace("\\", "/")
+			var lower_tracked_path: String = tracked_path.to_lower()
+			if lower_tracked_path.begins_with("licensed_assets/"):
+				push_error("Tracked file lives under licensed_assets/: %s" % tracked_path)
+				quit(1)
+				return
+			if lower_tracked_path.contains("sprout") and (
+				lower_tracked_path.ends_with(".png") or lower_tracked_path.ends_with(".zip")
+				or lower_tracked_path.ends_with(".aseprite") or lower_tracked_path.ends_with(".gif")
+				or lower_tracked_path.ends_with(".wav") or lower_tracked_path.ends_with(".ogg")
+				or lower_tracked_path.ends_with(".mp3")
+			):
+				push_error("Tracked Sprout media/raw asset is forbidden: %s" % tracked_path)
+				quit(1)
+				return
+	var tracked_activation_manifest: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://art/active_art_manifest.json"))
+	if typeof(tracked_activation_manifest) == TYPE_DICTIONARY:
+		for active_key in ((tracked_activation_manifest as Dictionary).get("active", {}) as Dictionary).keys():
+			var active_path_for_check: String = String(((tracked_activation_manifest as Dictionary).get("active", {}) as Dictionary)[active_key])
+			if active_path_for_check.begins_with("res://licensed_assets/") or active_path_for_check.begins_with("licensed_assets/"):
+				push_error("Tracked active_art_manifest points at licensed_assets/: %s" % active_path_for_check)
+				quit(1)
+				return
 	# Original Hearthvale generated UI gap-fill must resolve (generated or licensed).
 	if UIArtRegistry.source_of(UIArtRegistry.texture_path("panel")) == "missing":
 		push_error("UIArtRegistry has no generated/licensed panel art to resolve")
@@ -728,6 +756,52 @@ func _initialize() -> void:
 		quit(1)
 		return
 
+	# --- Live visual source enforcement (no old graphics in sprout_topdown) -----
+	if load("res://systems/visual_source_report.gd") == null:
+		push_error("VisualSourceReport helper failed to load")
+		quit(1)
+		return
+	if not VisualSourceReport.is_clean(WorldProjection.MODE_SPROUT_TOPDOWN):
+		var bad: Dictionary = VisualSourceReport.registry_summary(WorldProjection.MODE_SPROUT_TOPDOWN)
+		push_error("Live sprout_topdown resolves LEGACY old art: terrain=%s objects=%s" % [bad["terrain_legacy_in_live"], bad["object_legacy_in_live"]])
+		quit(1)
+		return
+	# Non-licensed objects must resolve to original Hearthvale top-down art, never
+	# the old art/objects/ 96px placeholders.
+	var crate_live_path: String = ObjectArtRegistry.texture_path(ContentIds.PLACEABLE_CRATE)
+	if ObjectArtRegistry.source_of(crate_live_path) == "generated" and not crate_live_path.begins_with(ObjectArtRegistry.HEARTHVALE_OBJECT_ROOT):
+		push_error("Generated object fallback still points at old art/objects/: %s" % crate_live_path)
+		quit(1)
+		return
+	# Required original Hearthvale top-down fallback assets must exist (committable).
+	for hearthvale_asset in ["res://art/generated/hearthvale/terrain/meadow.png", "res://art/generated/hearthvale/terrain/dirt_path.png", "res://art/generated/hearthvale/objects/nature/tree.png", "res://art/generated/hearthvale/objects/building/crate.png"]:
+		if not FileAccess.file_exists(hearthvale_asset):
+			push_error("Required generated Hearthvale fallback asset missing: %s" % hearthvale_asset)
+			quit(1)
+			return
+	for live_terrain_id_variant in TerrainArtRegistry.required_ids():
+		var live_terrain_id: String = String(live_terrain_id_variant)
+		var live_topdown_path: String = TerrainArtRegistry.texture_path(live_terrain_id, WorldProjection.MODE_SPROUT_TOPDOWN)
+		if TerrainArtRegistry.source_of(live_topdown_path) == "generated" and not live_topdown_path.begins_with(TerrainArtRegistry.HEARTHVALE_TOPDOWN_ROOT):
+			push_error("Live generated terrain id '%s' is not using art/generated/hearthvale/: %s" % [live_terrain_id, live_topdown_path])
+			quit(1)
+			return
+	# Live map scripts must route decoration/terrain through the registry + skip the
+	# covering procedural fills (no hardcoded old texture paths drawn over sprites).
+	var hmap_src: String = FileAccess.get_file_as_string("res://world/homestead_map.gd")
+	if not hmap_src.contains("_decor_sprite") or not hmap_src.contains("_use_object_sprites"):
+		push_error("HomesteadMap does not route world decoration through the object registry")
+		quit(1)
+		return
+	var omap_src: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	if not omap_src.contains("_bg_layer"):
+		push_error("OverworldMap does not push background scenery below the terrain tiles")
+		quit(1)
+		return
+	if hmap_src.contains("res://art/tiles/") or hmap_src.contains("res://art/objects/") or omap_src.contains("res://art/tiles/") or omap_src.contains("res://art/objects/"):
+		push_error("Live map scripts must not hardcode legacy art/tiles or art/objects paths")
+		quit(1)
+		return
 	var map_probe := HomesteadMap.new()
 	if not map_probe.has_method("terrain_visual_for"):
 		push_error("Map renderer is missing terrain_visual_for helper")
@@ -755,6 +829,45 @@ func _initialize() -> void:
 	map_probe.free()
 	if map_visual.is_empty() or bool(map_visual.get("fallback", true)) or map_visual.get("texture", null) == null:
 		push_error("Map renderer terrain_visual_for did not resolve meadow art")
+		quit(1)
+		return
+	# --- Player-facing polish (movement / delete safety / preview alignment) -----
+	# Movement matches the visual projection: pressing "up" is a straight vertical
+	# vector in the live top-down mode (no leftover isometric skew).
+	var motion_probe := AvatarController.new()
+	var topdown_up: Vector2 = motion_probe.get_desired_motion(Vector2(0, -1))
+	if not is_zero_approx(topdown_up.x) or topdown_up.y >= 0.0:
+		push_error("AvatarController top-down movement is not straight (leftover iso skew?)")
+		motion_probe.free()
+		quit(1)
+		return
+	# Legacy iso projection must still skew, so the diagonal grid look is intact.
+	motion_probe._projection_mode = WorldProjection.MODE_ISO_64X32
+	var iso_up: Vector2 = motion_probe.get_desired_motion(Vector2(0, -1))
+	motion_probe.free()
+	if is_zero_approx(iso_up.x):
+		push_error("AvatarController legacy iso movement lost its isometric skew")
+		quit(1)
+		return
+	# Build/edit delete safety: the two-step confirmation must be present.
+	var placement_src: String = FileAccess.get_file_as_string("res://systems/building_placement_system.gd")
+	if not placement_src.contains("DELETE_CONFIRM_WINDOW_MS") or not placement_src.contains("_disarm_delete"):
+		push_error("Build/edit delete confirmation safety is missing")
+		quit(1)
+		return
+	# Worldbuilder previews load and align to whole cells in top-down mode.
+	if load("res://systems/parcel_preview.gd") == null or load("res://systems/world_builder_overlay.gd") == null:
+		push_error("Parcel preview / world-builder overlay scripts failed to load")
+		quit(1)
+		return
+	var parcel_src: String = FileAccess.get_file_as_string("res://systems/parcel_preview.gd")
+	var overlay_src: String = FileAccess.get_file_as_string("res://systems/world_builder_overlay.gd")
+	if not parcel_src.contains("_half_tile") or not overlay_src.contains("_expand"):
+		push_error("Worldbuilder previews are not aligned to the visual projection")
+		quit(1)
+		return
+	if load("res://avatar/avatar_controller.gd") == null:
+		push_error("AvatarController script failed to load")
 		quit(1)
 		return
 	var graphics_homestead_map_source: String = FileAccess.get_file_as_string("res://world/homestead_map.gd")
@@ -1766,11 +1879,45 @@ func _initialize() -> void:
 		"WINDOW_MODE_WINDOWED",
 		"WINDOW_MODE_FULLSCREEN",
 		"config.get_value(\"display\", \"fullscreen\", false)",
+		"MAX_WINDOWED_SIZE := Vector2i(1600, 900)",
+		"WINDOWED_SCREEN_MARGIN := Vector2i(120, 140)",
+		# Windowed mode must clear borderless AND size/center the window so the OS
+		# title bar/borders are visible (the 1080p screen-sized regression).
+		"DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)",
+		"_fit_windowed_to_screen",
+		"screen_get_usable_rect",
+		"window_set_size",
+		"window_set_position",
 	]:
 		if not display_settings_source.contains(required_snippet):
 			push_error("DisplaySettings is missing the bordered-window/fullscreen helper path '%s'" % required_snippet)
 			quit(1)
 			return
+	var project_settings_source: String = FileAccess.get_file_as_string("res://project.godot")
+	if not project_settings_source.contains("window/size/viewport_width=1600") or not project_settings_source.contains("window/size/viewport_height=900"):
+		push_error("project.godot default window must be 1600x900 so bordered windowed launch fits 1080p screens")
+		quit(1)
+		return
+	if project_settings_source.contains("window/size/viewport_width=1920") or project_settings_source.contains("window/size/viewport_height=1080"):
+		push_error("project.godot still contains the old screen-filling 1920x1080 default window size")
+		quit(1)
+		return
+	# The live overworld must NOT draw the big alpha-0.62 region-tint color discs
+	# in normal play (they read as ugly debug blocks); biome differentiation lives
+	# in the terrain tiles + the admin/world-builder overlay.
+	var display_overworld_map_source: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	if display_overworld_map_source.contains("add_disc(_bg_layer(), Vector2(60, 300)"):
+		push_error("OverworldMap still draws the large region-tint color discs in normal play")
+		quit(1)
+		return
+	if not display_overworld_map_source.contains("BACKDROP_GRASS"):
+		push_error("OverworldMap backdrop is not using the calm grass tone")
+		quit(1)
+		return
+	if not display_overworld_map_source.contains("pass") or not display_overworld_map_source.contains("_build_region_tints"):
+		push_error("OverworldMap no longer makes normal-play region tints an explicit no-op")
+		quit(1)
+		return
 	var homestead_controller_source: String = FileAccess.get_file_as_string("res://world/homestead_controller.gd")
 	for required_snippet in [
 		"SYSTEM_MENU_SCENE := preload(\"res://ui/system_menu.tscn\")",
@@ -2626,9 +2773,9 @@ func _initialize() -> void:
 			push_error("Overworld map does not support terrain paint id '%s'" % required_terrain_id)
 			quit(1)
 			return
-	var overworld_map_source: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	var terrain_paint_overworld_map_source: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
 	for required_snippet in ["BiomeRegistry.path_color", "BiomeRegistry.water_color", "BiomeRegistry.terrain_color", "BiomeRegistry.terrain_detail_color"]:
-		if not overworld_map_source.contains(required_snippet):
+		if not terrain_paint_overworld_map_source.contains(required_snippet):
 			push_error("OverworldMap is not using shared visual palette helper '%s'" % required_snippet)
 			quit(1)
 			return

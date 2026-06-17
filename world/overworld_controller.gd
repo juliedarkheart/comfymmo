@@ -99,6 +99,12 @@ func _ready() -> void:
 	_setup_town_services()
 	_setup_network(player)
 	_show_welcome_if_first_boot.call_deferred()
+	# Dev-only: log which art tier the live world is actually rendering, so a
+	# manual playtester can confirm Sprout/Hearthvale top-down (not old art).
+	_report_visual_sources.call_deferred()
+
+func _report_visual_sources() -> void:
+	VisualSourceReport.print_report(map, map.visual_projection_mode())
 
 ## Cozy day/night lighting. The CanvasModulate lives in the world (map) layer, so
 ## it tints terrain/props but never the UI CanvasLayers. Phase shows in the HUD.
