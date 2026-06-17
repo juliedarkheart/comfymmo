@@ -12,14 +12,7 @@ class_name FarmPlot
 var plot_id: String = ""
 
 func _ready() -> void:
-	# LimeZu live mode: hide the procedural soil diamond so the starter farm plots do
-	# not clash with the LimeZu ground. Farming logic and the crop sprites are unchanged
-	# — only the brown soil polygons are hidden in the opening view.
-	if LiveVisualPolicy.live_limezu_slice():
-		for soil_name in ["SoilRim", "SoilBase", "FurrowTop", "FurrowMid", "FurrowBottom"]:
-			var node := get_node_or_null(soil_name)
-			if node is CanvasItem:
-				(node as CanvasItem).visible = false
+	_hide_limezu_old_soil_visuals()
 
 func set_plot_state(plot_data: Dictionary) -> void:
 	var stage: String = String(plot_data.get("stage", "empty"))
@@ -49,6 +42,17 @@ func _apply_stage_visuals(stage: String, is_nearby: bool, crop_id: String) -> vo
 			crop_accent.visible = true
 		_:
 			pass
+	_hide_limezu_old_soil_visuals()
+
+func _hide_limezu_old_soil_visuals() -> void:
+	if not LiveVisualPolicy.live_limezu_slice():
+		return
+	# LimeZu live mode draws tilled soil in the map layer. Keep this node alive for
+	# farming data/interactions, but suppress the old iso-style soil marks.
+	for soil_name in ["SoilRim", "SoilBase", "FurrowTop", "FurrowMid", "FurrowBottom", "SoilHighlight", "MoistureOverlay"]:
+		var node := get_node_or_null(soil_name)
+		if node is CanvasItem:
+			(node as CanvasItem).visible = false
 
 func _apply_crop_palette(crop_id: String) -> void:
 	match crop_id:

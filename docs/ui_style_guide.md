@@ -85,36 +85,69 @@ compact toolbelt show by default. Debug/admin overlays stay hidden unless enable
 
 ### Inventory window
 
-The inventory is a **compact** right-side window (~300×400, well under a viewport
+The inventory is a **compact** right-side window (~340x400, well under a viewport
 fraction — not a full-height parchment wall), closed by default, opened with I and
 closed with Esc or the Close button:
 
-- Sprout styling via `CozyUITheme`: `apply_panel` frame, `apply_slot` item slots,
-  `apply_close_button`. No hardcoded panel/texture art.
+- LimeZu-compatible styling via `CozyUITheme`: `apply_panel` frame, `apply_slot`
+  item slots, `apply_close_button`. In LimeZu live mode these resolve to the clean
+  flat `LimeZuUITheme`; no hardcoded panel/texture art.
 - One short status line (`@user · mode · plot`) — no verbose profile id / duplicated
   display name.
 - **Owned items only**, grouped into sections; empty sections are skipped entirely
   (no "None yet" filler) and a single quiet line shows when nothing is owned.
-- Tidy fixed **60×60 slots**: centered icon (Sprout where reviewed) + count, with the
-  item name on a line beneath — icons stay aligned and labels never overlap.
+- Tidy fixed **66x60 slots** in wider 72px cells: centered icon (LimeZu where
+  mapped, registry fallback where safe) + count, with the item name on a readable
+  line beneath. Icons stay aligned and labels must not letter-wrap or overlap.
 - Validation enforces: closed by default, size within a viewport fraction, Esc/close
   wired, and CozyUITheme/UIArtRegistry styling rather than hardcoded art.
 
-### Modern UI (LimeZu) is now the live UI skin
+### LimeZu live UI: a clean flat theme, not stretched Modern UI art
 
-LimeZu Modern UI is now the live UI direction. `CozyUITheme._ui_box()` is the single
-switch point: when LimeZu is the live provider it returns Modern UI nine-patch frames
-(`ui.panel`/`ui.slot`/`ui.slot_selected`, sliced into `modern_ui/normalized/spike/`)
-for every panel/slot/button styled through CozyUITheme — so the inventory, build menu,
-land/admin panels, and tool buttons pick up Modern UI automatically. Sprout UI still
-applies when Sprout is the provider; the code-drawn cozy box remains the fallback.
+LimeZu is the live UI direction, but the **Modern UI pixel art is not stretched as a
+nine-patch** anymore. The Modern UI source frames are tiny and non-square (the panel is
+47×31, the button 29×11); stretched across a real HUD/menu they distort badly — a ~3px
+button center blown up ~9×, warped wood borders, text spilling past the frame. Per the
+art direction ("if the asset cannot 9-slice cleanly, use a clean custom fallback in
+LimeZu colours rather than distorted asset art"), the live LimeZu UI uses a clean,
+scalable **`StyleBoxFlat` theme in LimeZu colours** instead: `ui/limezu_ui_theme.gd`
+(`LimeZuUITheme`) — warm dark-wood panels (`#33291e`), amber borders (`#9c7748`), gold
+titles (`#f2c75c`), cream body text (`#f3e7cf`), gold-bordered selected slots, generous
+content margins so text never touches the border.
 
-Readability exception: the **HUD/minimap/chat cards keep their solid dark backing**
-(via `apply_hud_panel`) because their text is cream — cream on the pale Modern UI
-parchment would be unreadable. So world-overlay cards stay dark; pop-up menus/inventory
-use the Modern UI wood frame with dark ink text. The live inventory remains closed by
-default, opens on I, and closes on Esc/close. Nothing licensed is committed. See
-docs/limezu_visual_spike.md and docs/limezu_live_pivot_plan.md.
+`CozyUITheme` is still the single switch point. `_limezu_box()` returns the matching
+`LimeZuUITheme` flat style for panel/slot/slot_selected/button/button_hover/button_pressed/
+close/tab when LimeZu is the live provider (else null → Sprout nine-patch → code-drawn
+cozy box). The label helpers follow suit: in LimeZu mode `apply_heading_label` is gold,
+`apply_body_label` is cream, and `apply_secondary_label` is muted cream — readable on the
+dark wood (the old dark-ink-on-parchment path is Sprout-only). Buttons/tabs/close/danger
+all get cream/gold labels on the wood fill. So in LimeZu live mode the whole visible UI —
+HUD, minimap, toolbelt, inventory, menus, tabs, close/danger — is one coherent flat
+LimeZu style with no stretched asset art, no warped frames, and no old Hearthvale/Sprout
+parchment or brown/orange fallback buttons. In **Sprout** mode the cards keep their solid
+dark backing (cream text). Inventory stays closed by default, opens on I, closes on
+Esc/close. Validation hard-checks that the live panel/HUD resolve to a dark, bordered,
+opaque `LimeZuUITheme` `StyleBoxFlat` (never a `StyleBoxTexture`) and that the button/
+close/slot use the expected LimeZu fill colours. Blocked/missing tool chips also use
+the dark LimeZu blocked slot fill so muted text stays readable. Nothing licensed is
+committed.
+
+The Modern UI slices (`ui.panel`/`ui.slot`/`ui.button`/…) are still produced by the
+slicer and still resolve as real art for audits/spikes, but the live UI no longer
+renders them as stretched textures — they are kept for reference and possible future
+crisp-at-native-size use, not stretched across large panels.
+
+### Leftover placed-object boards in the LimeZu opening
+
+Save-restored build pieces (crates, decks, etc.) still resolve their sprite through
+`ObjectArtRegistry`, which has no LimeZu tier, so in LimeZu live mode they render with
+generated/legacy planks that clash with the LimeZu world (the "leftover boards" at the
+map edge). `BuildingPlacementSystem._place_record()` therefore **hides the visual of
+save-restored placed objects in LimeZu live mode** so the curated opening reads as pure
+LimeZu. Record, collision, occupancy, and interaction are preserved (the object is still
+placed and editable), and **in-session placements stay visible** so the place-and-see
+feedback loop still works. (Not to be confused with the LimeZu plot/area signs, which
+are intentional LimeZu `object.sign` sprites with a "press F" interaction.)
 
 ## Accessibility And Readability
 

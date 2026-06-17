@@ -325,8 +325,14 @@ its assets resolve (`LiveVisualPolicy.live_limezu_slice()`):
 - `OverworldMap._build_limezu_slice()` composes the curated opening homestead from
   LimeZu art (16px drawn at x2 = 32px cells) over the unchanged gameplay grid; the
   Sprout core ground/cottage/tree/fence VISUALS are suppressed (colliders kept).
-- `CozyUITheme._ui_box()` returns LimeZu Modern UI nine-patches for panels/slots/buttons.
+- `CozyUITheme._ui_box()` returns LimeZu Modern UI nine-patches for panels/slots/buttons
+  (HUD/minimap/toolbelt included; body text switches to dark ink on the parchment).
 - `CharacterArtRegistry.make_sprite()` returns the LimeZu farmer for live human actors.
+- Source purity is enforced: `_build_neighborhood_ground`/`paint_plot_ground` (Sprout
+  meadow + generated roads), village/forest decor, plot-skirt decor, and the wardrobe
+  mirror are suppressed in LimeZu mode; resource nodes re-skin to LimeZu. The road uses
+  the LimeZu `terrain.dirt_path` tile or is hidden. `VisualSourceReport.live_opening_sources()`
+  audits the live opening and validation hard-fails on any Sprout/legacy sprite.
 
 **Sprout stays fully integrated as a secondary/comparison provider** (registries, the
 Sprout-required helper, the Sprout spike, and docs are NOT removed). Extraction is

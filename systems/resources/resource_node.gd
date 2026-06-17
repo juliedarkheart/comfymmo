@@ -73,6 +73,11 @@ func roll_yield(rng: RandomNumberGenerator) -> Dictionary:
 	}
 
 func _build_visual() -> void:
+	# LimeZu live mode: gather spots use a LimeZu sprite (kept visible + interactable)
+	# instead of the procedural pile, so the opening view has no generated/procedural art.
+	if LiveVisualPolicy.live_limezu_slice():
+		_build_limezu_visual()
+		return
 	var shadow: Polygon2D = Polygon2D.new()
 	shadow.polygon = TerrainShapes.ellipse(Vector2(0, 1), 15.0, 6.0)
 	shadow.color = Color(0.16, 0.12, 0.08, 0.2)
@@ -116,3 +121,23 @@ func _build_visual() -> void:
 			for log_data in [Vector2(-7, -4), Vector2(1, -4), Vector2(9, -4), Vector2(-3, -10), Vector2(5, -10)]:
 				TerrainShapes.add_ellipse(self, log_data, 5.0, 4.2, Color("#c89a64"), 10)
 				TerrainShapes.add_ellipse(self, log_data, 2.6, 2.2, Color("#e0bf8a"), 8)
+
+## LimeZu gather-spot visual: a small tree for wood/tree/fiber, a flower cluster for
+## stone/clay (no LimeZu rock yet). Bottom-anchored at the node origin, y-sorted.
+func _build_limezu_visual() -> void:
+	var logical_id: String = "object.tree_small"
+	if resource_type in [TYPE_STONE, TYPE_BOULDER, TYPE_CLAY, TYPE_CLAY_DEPOSIT]:
+		logical_id = "object.flower"
+	if not LimeZuArtRegistry.has_asset(logical_id):
+		return
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(logical_id)
+	if tex == null:
+		return
+	var sc: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.centered = false
+	s.position = Vector2(-tex.get_width() * sc * 0.5, -tex.get_height() * sc)
+	s.scale = Vector2(sc, sc)
+	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(s)

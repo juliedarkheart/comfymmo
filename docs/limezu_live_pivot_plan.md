@@ -8,9 +8,20 @@ Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
 > LimeZu farmer (`CharacterArtRegistry`). Validation + offline/server boot pass. Sprout
 > stays integrated as a secondary/comparison provider (not deleted). Gameplay
 > (movement/placement/farming/delete-twice/data/networking) is unchanged. The sections
-> below record the plan; the checklist items in scope this pass are done, the rest
-> (full-world LimeZu beyond the opening slice, Exteriors/Interiors tiling, Modern UI
-> buttons/close, creature/dungeon art) remain follow-ups.
+> below record the plan; the checklist items in scope this pass are done, including
+> Modern UI button/close mapping and hiding generated homestead creatures from the
+> opening. The rest (full-world LimeZu beyond the opening slice, Exteriors/Interiors
+> tiling, broader creature art, dungeon art) remain follow-ups.
+>
+> **Source-purge + full UI conversion (latest):** the opening view is now source-pure —
+> the Sprout neighborhood/plot grounds + generated dirt/stone roads, village/forest
+> decor, plot-skirt decor, and the wardrobe mirror are suppressed in LimeZu mode;
+> resource nodes are re-skinned to LimeZu; and the HUD/minimap/toolbelt joined the
+> inventory/menus on a clean flat LimeZu-compatible UI. A boot audit + validation
+> enforce `sprout=0`/`legacy=0` and LimeZu-dominant UI/world tiers in the opening.
+> Forbidden in the live opening: any
+> Sprout/old-generated/old-procedural/legacy visual — it must resolve to LimeZu, be a
+> clean LimeZu UI element, or be hidden. The road/path must be the LimeZu path tile or hidden.
 
 ## Why LimeZu looks better for Hearthvale
 
@@ -40,6 +51,25 @@ office packs that cover far more of Hearthvale's scope.
   (the spike is the prototype for this).
 - **Validation** — extend live checks to assert LimeZu live ids resolve (mirroring the
   current Sprout-required checks).
+
+Live polish update: `ui.button`, `ui.button_hover`, `ui.close`, `ui.close_hover`,
+and `ui.tab` are now sliced/mapped locally in addition to panel and slot frames. The
+opening also hides old farm-plot soil marks, the old rest-marker doormat diamond,
+and generated homestead woodland creatures; broader creature-family coverage remains
+a custom-art gap.
+
+UI rewrite update: those Modern UI slices are no longer stretched over large live
+panels. The live HUD, minimap, toolbelt, inventory, and menus use `LimeZuUITheme`
+`StyleBoxFlat` frames in dark wood/gold/cream so text stays readable and frames do
+not warp. The slices remain mapped for audits, references, and possible small native
+uses.
+
+Layering update: the live LimeZu opening now treats grass/path/tilled soil as a true
+ground layer below the y-sorted gameplay layer. The curated slice uses explicit visual
+footprint exclusions for the barn, signs, crate/props, and trees, so path/soil cells
+are skipped when they would bleed into building/object art. Future LimeZu expansion
+should keep this terrain-below-props contract instead of adding path decals above
+objects.
 
 ## Must remain unchanged (no gameplay churn)
 

@@ -279,6 +279,24 @@ func _folder_has_any_file(folder_path: String, file_names: Array[String]) -> boo
 			return true
 	return false
 
+## The live LimeZu UI panel/HUD must be the clean LimeZuUITheme flat box: a StyleBoxFlat
+## (never a stretched StyleBoxTexture, never the pale code-drawn fallback) with the dark
+## wood fill + a visible amber border that keeps cream text readable.
+func _is_limezu_flat_panel(box: StyleBox) -> bool:
+	if box == null or box is StyleBoxTexture or not (box is StyleBoxFlat):
+		return false
+	var flat := box as StyleBoxFlat
+	var luma: float = 0.299 * flat.bg_color.r + 0.587 * flat.bg_color.g + 0.114 * flat.bg_color.b
+	var has_border: bool = flat.border_width_left > 0 or flat.border_width_top > 0
+	return flat.bg_color.a >= 0.85 and luma < 0.45 and has_border
+
+## A live LimeZu button/slot must be the LimeZuUITheme flat box with the expected fill
+## colour (proving the clean flat theme is wired, not a stretched texture or stray box).
+func _is_limezu_flat_with_fill(box: StyleBox, expected_fill: Color) -> bool:
+	if box == null or box is StyleBoxTexture or not (box is StyleBoxFlat):
+		return false
+	return (box as StyleBoxFlat).bg_color.is_equal_approx(expected_fill)
+
 func _external_metadata_error(folder_path: String) -> String:
 	var license_names: Array[String] = ["LICENSE", "LICENSE.txt", "LICENSE.md", "COPYING", "COPYING.txt"]
 	var source_names: Array[String] = ["README.md", "README.txt", "SOURCE.txt", "CREDITS.txt", "ATTRIBUTION.txt", "NOTICE", "asset.json", "source.json"]
@@ -955,6 +973,19 @@ func _initialize() -> void:
 		compact_hud_probe.free()
 		quit(1)
 		return
+	var compact_hud_source: String = FileAccess.get_file_as_string("res://ui/prototype_hud.gd")
+	var compact_hud_scene_source: String = FileAccess.get_file_as_string("res://ui/prototype_hud.tscn")
+	var compact_controls: String = "Esc Menu | I Inv | B Build | M Map | H Help | F11"
+	if not compact_hud_source.contains(compact_controls) or not compact_hud_scene_source.contains(compact_controls):
+		push_error("Normal HUD controls line is not the compact no-overflow LimeZu copy")
+		compact_hud_probe.free()
+		quit(1)
+		return
+	if compact_hud_source.contains("F11 Full") or compact_hud_scene_source.contains("Fullscreen F11"):
+		push_error("Normal HUD controls line still uses the long fullscreen copy that wraps/clips")
+		compact_hud_probe.free()
+		quit(1)
+		return
 	for legacy_icon_path in [
 		"Panel/Rows/DayRow/DayIcon",
 		"Panel/Rows/ComfortRow/ComfortIcon",
@@ -973,22 +1004,59 @@ func _initialize() -> void:
 	# HUD readability: the HUD/minimap/prompt card must keep a solid, dark, mostly
 	# opaque backing so its cream text stays readable over the bright world. (The
 	# regression was the HUD swapping to the pale Sprout parchment panel.)
-	var hud_style_probe: PanelContainer = PanelContainer.new()
-	CozyUITheme.apply_hud_panel(hud_style_probe)
-	var hud_box: StyleBox = hud_style_probe.get_theme_stylebox("panel")
-	if not (hud_box is StyleBoxFlat):
-		push_error("HUD panel backing is not a solid StyleBoxFlat (readability regressed)")
+	# In SPROUT mode the HUD keeps a solid dark StyleBoxFlat (cream text readability). In
+	# LimeZu live mode the HUD is the clean LimeZu flat panel (checked separately below).
+	if not LiveVisualPolicy.live_limezu_slice():
+		var hud_style_probe: PanelContainer = PanelContainer.new()
+		CozyUITheme.apply_hud_panel(hud_style_probe)
+		var hud_box: StyleBox = hud_style_probe.get_theme_stylebox("panel")
+		if not (hud_box is StyleBoxFlat):
+			push_error("HUD panel backing is not a solid StyleBoxFlat (readability regressed)")
+			hud_style_probe.free()
+			quit(1)
+			return
+		var hud_bg: Color = (hud_box as StyleBoxFlat).bg_color
+		var hud_luma: float = 0.299 * hud_bg.r + 0.587 * hud_bg.g + 0.114 * hud_bg.b
+		if hud_bg.a < 0.85 or hud_luma > 0.45:
+			push_error("HUD panel backing is too pale/transparent for readable text (a=%.2f luma=%.2f)" % [hud_bg.a, hud_luma])
+			hud_style_probe.free()
+			quit(1)
+			return
 		hud_style_probe.free()
+	var chat_scene: PackedScene = load("res://ui/chat_panel.tscn") as PackedScene
+	if chat_scene == null:
+		push_error("Chat panel scene failed to load")
 		quit(1)
 		return
-	var hud_bg: Color = (hud_box as StyleBoxFlat).bg_color
-	var hud_luma: float = 0.299 * hud_bg.r + 0.587 * hud_bg.g + 0.114 * hud_bg.b
-	if hud_bg.a < 0.85 or hud_luma > 0.45:
-		push_error("HUD panel backing is too pale/transparent for readable text (a=%.2f luma=%.2f)" % [hud_bg.a, hud_luma])
-		hud_style_probe.free()
+	var chat_probe: CanvasLayer = chat_scene.instantiate() as CanvasLayer
+	get_root().add_child(chat_probe)
+	await process_frame
+	var chat_panel_node: Control = chat_probe.get_node_or_null("Panel") as Control
+	if chat_panel_node == null:
+		push_error("Chat panel is missing its Panel node")
+		chat_probe.queue_free()
 		quit(1)
 		return
-	hud_style_probe.free()
+	if chat_panel_node.visible:
+		push_error("Empty chat panel should be hidden in the live opening screenshot")
+		chat_probe.queue_free()
+		quit(1)
+		return
+	chat_probe.call("add_system_line", "Validator toast")
+	if not chat_panel_node.visible:
+		push_error("Chat panel did not reappear when a system line was added")
+		chat_probe.queue_free()
+		quit(1)
+		return
+	var chat_source: String = FileAccess.get_file_as_string("res://ui/chat_panel.gd")
+	for chat_snippet in ["CozyUITheme.apply_hud_panel", "_refresh_panel_visibility", "_panel.visible = _input.visible or _log_box.get_child_count() > 0"]:
+		if not chat_source.contains(chat_snippet):
+			push_error("Chat panel is missing compact LimeZu/HUD polish snippet '%s'" % chat_snippet)
+			chat_probe.queue_free()
+			quit(1)
+			return
+	chat_probe.queue_free()
+	await process_frame
 	# Signs/objects must render as a SINGLE sprite, never a tiled/region texture (the
 	# "repeating sign graphics" guard).
 	var sign_sprite_probe: Sprite2D = ObjectArtRegistry.make_sprite(ContentIds.PLACEABLE_SIGNPOST)
@@ -1065,12 +1133,30 @@ func _initialize() -> void:
 		return
 	# Esc/close-button behavior + Sprout-compatible styling, not hardcoded panel art.
 	var inventory_src: String = FileAccess.get_file_as_string("res://ui/inventory_panel.gd")
-	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_panel", "CozyUITheme.apply_slot", "apply_close_button"]:
+	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_panel", "CozyUITheme.apply_slot", "apply_close_button", "_limezu_icon_for_item"]:
 		if not inventory_src.contains(inventory_snippet):
 			push_error("Inventory panel is missing required behavior/styling: %s" % inventory_snippet)
 			inventory_probe.queue_free()
 			quit(1)
 			return
+	for inventory_readability_snippet in [
+		"grid.add_theme_constant_override(\"h_separation\", 6)",
+		"cell.custom_minimum_size = Vector2(72, 0)",
+		"slot.custom_minimum_size = Vector2(66, 60)",
+		"name_label.custom_minimum_size = Vector2(72, 24)",
+		"name_label.clip_text = false",
+	]:
+		if not inventory_src.contains(inventory_readability_snippet):
+			push_error("Inventory panel is missing LimeZu readable-slot layout guard: %s" % inventory_readability_snippet)
+			inventory_probe.queue_free()
+			quit(1)
+			return
+	var inventory_scene_src: String = FileAccess.get_file_as_string("res://ui/inventory_panel.tscn")
+	if not inventory_scene_src.contains("offset_left = -356.0"):
+		push_error("Inventory panel width is too narrow for readable LimeZu item labels")
+		inventory_probe.queue_free()
+		quit(1)
+		return
 	if inventory_src.contains("StyleBoxTexture.new(") or inventory_src.contains("preload(\"res://art/"):
 		push_error("Inventory panel hardcodes texture/panel art instead of routing through CozyUITheme/UIArtRegistry")
 		inventory_probe.queue_free()
@@ -1104,6 +1190,52 @@ func _initialize() -> void:
 		push_error("LimeZu is installed + live but live_limezu_slice() is false")
 		quit(1)
 		return
+	# --- Hard no-mixed-assets guard: boot the live opening + audit its sprite sources ---
+	if LiveVisualPolicy.live_limezu_slice():
+		var ow_scene := load("res://scenes/world/overworld.tscn") as PackedScene
+		var ow: Node = ow_scene.instantiate()
+		get_root().add_child(ow)
+		await process_frame
+		await process_frame
+		var ow_map: Node = ow.get_node_or_null("Map")
+		var opening: Dictionary = VisualSourceReport.live_opening_sources(ow_map)
+		# No Sprout or legacy (old generated/procedural tile/object) sprites may appear.
+		if int(opening.get("sprout", 0)) > 0:
+			push_error("LimeZu opening still instantiates %d Sprout sprite(s)" % int(opening["sprout"]))
+			ow.queue_free(); quit(1); return
+		if int(opening.get("legacy", 0)) > 0:
+			push_error("LimeZu opening still instantiates %d legacy sprite(s)" % int(opening["legacy"]))
+			ow.queue_free(); quit(1); return
+		# Generated sprites must be minimal (only far-off ambient creatures / placed
+		# objects), never a dominant source — LimeZu must dominate the opening.
+		var gen_count: int = int(opening.get("generated", 0))
+		var limezu_count: int = int(opening.get("limezu", 0))
+		if gen_count > 40 or limezu_count < gen_count:
+			push_error("LimeZu opening is not LimeZu-dominant (limezu=%d generated=%d)" % [limezu_count, gen_count])
+			ow.queue_free(); quit(1); return
+		ow.queue_free()
+		await process_frame
+		# UI source-tier: the tiny non-square Modern UI pixel art distorts when stretched as a
+		# 9-patch, so live LimeZu UI uses the clean scalable LimeZuUITheme StyleBoxFlat (dark
+		var ui_panel_probe := PanelContainer.new()
+		CozyUITheme.apply_panel(ui_panel_probe)
+		if not _is_limezu_flat_panel(ui_panel_probe.get_theme_stylebox("panel")):
+			push_error("Live LimeZu UI panel is not the clean LimeZu flat theme")
+			ui_panel_probe.free(); quit(1); return
+		ui_panel_probe.free()
+		var ui_slot_probe := PanelContainer.new()
+		CozyUITheme.apply_slot(ui_slot_probe)
+		if not (ui_slot_probe.get_theme_stylebox("panel") is StyleBoxFlat):
+			push_error("Live LimeZu UI slot is not the clean LimeZu flat theme")
+			ui_slot_probe.free(); quit(1); return
+		ui_slot_probe.free()
+		# HUD card must also be the clean LimeZu flat panel in live mode (full UI conversion).
+		var ui_hud_probe := PanelContainer.new()
+		CozyUITheme.apply_hud_panel(ui_hud_probe)
+		if not _is_limezu_flat_panel(ui_hud_probe.get_theme_stylebox("panel")):
+			push_error("Live LimeZu HUD panel is not the clean LimeZu flat theme")
+			ui_hud_probe.free(); quit(1); return
+		ui_hud_probe.free()
 	# Provider must resolve safely whether or not LimeZu is installed.
 	LimeZuArtRegistry.reload()
 	if LimeZuArtRegistry.texture_path("__nope__") != LimeZuArtRegistry.FALLBACK_PATH:
@@ -1171,6 +1303,79 @@ func _initialize() -> void:
 				push_error("LimeZu spike core id did not resolve to real art: %s" % limezu_required_id)
 				quit(1)
 				return
+		var dirt_path_tex: Texture2D = LimeZuArtRegistry.resolve_texture("terrain.dirt_path")
+		if dirt_path_tex == null:
+			push_error("LimeZu dirt path texture failed to load")
+			quit(1)
+			return
+		var dirt_path_img: Image = dirt_path_tex.get_image()
+		if dirt_path_img == null or dirt_path_img.is_empty():
+			push_error("LimeZu dirt path texture has no readable pixels")
+			quit(1)
+			return
+		var dirt_path_transparent_pixels: int = 0
+		for py in range(dirt_path_img.get_height()):
+			for px in range(dirt_path_img.get_width()):
+				if dirt_path_img.get_pixel(px, py).a < 0.95:
+					dirt_path_transparent_pixels += 1
+		if dirt_path_transparent_pixels == 0:
+			push_error("LimeZu dirt path is still a fully opaque slab; use an irregular/transparent reviewed patch")
+			quit(1)
+			return
+		for limezu_layer_snippet in [
+			"func _configure_visual_layers",
+			"ground_layer.z_index = LIMEZU_GROUND_LAYER_Z",
+			"ground_layer.y_sort_enabled = false",
+			"ground_layer.set_meta(\"visual_role\", \"terrain_ground\")",
+			"gameplay_layer.y_sort_enabled = true",
+			"gameplay_layer.set_meta(\"visual_role\", \"props_actors_y_sorted\")",
+			"LIMEZU_GROUND_LAYER_Z := -100",
+			"LIMEZU_GROUND_GRASS_Z := -30",
+			"LIMEZU_GROUND_PATH_Z := -24",
+			"LIMEZU_GROUND_SOIL_Z := -22",
+		]:
+			if not overworld_map_src_live.contains(limezu_layer_snippet):
+				push_error("OverworldMap is missing LimeZu ground-layer contract: %s" % limezu_layer_snippet)
+				quit(1)
+				return
+		for limezu_footprint_snippet in [
+			"const LIMEZU_CURATED_PATH_TILES",
+			"const LIMEZU_TILLED_SOIL_RECT",
+			"const LIMEZU_BARN_VISUAL_FOOTPRINT",
+			"const LIMEZU_CRATE_VISUAL_FOOTPRINT",
+			"const LIMEZU_SIGN_VISUAL_FOOTPRINTS",
+			"func _limezu_is_ground_blocked",
+			"func _limezu_should_draw_path",
+			"func _limezu_should_draw_soil",
+			"if _limezu_should_draw_path(tile):",
+			"if _limezu_should_draw_soil(soil_tile):",
+		]:
+			if not overworld_map_src_live.contains(limezu_footprint_snippet):
+				push_error("OverworldMap is missing LimeZu footprint exclusion contract: %s" % limezu_footprint_snippet)
+				quit(1)
+				return
+		for forbidden_path_snippet in ["Vector2i(7, 12)", "Vector2i(8, 12)", "Vector2i(9, 12)", "Vector2i(9, 13)"]:
+			if overworld_map_src_live.contains(forbidden_path_snippet):
+				push_error("LimeZu curated path still includes an old sign/barn-overlap cell: %s" % forbidden_path_snippet)
+				quit(1)
+				return
+		for limezu_ground_call in [
+			"_limezu_ground(\"terrain.grass\", Vector2i(tx, ty), LIMEZU_GROUND_GRASS_Z)",
+			"_limezu_ground(\"terrain.dirt_path\", tile, LIMEZU_GROUND_PATH_Z)",
+			"_limezu_ground(\"terrain.tilled_soil\", soil_tile, LIMEZU_GROUND_SOIL_Z)",
+		]:
+			if not overworld_map_src_live.contains(limezu_ground_call):
+				push_error("LimeZu ground call does not use the low-z terrain tier: %s" % limezu_ground_call)
+				quit(1)
+				return
+		if not overworld_map_src_live.contains("ground_layer.add_child(s)") or not overworld_map_src_live.contains("gameplay_layer.add_child(holder)"):
+			push_error("LimeZu terrain/objects no longer use the expected ground/gameplay parents")
+			quit(1)
+			return
+		if overworld_map_src_live.contains("_limezu_object(\"object.sign\""):
+			push_error("Default LimeZu opening still places optional sign clutter in the map slice")
+			quit(1)
+			return
 		if not (LimeZuArtRegistry.has_asset("crop.carrot") or LimeZuArtRegistry.has_asset("crop.cauliflower")):
 			push_error("No LimeZu crop resolves for the spike")
 			quit(1)
@@ -1202,6 +1407,117 @@ func _initialize() -> void:
 		# Modern UI: if a panel was sliced, the slot should be too (consistency check).
 		if LimeZuArtRegistry.has_asset("ui.panel") and not LimeZuArtRegistry.has_asset("ui.slot"):
 			push_error("Modern UI panel mapped but ui.slot is missing — map both or neither")
+			quit(1)
+			return
+		for limezu_ui_id in ["ui.button", "ui.button_hover", "ui.close", "ui.close_hover"]:
+			if not LimeZuArtRegistry.has_asset(limezu_ui_id):
+				push_error("Modern UI live polish id did not resolve to real art: %s" % limezu_ui_id)
+				quit(1)
+				return
+		for limezu_ui_key in ["button", "button_hover", "close", "close_hover"]:
+			if not CozyUITheme.LIMEZU_UI_MAP.has(limezu_ui_key):
+				push_error("CozyUITheme is missing LimeZu UI map key '%s'" % limezu_ui_key)
+				quit(1)
+				return
+		if CozyUITheme.active_ui_source() != "limezu_modern_ui":
+			push_error("CozyUITheme does not tag live LimeZu UI as limezu_modern_ui")
+			quit(1)
+			return
+		var limezu_button_probe := Button.new()
+		CozyUITheme.apply_button(limezu_button_probe)
+		if not _is_limezu_flat_with_fill(limezu_button_probe.get_theme_stylebox("normal"), LimeZuUITheme.BUTTON_FILL):
+			push_error("CozyUITheme.apply_button did not use the clean LimeZu flat button frame")
+			limezu_button_probe.free()
+			quit(1)
+			return
+		CozyUITheme.apply_close_button(limezu_button_probe)
+		if not _is_limezu_flat_with_fill(limezu_button_probe.get_theme_stylebox("normal"), LimeZuUITheme.BUTTON_FILL):
+			push_error("CozyUITheme.apply_close_button did not use the clean LimeZu flat close frame")
+			limezu_button_probe.free()
+			quit(1)
+			return
+		limezu_button_probe.free()
+		var limezu_slot_box: StyleBox = CozyUITheme.slot_box(true, false)
+		if not _is_limezu_flat_with_fill(limezu_slot_box, LimeZuUITheme.SLOT_SELECTED_FILL):
+			push_error("CozyUITheme.slot_box did not use the clean LimeZu flat slot frame")
+			quit(1)
+			return
+		var limezu_blocked_slot_box: StyleBox = CozyUITheme.slot_box(false, true)
+		if not _is_limezu_flat_with_fill(limezu_blocked_slot_box, LimeZuUITheme.SLOT_BLOCKED_FILL):
+			push_error("CozyUITheme.slot_box did not use the readable dark LimeZu blocked slot frame")
+			quit(1)
+			return
+		var quick_tools_source: String = FileAccess.get_file_as_string("res://ui/quick_tools_bar.gd")
+		if not quick_tools_source.contains("CozyUITheme.slot_box") or quick_tools_source.contains("CozyUITheme.slot_style("):
+			push_error("Quick tools still bypass Modern UI slot_box styling")
+			quit(1)
+			return
+		if not quick_tools_source.contains("chip.custom_minimum_size = Vector2(96, 28)") or not quick_tools_source.contains("chip.clip_text = false"):
+			push_error("Quick tools are missing readable LimeZu chip sizing")
+			quit(1)
+			return
+		var overworld_controller_src_live: String = FileAccess.get_file_as_string("res://world/overworld_controller.gd")
+		for limezu_sign_snippet in ["func _add_limezu_sign_sprite", "LimeZuArtRegistry.has_asset(\"object.sign\")", "sign_visual_hidden_limezu"]:
+			if not overworld_controller_src_live.contains(limezu_sign_snippet):
+				push_error("OverworldController is missing LimeZu sign fallback guard: %s" % limezu_sign_snippet)
+				quit(1)
+				return
+		var make_sign_index: int = overworld_controller_src_live.find("func _make_sign")
+		var make_sign_limezu_index: int = overworld_controller_src_live.find("_add_limezu_sign_sprite", make_sign_index)
+		var make_sign_sprout_index: int = overworld_controller_src_live.find("ContentIds.PLACEABLE_SIGNPOST", make_sign_index)
+		if make_sign_index == -1 or make_sign_limezu_index == -1 or make_sign_sprout_index == -1 or make_sign_limezu_index > make_sign_sprout_index:
+			push_error("_make_sign must try/hide LimeZu sign visuals before Sprout/procedural fallback in live mode")
+			quit(1)
+			return
+		var plot_sign_index: int = overworld_controller_src_live.find("func _make_plot_sign")
+		var plot_sign_limezu_index: int = overworld_controller_src_live.find("_add_limezu_sign_sprite", plot_sign_index)
+		var plot_sign_sprout_index: int = overworld_controller_src_live.find("ContentIds.PLACEABLE_SIGNPOST", plot_sign_index)
+		if plot_sign_index == -1 or plot_sign_limezu_index == -1 or plot_sign_sprout_index == -1 or plot_sign_limezu_index > plot_sign_sprout_index:
+			push_error("_make_plot_sign must try/hide LimeZu sign visuals before Sprout/procedural fallback in live mode")
+			quit(1)
+			return
+		var cottage_sign_index: int = overworld_controller_src_live.find("func _setup_cottage_sign")
+		var cottage_limezu_guard_index: int = overworld_controller_src_live.find("LiveVisualPolicy.live_limezu_slice()", cottage_sign_index)
+		var cottage_polygon_index: int = overworld_controller_src_live.find("Polygon2D", cottage_sign_index)
+		if cottage_sign_index == -1 or cottage_limezu_guard_index == -1 or cottage_polygon_index == -1 or cottage_limezu_guard_index > cottage_polygon_index:
+			push_error("Cottage sign still draws old procedural polygons before the LimeZu hide guard")
+			quit(1)
+			return
+		var farm_plot_scene: PackedScene = load("res://scenes/farming/farm_plot.tscn") as PackedScene
+		if farm_plot_scene == null:
+			push_error("Farm plot scene failed to load for LimeZu visual-clash validation")
+			quit(1)
+			return
+		var farm_plot_probe: Node = farm_plot_scene.instantiate()
+		get_root().add_child(farm_plot_probe)
+		await process_frame
+		farm_plot_probe.call("set_plot_state", {"stage": "grown", "is_nearby": true, "crop_id": "carrot"})
+		for old_soil_node_name in ["SoilRim", "SoilBase", "FurrowTop", "FurrowMid", "FurrowBottom", "SoilHighlight", "MoistureOverlay"]:
+			var old_soil_node: CanvasItem = farm_plot_probe.get_node_or_null(old_soil_node_name) as CanvasItem
+			if old_soil_node != null and old_soil_node.visible:
+				push_error("Old farm-plot soil/highlight visual is visible in LimeZu mode: %s" % old_soil_node_name)
+				farm_plot_probe.queue_free()
+				quit(1)
+				return
+		if not ((farm_plot_probe.get_node_or_null("GrownLeaves") as CanvasItem).visible):
+			push_error("Farm plot crop visuals disappeared while hiding old LimeZu soil marks")
+			farm_plot_probe.queue_free()
+			quit(1)
+			return
+		farm_plot_probe.queue_free()
+		await process_frame
+		var homestead_live_source: String = FileAccess.get_file_as_string("res://world/homestead_controller.gd")
+		var spawn_guard_index: int = homestead_live_source.find("LiveVisualPolicy.live_limezu_slice()")
+		var homestead_rabbit_index: int = homestead_live_source.find("homestead_rabbit_0")
+		if spawn_guard_index == -1 or homestead_rabbit_index == -1 or spawn_guard_index > homestead_rabbit_index:
+			push_error("Generated homestead creatures are not guarded out of the LimeZu opening view")
+			quit(1)
+			return
+		var rest_marker_index: int = homestead_live_source.find("func _setup_rest_marker")
+		var rest_visual_guard_index: int = homestead_live_source.find("not LiveVisualPolicy.live_limezu_slice()", rest_marker_index)
+		var rest_mat_index: int = homestead_live_source.find("var mat: Polygon2D", rest_marker_index)
+		if rest_marker_index == -1 or rest_visual_guard_index == -1 or rest_mat_index == -1 or rest_visual_guard_index > rest_mat_index:
+			push_error("Old rest-marker diamond visual is not guarded out of the LimeZu opening view")
 			quit(1)
 			return
 	# Generator workflow doc must exist when generator installers are present locally.
@@ -1833,7 +2149,7 @@ func _initialize() -> void:
 		push_error("Prototype HUD is missing ControlsLabel")
 		quit(1)
 		return
-	for required_hint in ["Esc/Start", "Inventory I", "Build B", "Help H", "Map M", "Fullscreen F11"]:
+	for required_hint in ["Esc Menu", "I Inv", "B Build", "M Map", "H Help", "F11"]:
 		if not controls_label.text.contains(required_hint):
 			push_error("Prototype HUD controls line is missing '%s'" % required_hint)
 			quit(1)

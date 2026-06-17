@@ -17,6 +17,7 @@ var _can_open: Callable = Callable()
 var _command_handler: Callable = Callable()
 var _session: Node = null
 
+@onready var _panel: PanelContainer = $Panel
 @onready var _log_box: VBoxContainer = $Panel/Rows/LogBox
 @onready var _input: LineEdit = $Panel/Rows/Input
 
@@ -28,6 +29,7 @@ func setup(player: AvatarController, can_open: Callable, command_handler: Callab
 func _ready() -> void:
 	_input.visible = false
 	_input.max_length = ChatMessage.MAX_LENGTH
+	CozyUITheme.apply_hud_panel(_panel)
 	_input.text_submitted.connect(_on_text_submitted)
 	_input.focus_exited.connect(_close_input)
 	# Runtime autoload lookup (direct identifier breaks --script validation).
@@ -36,6 +38,7 @@ func _ready() -> void:
 		_session.connect("chat_received", _on_chat_received)
 		_session.connect("chat_system_received", add_system_line)
 		_session.connect("connection_state_changed", add_system_line)
+	_refresh_panel_visibility()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _input.visible:
@@ -50,6 +53,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 func _open_input() -> void:
+	_panel.visible = true
 	_input.visible = true
 	_input.clear()
 	_input.grab_focus()
@@ -61,6 +65,7 @@ func _close_input() -> void:
 	_input.clear()
 	if _player != null and is_instance_valid(_player):
 		_player.set_movement_enabled(true)
+	_refresh_panel_visibility()
 
 func _on_text_submitted(text: String) -> void:
 	var clean: String = ChatMessage.sanitize(text)
@@ -83,6 +88,7 @@ func add_system_line(text: String) -> void:
 	_add_line(text, Color("#d9c89a"))
 
 func _add_line(text: String, color: Color) -> void:
+	_panel.visible = true
 	var line: Label = Label.new()
 	line.text = text
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -95,3 +101,8 @@ func _add_line(text: String, color: Color) -> void:
 		var oldest: Node = _log_box.get_child(0)
 		_log_box.remove_child(oldest)
 		oldest.queue_free()
+	_refresh_panel_visibility()
+
+func _refresh_panel_visibility() -> void:
+	if _panel != null:
+		_panel.visible = _input.visible or _log_box.get_child_count() > 0

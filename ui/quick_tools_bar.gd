@@ -33,19 +33,25 @@ func setup(get_count: Callable) -> void:
 func _build_chips() -> void:
 	for tool_id in TOOL_ORDER:
 		var chip: Label = Label.new()
-		chip.custom_minimum_size = Vector2(72, 26)
+		chip.custom_minimum_size = Vector2(96, 28)
 		chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		chip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		CozyUITheme.apply_body_label(chip, 13, true)
+		chip.clip_text = false
+		CozyUITheme.apply_body_label(chip, 12, true)
 		_strip.add_child(chip)
 		_chips[tool_id] = chip
 
 func refresh() -> void:
 	if not _get_count.is_valid():
 		return
+	var live_limezu: bool = LiveVisualPolicy.live_limezu_slice()
 	for tool_id in TOOL_ORDER:
 		var owned: bool = int(_get_count.call(tool_id)) > 0
 		var chip: Label = _chips[tool_id]
 		chip.text = String(TOOL_GLYPHS.get(tool_id, tool_id))
-		chip.add_theme_stylebox_override("normal", CozyUITheme.slot_style(owned, not owned))
-		chip.add_theme_color_override("font_color", CozyUITheme.INK if owned else CozyUITheme.INK_SOFT)
+		# Owned tools use the plain slot; missing ones use the dimmed/blocked slot. (Gold
+		# "selected" styling is reserved for an actual selection, not mere ownership.)
+		chip.add_theme_stylebox_override("normal", CozyUITheme.slot_box(false, not owned))
+		var owned_color: Color = LimeZuUITheme.readable_text_color() if live_limezu else CozyUITheme.INK
+		var missing_color: Color = LimeZuUITheme.muted_text_color() if live_limezu else CozyUITheme.INK_SOFT
+		chip.add_theme_color_override("font_color", owned_color if owned else missing_color)

@@ -27,6 +27,26 @@ var _terrain_override_nodes: Dictionary = {}
 # the broad procedural color fills.
 var _background_layer: Node2D = null
 
+const LIMEZU_GROUND_LAYER_Z := -100
+const LIMEZU_GAMEPLAY_LAYER_Z := 0
+const LIMEZU_GROUND_GRASS_Z := -30
+const LIMEZU_GROUND_PATH_Z := -24
+const LIMEZU_GROUND_SOIL_Z := -22
+const LIMEZU_CURATED_PATH_TILES: Array[Vector2i] = [
+	Vector2i(7, 14),
+	Vector2i(8, 14),
+	Vector2i(9, 14),
+	Vector2i(10, 14),
+	Vector2i(11, 14),
+	Vector2i(12, 14),
+]
+const LIMEZU_TILLED_SOIL_RECT := Rect2i(2, 12, 3, 3)
+const LIMEZU_BARN_VISUAL_FOOTPRINT := Rect2i(9, 4, 9, 10)
+const LIMEZU_CRATE_VISUAL_FOOTPRINT := Rect2i(10, 13, 1, 1)
+const LIMEZU_SIGN_VISUAL_FOOTPRINTS: Array[Rect2i] = [
+	Rect2i(9, 11, 1, 2),
+]
+
 func _ready() -> void:
 	_build_overworld()
 
@@ -70,6 +90,7 @@ func get_camera_zoom() -> Vector2:
 	return Vector2(z, z)
 
 func _build_overworld() -> void:
+	_configure_visual_layers()
 	# LimeZu is the live visual direction: when its local assets resolve, the opening
 	# view is a LimeZu Modern Farm composition over the same gameplay grid. Sprout's
 	# core ground/props/curated cluster are suppressed (the gameplay colliders stay).
@@ -77,8 +98,13 @@ func _build_overworld() -> void:
 	_build_overworld_backdrop()
 	_build_region_tints()
 	_build_ground()                 # inherited: skipped in LimeZu live mode (LimeZu grass covers)
-	_build_neighborhood_ground()    # buildable ground for the neighborhood plots (off opening view)
+	# In LimeZu live mode the neighborhood plot grounds + access roads (Sprout meadow +
+	# generated dirt/stone path tiles) are the biggest non-LimeZu source bleeding into
+	# the opening (and the "broken road"). Suppress them; plots stay claimable (logical),
+	# and the LimeZu grass covers the opening view. Village/forest decor is generated +
+	# off-screen, so it is suppressed too.
 	if not limezu:
+		_build_neighborhood_ground()
 		_scatter_core_detail()      # Sprout-only light flowers/grass/pebbles
 	_build_natural_borders()
 	# Far-reaching visual layers (the long road to the far regions + the broad
@@ -88,8 +114,9 @@ func _build_overworld() -> void:
 	if not LiveVisualPolicy.CURATED_SLICE:
 		_build_connecting_roads()
 		_build_overworld_wilderness()
-	_build_village_area()
-	_build_forest_area()
+	if not limezu:
+		_build_village_area()
+		_build_forest_area()
 	_ensure_terrain_override_layer()
 	_build_homestead_colliders()    # inherited: cottage/trees/fence colliders (Sprout visuals skipped in LimeZu mode)
 	if limezu:
@@ -97,6 +124,14 @@ func _build_overworld() -> void:
 	else:
 		_build_curated_slice()      # Sprout hand-composed cozy focal cluster
 	_build_overworld_bounds()
+
+func _configure_visual_layers() -> void:
+	ground_layer.z_index = LIMEZU_GROUND_LAYER_Z
+	ground_layer.y_sort_enabled = false
+	ground_layer.set_meta("visual_role", "terrain_ground")
+	gameplay_layer.z_index = LIMEZU_GAMEPLAY_LAYER_Z
+	gameplay_layer.y_sort_enabled = true
+	gameplay_layer.set_meta("visual_role", "props_actors_y_sorted")
 
 ## The neighborhood is a second buildable region east and south of the core
 ## (the original homestead grid stays Rowan's training land). is_tile_in_bounds
@@ -178,6 +213,10 @@ func _add_road_tile(tile: Vector2i) -> void:
 ## not just at boot. Core homestead tiles are never repainted (they keep their
 ## detailed yard art). Returns the container node so callers can free it later.
 func paint_plot_ground(plot: Dictionary) -> Node2D:
+	# LimeZu live mode: skip the Sprout/biome plot ground tiles (the plots are off the
+	# curated opening view and their meadow tiles are a large non-LimeZu source).
+	if LiveVisualPolicy.live_limezu_slice():
+		return null
 	var rect_variant: Variant = plot.get("rect", null)
 	if not (rect_variant is Rect2i):
 		return null
@@ -589,13 +628,16 @@ func _build_limezu_slice() -> void:
 	# 1) LimeZu grass ground covering the visible opening area (camera-framed core).
 	for ty in range(-2, MAP_HEIGHT + 4):
 		for tx in range(-6, MAP_WIDTH + 8):
-			_limezu_ground("terrain.grass", Vector2i(tx, ty), 0)
+			_limezu_ground("terrain.grass", Vector2i(tx, ty), LIMEZU_GROUND_GRASS_Z)
 	# 2) A short dirt path in front of the home, plus a tidy tilled garden bed SW.
-	for tile in [Vector2i(7, 12), Vector2i(8, 12), Vector2i(9, 12), Vector2i(9, 13), Vector2i(9, 14)]:
-		_limezu_ground("terrain.dirt_path", tile, 1)
-	for gy in range(12, 15):
-		for gx in range(2, 5):
-			_limezu_ground("terrain.tilled_soil", Vector2i(gx, gy), 1)
+	for tile in LIMEZU_CURATED_PATH_TILES:
+		if _limezu_should_draw_path(tile):
+			_limezu_ground("terrain.dirt_path", tile, LIMEZU_GROUND_PATH_Z)
+	for gy in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
+		for gx in range(LIMEZU_TILLED_SOIL_RECT.position.x, LIMEZU_TILLED_SOIL_RECT.end.x):
+			var soil_tile := Vector2i(gx, gy)
+			if _limezu_should_draw_soil(soil_tile):
+				_limezu_ground("terrain.tilled_soil", soil_tile, LIMEZU_GROUND_SOIL_Z)
 	# 3) Crops on the tilled bed.
 	var crops: Array[String] = ["crop.carrot", "crop.cauliflower", "crop.watermelon", "crop.carrot_stage1"]
 	var crop_i: int = 0
@@ -616,19 +658,39 @@ func _build_limezu_slice() -> void:
 	_limezu_object("animal.chicken", Vector2i(6, 12))
 	_limezu_object("animal.cow", Vector2i(11, 15))
 	_limezu_object("object.crate", Vector2i(10, 13))
-	_limezu_object("object.sign", Vector2i(8, 13))
+
+func _limezu_is_ground_blocked(tile: Vector2i) -> bool:
+	if LIMEZU_BARN_VISUAL_FOOTPRINT.has_point(tile):
+		return true
+	if LIMEZU_CRATE_VISUAL_FOOTPRINT.has_point(tile):
+		return true
+	for sign_rect in LIMEZU_SIGN_VISUAL_FOOTPRINTS:
+		if sign_rect.has_point(tile):
+			return true
+	for tree_tile in TREE_TILES:
+		if tile == (tree_tile as Vector2i):
+			return true
+	return false
+
+func _limezu_should_draw_path(tile: Vector2i) -> bool:
+	return not _limezu_is_ground_blocked(tile)
+
+func _limezu_should_draw_soil(tile: Vector2i) -> bool:
+	return not _limezu_is_ground_blocked(tile)
 
 ## A LimeZu ground tile, centred on the cell, scaled to fill the 32px grid.
 func _limezu_ground(logical_id: String, tile: Vector2i, z: int) -> void:
 	if not LimeZuArtRegistry.has_asset(logical_id):
 		return
 	var s := Sprite2D.new()
+	s.name = "LimeZuGround_%s_%d_%d" % [logical_id.replace(".", "_"), tile.x, tile.y]
 	s.texture = LimeZuArtRegistry.resolve_texture(logical_id)
 	s.centered = true
 	s.position = grid_to_world(tile)
 	s.scale = Vector2(LiveVisualPolicy.LIMEZU_DISPLAY_SCALE, LiveVisualPolicy.LIMEZU_DISPLAY_SCALE)
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	s.z_index = z
+	s.set_meta("ground_role", logical_id)
 	ground_layer.add_child(s)
 
 ## A LimeZu object/animal, bottom-anchored to base_tile and y-sorted via its feet.

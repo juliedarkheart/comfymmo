@@ -126,7 +126,7 @@ func _add_category(title: String, ids: Array) -> int:
 
 	var grid := GridContainer.new()
 	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 5)
+	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 5)
 	_body.add_child(grid)
 	for entry_variant in entries:
@@ -134,16 +134,16 @@ func _add_category(title: String, ids: Array) -> int:
 		grid.add_child(_build_inventory_slot(String(entry["item_id"]), int(entry["count"])))
 	return entries.size()
 
-## Compact item cell: a Sprout-styled square slot (centered icon + count) with the
+## Compact item cell: a LimeZu-compatible square slot (centered icon + count) with the
 ## item name on a tidy line beneath, so icons stay aligned and labels never overlap.
 func _build_inventory_slot(item_id: String, count: int) -> Control:
 	var cell := VBoxContainer.new()
-	cell.custom_minimum_size = Vector2(64, 0)
+	cell.custom_minimum_size = Vector2(72, 0)
 	cell.add_theme_constant_override("separation", 1)
 
 	var slot := PanelContainer.new()
 	slot.name = "InventorySlot_%s" % item_id
-	slot.custom_minimum_size = Vector2(60, 60)
+	slot.custom_minimum_size = Vector2(66, 60)
 	CozyUITheme.apply_slot(slot, false, false)
 
 	var stack := VBoxContainer.new()
@@ -151,15 +151,24 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 	stack.add_theme_constant_override("separation", 0)
 	slot.add_child(stack)
 
-	# Cozy registry icon (Sprout where reviewed); never the missing-art X.
-	var icon_path: String = ObjectArtRegistry.texture_path(item_id)
-	if ObjectArtRegistry.source_of(icon_path) != "missing":
+	# LimeZu live icons where mapped; otherwise the existing registry fallback.
+	var limezu_icon: Texture2D = _limezu_icon_for_item(item_id)
+	if limezu_icon != null:
 		var icon := TextureRect.new()
-		icon.texture = load(icon_path) as Texture2D
+		icon.texture = limezu_icon
 		icon.custom_minimum_size = Vector2(34, 34)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		stack.add_child(icon)
+	else:
+		var icon_path: String = ObjectArtRegistry.texture_path(item_id)
+		if ObjectArtRegistry.source_of(icon_path) != "missing":
+			var icon := TextureRect.new()
+			icon.texture = load(icon_path) as Texture2D
+			icon.custom_minimum_size = Vector2(34, 34)
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			stack.add_child(icon)
 
 	var count_label := Label.new()
 	count_label.text = "x%d" % count
@@ -170,12 +179,36 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 
 	var name_label := Label.new()
 	name_label.text = _item_label(item_id)
-	name_label.custom_minimum_size = Vector2(64, 0)
+	name_label.custom_minimum_size = Vector2(72, 24)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.clip_text = false
 	CozyUITheme.apply_body_label(name_label, 10)
 	cell.add_child(name_label)
 	return cell
+
+func _limezu_icon_for_item(item_id: String) -> Texture2D:
+	if not LiveVisualPolicy.live_limezu_slice():
+		return null
+	var limezu_id: String = ""
+	match item_id:
+		ContentIds.ITEM_CARROT:
+			limezu_id = "icon.carrot"
+		ResourceIds.MATERIAL_WOOD:
+			limezu_id = "icon.wood"
+		ResourceIds.COMPONENT_SEED_PACKET:
+			limezu_id = "icon.seed"
+		ItemIds.TOOL_WORN_AXE:
+			limezu_id = "icon.tool_axe"
+		ItemIds.TOOL_WATERING_CAN:
+			limezu_id = "icon.tool_watering_can"
+		ItemIds.TOOL_BASIC_SHOVEL:
+			limezu_id = "icon.tool_shovel"
+		_:
+			pass
+	if limezu_id.is_empty() or not LimeZuArtRegistry.has_asset(limezu_id):
+		return null
+	return LimeZuArtRegistry.resolve_texture(limezu_id)
 
 func _item_label(item_id: String) -> String:
 	if ItemIds.is_storable(item_id):

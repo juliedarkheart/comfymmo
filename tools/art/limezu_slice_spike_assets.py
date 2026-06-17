@@ -13,9 +13,10 @@ Asset selection was reviewed from the extracted folder/file names + dimensions:
   crates, barn, flower tufts, icons).
 - Animal/character sheets are sliced to their first frame (configured cell size) and
   trimmed to the alpha bbox.
-- Plain ground tiles (grass/dirt/water) are picked from `1_Terrains_16x16.png` by
-  scanning for the most uniform, fully-opaque cell nearest a target colour (no blind
-  random cell slicing).
+- Plain fill tiles (grass/water) are picked from `1_Terrains_16x16.png` by scanning
+  for the most uniform, fully-opaque cell nearest a target colour. The live dirt path
+  uses a reviewed transparent Modern Exteriors dirt patch instead of a full opaque
+  cell, so it does not read as a flat rectangular slab.
 - Modern UI: `--analyze-ui` prints alpha-gap element boxes from a Style sheet and
   writes a gridded review sheet, so UI cells can be chosen deliberately (panel/slot
   slicing stays a documented manual step rather than a blind guess).
@@ -41,11 +42,14 @@ ROOT = Path(__file__).resolve().parents[2]
 # Pack extracted roots (relative to the vault root).
 FARM = "modern_farm/extracted/Modern_Farm_v1.2"
 UI = "modern_ui/extracted/modernuserinterface-win"
+EXTERIORS = "modern_exteriors/extracted/modernexteriors-win/Modern_Exteriors_16x16"
 SINGLES = f"{FARM}/16x16/Single_Files_16x16/0_Complete_Tileset_Singles_16x16"
+FARM_PROPS = f"{FARM}/16x16/Single_Files_16x16/Props_and_Buildings_16x16"
 ICONS = f"{FARM}/Icons/Icons_16x16/Icons_16x16_Singles"
 ANIMALS = f"{FARM}/16x16/Animals_16x16"
 CHARS = f"{FARM}/16x16/Characters_16x16"
 UI_STYLE_SHEET = f"{UI}/16x16/Modern_UI_Style_1.png"
+EXTERIOR_TERRAIN_SINGLES = f"{EXTERIORS}/ME_Theme_Sorter_16x16/1_Terrains_and_Fences_Singles_16x16"
 
 # --- Curated spike asset table ----------------------------------------------
 # op "copy": copy a complete single-file asset as-is.
@@ -53,10 +57,10 @@ UI_STYLE_SHEET = f"{UI}/16x16/Modern_UI_Style_1.png"
 # op "terrain": pick the most uniform opaque cell near target_rgb from a tilesheet.
 # Each entry: (logical_id, pack, op, source_rel, extra)
 SPIKE_ASSETS = [
-    # Terrain — pick the most UNIFORM (lowest-variance) opaque cell of the right hue,
-    # so we get a clean fill tile, not an edge/corner tile that tiles into a pattern.
+    # Terrain. Grass/water are clean fills; dirt path is a reviewed transparent patch
+    # so the opening does not draw a flat rectangular road.
     ("terrain.grass", "modern_farm", "terrain", f"{FARM}/16x16/1_Terrains_16x16.png", (16, "grass")),
-    ("terrain.dirt_path", "modern_farm", "terrain", f"{FARM}/16x16/1_Terrains_16x16.png", (16, "dirt")),
+    ("terrain.dirt_path", "modern_exteriors", "copy", f"{EXTERIOR_TERRAIN_SINGLES}/ME_Singles_Terrains_and_Fences_16x16_Props_Dirt_18.png", None),
     ("terrain.water", "modern_farm", "terrain", f"{FARM}/16x16/1_Terrains_16x16.png", (16, "water")),
     ("terrain.tilled_soil", "modern_farm", "copy", f"{SINGLES}/Soil_Wet_1_16x16.png", None),
     # Buildings / objects
@@ -70,7 +74,7 @@ SPIKE_ASSETS = [
     ("object.flower2", "modern_farm", "copy", f"{SINGLES}/Grass_Tufts_Flowers_16x16_5.png", None),
     ("object.flower3", "modern_farm", "copy", f"{SINGLES}/Grass_Tufts_Flowers_16x16_9.png", None),
     ("object.crate", "modern_farm", "copy", f"{SINGLES}/Crate_Brown_Apples_16x16.png", None),
-    ("object.sign", "modern_farm", "copy", f"{SINGLES}/Sign_Carrot_16x16.png", None),
+    ("object.sign", "modern_farm", "copy", f"{FARM_PROPS}/Sign_1_16x16.png", None),
     # Crops (field)
     ("crop.carrot", "modern_farm", "copy", f"{SINGLES}/Crop_Carrot_Ripe_1_16x16.png", None),
     ("crop.carrot_stage1", "modern_farm", "copy", f"{SINGLES}/Crop_Carrot_Stage_1_16x16.png", None),
@@ -98,6 +102,14 @@ SPIKE_ASSETS = [
     ("ui.inventory_panel", "modern_ui", "rawcrop", UI_STYLE_SHEET, (1, 8, 47, 31)),
     ("ui.slot", "modern_ui", "rawcrop", UI_STYLE_SHEET, (1, 300, 47, 24)),
     ("ui.slot_selected", "modern_ui", "rawcrop", UI_STYLE_SHEET, (51, 129, 58, 29)),
+    # Reviewed from contact_sheets/_ui_candidates.png:
+    # 32/33 are neutral small button strips; 31 is a red close/danger strip;
+    # 34 is a compact tab frame. These stay local/gitignored like all LimeZu art.
+    ("ui.button", "modern_ui", "rawcrop", UI_STYLE_SHEET, (238, 466, 29, 11)),
+    ("ui.button_hover", "modern_ui", "rawcrop", UI_STYLE_SHEET, (238, 482, 29, 11)),
+    ("ui.close", "modern_ui", "rawcrop", UI_STYLE_SHEET, (238, 450, 29, 11)),
+    ("ui.close_hover", "modern_ui", "rawcrop", UI_STYLE_SHEET, (238, 482, 29, 11)),
+    ("ui.tab", "modern_ui", "rawcrop", UI_STYLE_SHEET, (268, 386, 34, 13)),
 ]
 
 

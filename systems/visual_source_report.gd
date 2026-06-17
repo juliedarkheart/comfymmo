@@ -103,6 +103,35 @@ static func scene_summary(map: Node) -> Dictionary:
 ## Above this we warn so the count is tracked, not silently creeping back up.
 const PROCEDURAL_POLYGON_BUDGET := 600
 
+## Classify a texture path into a source tier for the live-opening audit.
+static func classify_texture(path: String) -> String:
+	var p := String(path).to_lower()
+	if p.is_empty():
+		return "procedural"
+	if p.contains("/missing"):
+		return "missing"
+	if p.contains("licensed_assets/limezu"):
+		return "limezu_generated_local" if (p.contains("generator_outputs") or p.contains("generated_candidates")) else "limezu"
+	if p.contains("licensed_assets/sprout"):
+		return "sprout"
+	if p.contains("art/generated/hearthvale"):
+		return "generated"
+	if p.contains("art/objects") or p.contains("art/tiles") or p.contains("fable_cute") or p.contains("assets/generated"):
+		return "legacy"
+	return "other"
+
+## Walk a live map node and tally every Sprite2D by source tier, plus Polygon2D count.
+## Used by validation to hard-block Sprout/generated/legacy visuals in the LimeZu opening.
+static func live_opening_sources(map: Node) -> Dictionary:
+	var tiers: Dictionary = {}
+	if map != null:
+		for node in map.find_children("*", "Sprite2D", true, false):
+			var s := node as Sprite2D
+			var path: String = s.texture.resource_path if s.texture != null else ""
+			var tier := classify_texture(path)
+			tiers[tier] = int(tiers.get(tier, 0)) + 1
+	return tiers
+
 static func print_report(map: Node = null, mode: String = WorldProjection.DEFAULT_MODE) -> void:
 	var r: Dictionary = registry_summary(mode)
 	print("[visual-source] projection=", r["mode"], " (legacy iso is fallback only)")
@@ -139,3 +168,10 @@ static func print_report(map: Node = null, mode: String = WorldProjection.DEFAUL
 		if int(s["polygon_nodes"]) > PROCEDURAL_POLYGON_BUDGET:
 			push_warning("[visual-source] live scene draws %d procedural polygons (budget %d) — quarantine more props"
 				% [int(s["polygon_nodes"]), PROCEDURAL_POLYGON_BUDGET])
+		# Live-opening source-purity audit (LimeZu mode forbids Sprout/legacy visuals).
+		var opening: Dictionary = live_opening_sources(map)
+		print("[visual-source] live opening sources=", opening)
+		if LiveVisualPolicy.live_limezu_slice():
+			for forbidden in ["sprout", "legacy"]:
+				if int(opening.get(forbidden, 0)) > 0:
+					push_warning("[visual-source] LimeZu opening still has %d '%s' sprite(s)!" % [int(opening[forbidden]), forbidden])

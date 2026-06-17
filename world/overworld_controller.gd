@@ -553,29 +553,32 @@ func _setup_wardrobe() -> void:
 	var mirror: Node2D = Node2D.new()
 	mirror.position = map.grid_to_world(Vector2i(9, 6))
 	gameplay_layer.add_child(mirror)
-	var shadow: Polygon2D = Polygon2D.new()
-	shadow.polygon = TerrainShapes.ellipse(Vector2(0, 1), 12.0, 5.0)
-	shadow.color = Color(0.16, 0.12, 0.08, 0.2)
-	mirror.add_child(shadow)
-	for leg_x: float in [-6.0, 6.0]:
-		var leg: Polygon2D = Polygon2D.new()
-		leg.polygon = PackedVector2Array([
-			Vector2(leg_x - 1.5, 0), Vector2(leg_x + 1.5, 0), Vector2(leg_x * 0.5 + 1.5, -10), Vector2(leg_x * 0.5 - 1.5, -10),
-		])
-		leg.color = Color("#8a5e3c")
-		mirror.add_child(leg)
-	var frame: Polygon2D = Polygon2D.new()
-	frame.polygon = TerrainShapes.ellipse(Vector2(0, -26), 11.0, 17.0)
-	frame.color = Color("#c89a64")
-	mirror.add_child(frame)
-	var glass: Polygon2D = Polygon2D.new()
-	glass.polygon = TerrainShapes.ellipse(Vector2(0, -26), 8.0, 14.0)
-	glass.color = Color("#bcd8e8")
-	mirror.add_child(glass)
-	var glint: Polygon2D = Polygon2D.new()
-	glint.polygon = TerrainShapes.ellipse(Vector2(-3, -31), 2.5, 5.0, 10)
-	glint.color = Color(1, 1, 1, 0.55)
-	mirror.add_child(glint)
+	# LimeZu live mode: keep the wardrobe interactable but skip the procedural mirror
+	# visual (no generated/procedural prop in the opening view).
+	if not LiveVisualPolicy.live_limezu_slice():
+		var shadow: Polygon2D = Polygon2D.new()
+		shadow.polygon = TerrainShapes.ellipse(Vector2(0, 1), 12.0, 5.0)
+		shadow.color = Color(0.16, 0.12, 0.08, 0.2)
+		mirror.add_child(shadow)
+		for leg_x: float in [-6.0, 6.0]:
+			var leg: Polygon2D = Polygon2D.new()
+			leg.polygon = PackedVector2Array([
+				Vector2(leg_x - 1.5, 0), Vector2(leg_x + 1.5, 0), Vector2(leg_x * 0.5 + 1.5, -10), Vector2(leg_x * 0.5 - 1.5, -10),
+			])
+			leg.color = Color("#8a5e3c")
+			mirror.add_child(leg)
+		var frame: Polygon2D = Polygon2D.new()
+		frame.polygon = TerrainShapes.ellipse(Vector2(0, -26), 11.0, 17.0)
+		frame.color = Color("#c89a64")
+		mirror.add_child(frame)
+		var glass: Polygon2D = Polygon2D.new()
+		glass.polygon = TerrainShapes.ellipse(Vector2(0, -26), 8.0, 14.0)
+		glass.color = Color("#bcd8e8")
+		mirror.add_child(glass)
+		var glint: Polygon2D = Polygon2D.new()
+		glint.polygon = TerrainShapes.ellipse(Vector2(-3, -31), 2.5, 5.0, 10)
+		glint.color = Color(1, 1, 1, 0.55)
+		mirror.add_child(glint)
 
 	register_world_interactable(
 		"wardrobe_mirror", mirror, ContentIds.INTERACTION_GENERIC,
@@ -747,6 +750,11 @@ func _despawn_plot_furniture(plot_id: String) -> void:
 ## (no collision) and sits in the 1-tile skirt OUTSIDE the buildable rect, so it
 ## never blocks building. Lives in the plot container, so it frees with the plot.
 func _decorate_plot(plot: Dictionary, container: Node2D) -> void:
+	# LimeZu live mode: skip the procedural/generated plot skirt decor (trees/ponds/
+	# rocks/flowers). Plots are off the curated opening view; keep them undecorated
+	# rather than render non-LimeZu props.
+	if LiveVisualPolicy.live_limezu_slice():
+		return
 	var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
 	if rect.size.x <= 0:
 		return
@@ -870,6 +878,23 @@ func _build_plot_boundary(plot_id: String, parent: Node2D = null) -> void:
 		cap.color = BiomeRegistry.terrain_detail_color("plot_boundary")
 		post.add_child(cap)
 
+func _add_limezu_sign_sprite(parent: Node2D, scale_factor: float = 1.0) -> bool:
+	if not LiveVisualPolicy.live_limezu_slice() or not LimeZuArtRegistry.has_asset("object.sign"):
+		return false
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture("object.sign")
+	if tex == null:
+		return false
+	var display_scale: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE * scale_factor
+	var sprite := Sprite2D.new()
+	sprite.name = "LimeZuSign"
+	sprite.texture = tex
+	sprite.centered = false
+	sprite.position = Vector2(-tex.get_width() * display_scale * 0.5, -tex.get_height() * display_scale)
+	sprite.scale = Vector2(display_scale, display_scale)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	parent.add_child(sprite)
+	return true
+
 ## A large, readable plot/area sign with a title plate. `parent` defaults to the
 ## gameplay layer; the plot builder passes a per-plot container so the sign frees
 ## with the rest of the plot's furniture.
@@ -879,6 +904,11 @@ func _make_plot_sign(world_pos: Vector2, title: String, accent: Color, parent: N
 	var sign_marker: Node2D = Node2D.new()
 	sign_marker.position = world_pos
 	parent.add_child(sign_marker)
+	if LiveVisualPolicy.live_limezu_slice():
+		if not _add_limezu_sign_sprite(sign_marker, 1.15):
+			sign_marker.set_meta("sign_visual_hidden_limezu", true)
+		sign_marker.set_meta("sign_title", title)
+		return sign_marker
 	# Prefer the reviewed Sprout signpost sprite, drawn small so it reads as a single
 	# tidy post (not a big blurry board) and so a yard full of signs doesn't look like
 	# a repeated graphic. Only draw the procedural board when no sprite is available.
@@ -1458,6 +1488,10 @@ func _make_sign(world_pos: Vector2, accent: Color) -> Node2D:
 	var sign_marker: Node2D = Node2D.new()
 	sign_marker.position = world_pos
 	gameplay_layer.add_child(sign_marker)
+	if LiveVisualPolicy.live_limezu_slice():
+		if not _add_limezu_sign_sprite(sign_marker, 1.0):
+			sign_marker.set_meta("sign_visual_hidden_limezu", true)
+		return sign_marker
 	# Reviewed Sprout signpost sprite first (small + tidy), procedural board fallback.
 	if map._decor_sprite(sign_marker, Vector2.ZERO, ContentIds.PLACEABLE_SIGNPOST, 0.5):
 		return sign_marker
@@ -1487,6 +1521,13 @@ func _setup_cottage_sign() -> void:
 	var sign_marker: Node2D = Node2D.new()
 	sign_marker.position = map.grid_to_world(Vector2i(5, 8))
 	gameplay_layer.add_child(sign_marker)
+	if LiveVisualPolicy.live_limezu_slice():
+		sign_marker.set_meta("sign_visual_hidden_limezu", true)
+		register_world_interactable(
+			"cottage_door_sign", sign_marker, ContentIds.INTERACTION_GENERIC,
+			"Press F to read the door sign", _read_cottage_sign
+		)
+		return
 	var post: Polygon2D = Polygon2D.new()
 	post.polygon = PackedVector2Array([Vector2(-1.5, 0), Vector2(1.5, 0), Vector2(1.5, -16), Vector2(-1.5, -16)])
 	post.color = Color("#8a5e3c")

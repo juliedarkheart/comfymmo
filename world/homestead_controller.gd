@@ -736,6 +736,8 @@ func _setup_area_content(player: AvatarController) -> void:
 	_setup_rest_marker()
 
 func _spawn_ambient_creatures(player: AvatarController) -> void:
+	if LiveVisualPolicy.live_limezu_slice():
+		return
 	var rabbit: MossRabbit = MossRabbit.new()
 	rabbit.position = Vector2(-64.0, 384.0)
 	gameplay_layer.add_child(rabbit)
@@ -780,27 +782,28 @@ func _setup_rest_marker() -> void:
 	marker.position = Vector2(0.0, 224.0)
 	gameplay_layer.add_child(marker)
 
-	var mat: Polygon2D = Polygon2D.new()
-	mat.polygon = PackedVector2Array([
-		Vector2(0, -10), Vector2(22, 0), Vector2(0, 10), Vector2(-22, 0),
-	])
-	mat.color = Color("#a9763f")
-	marker.add_child(mat)
+	if not LiveVisualPolicy.live_limezu_slice():
+		var mat: Polygon2D = Polygon2D.new()
+		mat.polygon = PackedVector2Array([
+			Vector2(0, -10), Vector2(22, 0), Vector2(0, 10), Vector2(-22, 0),
+		])
+		mat.color = Color("#a9763f")
+		marker.add_child(mat)
 
-	var mat_inner: Polygon2D = Polygon2D.new()
-	mat_inner.polygon = PackedVector2Array([
-		Vector2(0, -6), Vector2(14, 0), Vector2(0, 6), Vector2(-14, 0),
-	])
-	mat_inner.color = Color("#caa06a")
-	marker.add_child(mat_inner)
+		var mat_inner: Polygon2D = Polygon2D.new()
+		mat_inner.polygon = PackedVector2Array([
+			Vector2(0, -6), Vector2(14, 0), Vector2(0, 6), Vector2(-14, 0),
+		])
+		mat_inner.color = Color("#caa06a")
+		marker.add_child(mat_inner)
 
-	var stitch: Polygon2D = Polygon2D.new()
-	stitch.position = Vector2(0, -1)
-	stitch.polygon = PackedVector2Array([
-		Vector2(-10, 0), Vector2(10, 0), Vector2(10, 1), Vector2(-10, 1),
-	])
-	stitch.color = Color("#80502a")
-	marker.add_child(stitch)
+		var stitch: Polygon2D = Polygon2D.new()
+		stitch.position = Vector2(0, -1)
+		stitch.polygon = PackedVector2Array([
+			Vector2(-10, 0), Vector2(10, 0), Vector2(10, 1), Vector2(-10, 1),
+		])
+		stitch.color = Color("#80502a")
+		marker.add_child(stitch)
 
 	_rest_marker = marker
 	register_world_interactable(

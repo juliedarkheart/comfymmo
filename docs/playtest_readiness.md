@@ -1,10 +1,11 @@
 # Playtest Readiness
 
-## Sprout-required (live visual mode)
+## Sprout secondary-provider status
 
-The playable visual build now **requires** the licensed Sprout Lands pack
-(local-only, gitignored under `licensed_assets/`). A clean checkout without Sprout
-is **not** a playable visual target:
+Sprout remains present as a secondary/comparison provider and its licensed files
+remain local-only/gitignored under `licensed_assets/`. The current playtest target on
+this branch is LimeZu, but the older Sprout gate/reporting remains useful for making
+sure generated/procedural art does not silently become the live look:
 
 - With Sprout installed + activated, the overworld mounts normally.
 - With Sprout missing/inactive, `WorldRegionManager` mounts a clear missing-assets
@@ -49,12 +50,13 @@ now opens in a curated demo slice**, not the broad procedural world:
   gameplay/data world (plots, NPCs, resources) is unchanged and still walkable.
 - Default UI panels (inventory, build, admin, land) are **closed at launch**; only
   the compact HUD, small minimap, and toolbelt show.
-- **Inventory redesigned:** a compact ~300×400 right-side window (was 364×520), one
+- **Inventory redesigned:** a compact ~340x400 right-side window (was 364x520), one
   short status line (no verbose profile id), owned-items-only grouped into sections
-  (empty sections are skipped, not "None yet" filler), tidy Sprout-styled 60×60 slots
-  with centered icons + counts and the name on a line beneath. Closes with Esc and
-  the Close button. Validation enforces: closed by default, size within a viewport
-  fraction, Esc/close wired, and CozyUITheme/UIArtRegistry styling (no hardcoded art).
+  (empty sections are skipped, not "None yet" filler), tidy LimeZu-compatible 66x60
+  slots in wider cells with centered icons + counts and the name on a readable line
+  beneath. Closes with Esc and the Close button. Validation enforces: closed by
+  default, size within a viewport fraction, Esc/close wired, and CozyUITheme styling
+  (no hardcoded art).
 - Sprout assets are required for live visual mode (missing-assets screen otherwise);
   generated/dev art remains temporary and must not dominate the slice.
 
@@ -76,9 +78,54 @@ live slice resolves real LimeZu ids, the cow is not head-cropped, inventory is c
 by default + Modern-UI styled, Sprout stays present, and no LimeZu media is tracked.
 A local opening screenshot is at
 `licensed_assets/limezu/review_screenshots/live_limezu_opening.png` (gitignored).
-Known remaining clashes: dark HUD/minimap/chat cards (kept dark for readable cream
-text), small generated woodland creatures, and Exteriors/Interiors not yet sliced.
+Live polish update: the opening now hides old farm-plot soil/highlight polygons and
+the old rest-marker doormat diamond, guards the generated homestead rabbit/turtle out
+of the LimeZu opening, maps Modern UI button/close frames, hides the empty chat card,
+and keeps inventory compact with LimeZu icons where mapped. Known remaining art gaps
+are broader/offscreen: full Exteriors/Interiors/Office coverage, tameable-companion
+creature art, and cozy dungeon art are still deferred.
 See docs/limezu_live_pivot_plan.md and docs/limezu_visual_spike.md.
+
+Source-purge update (this pass): the opening's largest non-LimeZu sources were purged
+— the Sprout neighborhood plot grounds + per-plot biome grounds (~12k meadow tiles) and
+the generated dirt/stone neighborhood roads (the "broken road") are suppressed in LimeZu
+mode, village/forest generated decor + plot-skirt decor + wardrobe mirror are hidden, and
+gather/resource nodes are re-skinned to LimeZu sprites. A boot-time audit
+(`VisualSourceReport.live_opening_sources`) reports the opening is now `sprout=0,
+legacy=0`, LimeZu-dominant (~949 LimeZu vs ~13 generated, all off-screen creatures /
+placed objects). The HUD/minimap/toolbelt now use a clean flat LimeZu-compatible UI:
+dark wood panels, cream/gold text, wide readable chips, and no stretched Modern UI
+nine-patches. Validation hard-fails on any Sprout/legacy sprite in the LimeZu opening
+and asserts the live HUD/panel/slot/button/blocked-tool styles are `LimeZuUITheme`
+`StyleBoxFlat`s rather than distorted `StyleBoxTexture`s.
+
+Old-visual cleanup update: `terrain.dirt_path` now maps to a reviewed transparent
+Modern Exteriors dirt patch rather than the old uniform opaque terrain cell. Optional
+opening signs that were still using old Sprout/generated/procedural boards are hidden
+or routed through a neutral LimeZu sign sprite, while their interaction markers stay
+registered. Quick tools now use Modern UI slot styling instead of old code-drawn
+slots. The local capture helper writes
+`licensed_assets/limezu/review_screenshots/live_limezu_opening_after_old_visual_cleanup.png`
+for review; this screenshot remains gitignored/local-only.
+
+UI rewrite/bottom-board cleanup update: tiny Modern UI slices remain mapped for audits
+and future native-size use, but large live panels no longer stretch them. The opening
+HUD uses the compact controls line `Esc Menu | I Inv | B Build | M Map | H Help | F11`;
+missing tool chips use the dark LimeZu blocked slot style; inventory cells were widened
+so item names stop letter-wrapping. Save-restored generated board/deck visuals are
+hidden in the LimeZu opening while their records/collision/interactions remain intact;
+the small lower-right board visible in the screenshot is an intentional LimeZu sign prop.
+Capture `licensed_assets/limezu/review_screenshots/live_limezu_opening_after_ui_rewrite.png`
+and `licensed_assets/limezu/review_screenshots/live_limezu_inventory_after_ui_rewrite.png`
+for review; both remain gitignored/local-only.
+
+Layering/footprint cleanup update: LimeZu terrain/path/soil now has an explicit
+low-z ground-layer contract, while buildings, props, signs, crops, animals, NPCs,
+and the player stay on the y-sorted gameplay layer. The curated slice skips path/soil
+cells inside the barn/sign/crate/tree visual footprints, and the short path now
+approaches the barn from below instead of running through object art. Capture
+`licensed_assets/limezu/review_screenshots/live_limezu_opening_after_layering_cleanup.png`
+for the focused review image; it remains gitignored/local-only.
 
 ## Visual/UI foundation checks
 

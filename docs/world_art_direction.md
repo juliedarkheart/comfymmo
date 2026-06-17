@@ -5,12 +5,13 @@ Sprout-compatible top-down / gentle 3/4 space. The older 64x32 isometric diamond
 view remains a legacy fallback. The player should be able to understand paths,
 plots, public areas, wilderness, and biome changes at a glance.
 
-## Sprout-required visual policy
+## Sprout secondary-provider policy
 
-The live visual build is **Sprout-required**. The licensed Sprout Lands pack
-(Cup Nooble, local-only under gitignored `licensed_assets/`) is the intended art
-direction for the playable world. A clean checkout **without** Sprout is no
-longer a playable visual target:
+Sprout remains integrated as a secondary/comparison provider, and its local licensed
+files still stay gitignored under `licensed_assets/`. This branch's current live
+playtest target is LimeZu, not the older Sprout-required opening. A clean checkout
+without required local licensed assets should show a clear missing-assets screen
+rather than silently falling back to generated/procedural art:
 
 - When Sprout is missing/inactive the game shows a clear missing-assets screen
   (`ui/missing_assets_screen.gd`) instead of mounting the overworld — it does
@@ -53,9 +54,50 @@ sprite. **Sprout remains fully integrated as a secondary/comparison provider** a
 not removed. LimeZu local licensed assets are **required** for the live visual
 prototype (a missing pack shows a clear missing-assets screen, not ugly fallback).
 
+Live polish note: the LimeZu opening hides the old farm-plot soil/highlight
+polygons plus the old rest-marker doormat diamond, and suppresses the generated
+homestead rabbit/turtle spawns so the default screenshot does not mix generated
+woodland creatures with the LimeZu farm set. The old-visual cleanup also replaces
+the uniform opaque dirt-road tile with a reviewed transparent Modern Exteriors dirt
+patch, hides optional old cottage/map signs from the opening, and routes visible
+plot/service signs through a LimeZu sign sprite or hides their visual safely. Those
+creature classes, rest interaction, farming data, sign interactions, placement, and
+movement remain intact for future art coverage.
+
+Layering rule: LimeZu terrain is always ground. Grass, dirt/path, tilled soil, and
+water are drawn on the non-y-sorted terrain layer below the y-sorted gameplay layer.
+Buildings, props, crops, signs, animals, NPCs, and the player render above it. The
+curated opening uses visual footprint exclusions for the barn, signs, crate/props,
+and trees so dirt/path/soil cells are skipped before they can bleed into object art.
+Any broader LimeZu map expansion must preserve this rule: if a terrain cell conflicts
+with a building/object footprint, hide the terrain cell rather than drawing it over
+the object.
+
+Source-purity rule (hard): in LimeZu live mode, every visible asset in the default
+opening view must be a resolved LimeZu asset, an intentionally styled clean flat
+LimeZu UI element, or hidden/deferred. **No Sprout, old generated, old procedural, old
+placeholder, or legacy debug visuals are allowed in the opening.** Concretely, the
+LimeZu opening suppresses: the Sprout neighborhood plot grounds + per-plot biome
+grounds (`_build_neighborhood_ground`, `paint_plot_ground`), the generated
+dirt/stone neighborhood access roads (the old "broken road"), the village/forest
+generated decor, the procedural plot-skirt decor + wardrobe mirror, and re-skins
+gather/resource nodes to LimeZu sprites. The road/path uses the LimeZu `terrain.dirt_path`
+tile (a short, footprint-blocked lane) — never a ColorRect/Polygon2D/old-generated
+slab; if no good tile exists it is hidden. Trees/props resolve through `LimeZuArtRegistry`
+or are hidden. `VisualSourceReport.live_opening_sources()` audits this and validation
+hard-fails on any `sprout`/`legacy` sprite in the LimeZu opening.
+
+UI scaling rule: the Modern UI source slices are useful as licensed reference art and
+small/native-size pieces, but they are too tiny and non-square to stretch across the
+HUD, minimap, toolbelt, or inventory as large nine-patches. Live LimeZu UI therefore
+uses `LimeZuUITheme` flat dark-wood panels, cream/gold text, and readable slot/button
+states. If scalable UI art is unavailable, use this clean flat style rather than a
+distorted texture frame.
+
 Coverage findings (honest): strong for farming/building/interiors/office/UI; still
-weak for cozy dungeon tilesets and tameable-companion creatures. Full report:
-docs/limezu_visual_spike.md; pivot details: docs/limezu_live_pivot_plan.md.
+weak for cozy dungeon tilesets and tameable-companion creatures beyond the curated
+opening. Full report: docs/limezu_visual_spike.md; pivot details:
+docs/limezu_live_pivot_plan.md.
 
 ## Composition
 

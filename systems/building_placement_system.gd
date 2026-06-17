@@ -466,6 +466,14 @@ func _place_record(record: Dictionary, should_append: bool) -> void:
 	placed_object.set_tile_position(tile, map.grid_to_world(tile))
 	gameplay_layer.add_child(placed_object)
 	placed_object.set_placed_visual()
+	# Curated LimeZu opening: build pieces (crates/decks/etc.) still resolve their art
+	# through ObjectArtRegistry, which has no LimeZu tier, so save-restored objects render
+	# with generated/legacy planks that clash with the LimeZu world (the "leftover boards"
+	# at the map edge). Hide the visual of *save-restored* objects only in LimeZu live mode
+	# so the opening reads as pure LimeZu; record/collision/interaction/occupancy are kept,
+	# and in-session placements (should_append) stay visible so place-and-see still works.
+	if not should_append and LiveVisualPolicy.live_limezu_slice():
+		placed_object.visible = false
 	_placed_nodes[record_id] = placed_object
 	_apply_mailbox_state_to_node(placed_object)
 	_register_interactable_for_object(record_id, object_id, placed_object)
