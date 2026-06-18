@@ -53,6 +53,17 @@ Player collision (CharacterBody2D capsule, layer/mask 1) is correct.
   gitignored under `generator_outputs/hearthvale_generated/`; `GeneratorCharacterRegistry`
   detects them (fail-safe 0 when absent). We are no longer blocked only on manual slicing.
 
+## Top-left HUD status-card polish (2026-06-18 follow-up 3)
+
+The top-left "Hearthvale" HUD was a flat 7-line text stack. It is now a **composed status
+card** (`ui/prototype_hud.gd` `_compose_card`): gold title header + wood divider, primary
+rows (day/time + comfort with small cozy sun/heart icons), the materials line, a second
+divider, then **muted secondary** area + mode lines. The long controls hint stays hidden
+(controls live in Help/H + the system menu); 1280×720 remains the target. Validation asserts
+the controls line is hidden by default, the "Hearthvale" title header exists, the card stays
+compact (≤ 8 visible rows), and it is composed (`_compose_card`/`_insert_hud_divider_after`).
+The hotbar, inventory, admin panel, and generator pipeline were not touched.
+
 ## Sprout secondary-provider status
 
 Sprout remains present as a secondary/comparison provider and its licensed files

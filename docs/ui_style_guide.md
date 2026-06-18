@@ -152,6 +152,13 @@ The UI must feel designed, not "text dumped in a box":
 - **Default HUD stays a clean status card** — the long control list lives in Help (H) / the
   system menu, not the HUD (the HUD controls line is hidden in normal play; it still flashes
   briefly on F11).
+- **Top-left status card composition** (`ui/prototype_hud.gd` `_compose_card`): it is a
+  *tiered* card, not a flat text stack — a gold **title header** ("Hearthvale") with a thin
+  wood **divider** beneath, then primary status rows (day/time + comfort, each with a small
+  cozy icon for rhythm), the materials line, a second **divider**, then the **muted
+  secondary** area + mode lines. Icons come from existing safe local assets (the cozy
+  `icon_day_sun`/`icon_comfort_heart`) or decorative dividers — no new licensed icon system.
+  Keep it compact (≤ ~8 visible rows) so it never covers much of the world.
 - **Dark ink on tan**, cream/gold only on genuinely dark backings; avoid heavy black
   outlines (nameplates use a thin outline + soft shadow, no backing blob).
 - Flat fills are readable interiors/fallbacks only — never the primary identity.

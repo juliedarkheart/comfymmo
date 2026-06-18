@@ -31,10 +31,41 @@ var _inventory_panel_open: bool = false
 func _ready() -> void:
 	_apply_style()
 	_apply_compact_normal_layout()
+	_compose_card()
 	set_mood(WorldMood.DEFAULT_MOOD)
 	_hide_interaction_prompt()
 	hide_mailbox()
 	DisplaySettings.apply_saved()
+
+## Compose the flat label stack into a tiered status card: re-enable the small cozy
+## day/comfort icons for visual rhythm, and add thin wood dividers under the title and
+## before the secondary (area/mode) block for clear hierarchy. Runs after the compact
+## layout (which hides the meaningless crop-count icons), so only day/comfort show.
+func _compose_card() -> void:
+	_enable_row_icon("Panel/Rows/DayRow/DayIcon", 18)
+	_enable_row_icon("Panel/Rows/ComfortRow/ComfortIcon", 18)
+	_insert_hud_divider_after(get_node_or_null("Panel/Rows/TitleLabel"))
+	_insert_hud_divider_after(_materials_label)
+
+func _enable_row_icon(path: String, px: int) -> void:
+	var node: TextureRect = get_node_or_null(path) as TextureRect
+	if node == null:
+		return
+	node.visible = true
+	node.custom_minimum_size = Vector2(px, px)
+	node.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+func _insert_hud_divider_after(node: Node) -> void:
+	if node == null or node.get_parent() == null:
+		return
+	var rows: Node = node.get_parent()
+	var divider: ColorRect = ColorRect.new()
+	divider.color = Color(LimeZuUITheme.PANEL_BORDER.r, LimeZuUITheme.PANEL_BORDER.g, LimeZuUITheme.PANEL_BORDER.b, 0.5)
+	divider.custom_minimum_size = Vector2(0, 2)
+	divider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rows.add_child(divider)
+	rows.move_child(divider, node.get_index() + 1)
 
 func _apply_style() -> void:
 	CozyUITheme.apply_hud_panel($Panel)
@@ -49,6 +80,10 @@ func _apply_style() -> void:
 	]:
 		CozyUITheme.apply_body_label(label as Label, 11, true)
 	CozyUITheme.apply_heading_label($Panel/Rows/TitleLabel, 14)
+	# Hierarchy: title (gold) -> primary status (day/comfort/materials, body) -> secondary
+	# (area + mode, muted) so the card reads as grouped tiers, not one flat text run.
+	CozyUITheme.apply_secondary_label(_area_label, 11)
+	CozyUITheme.apply_secondary_label(_mode_label, 11)
 	# The area + controls lines are the longest; wrap them inside the panel so they never
 	# clip past the border on the fixed-width compact card (300px) regardless of skin.
 	for wrap_label in [_area_label, _controls_label, _mode_label]:

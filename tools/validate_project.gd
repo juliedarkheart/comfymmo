@@ -2337,9 +2337,33 @@ func _initialize() -> void:
 			push_error("Prototype HUD controls line is missing '%s'" % required_hint)
 			quit(1)
 			return
+	# Top-left HUD must be a clean, compact, composed status card.
+	if controls_label.visible:
+		push_error("Prototype HUD controls line must be hidden by default (controls live in Help/System)")
+		quit(1)
+		return
+	var hud_title: Label = prototype_hud.get_node_or_null("Panel/Rows/TitleLabel") as Label
+	if hud_title == null or not hud_title.text.contains("Hearthvale"):
+		push_error("Prototype HUD is missing its 'Hearthvale' title header")
+		quit(1)
+		return
+	var hud_rows: Node = prototype_hud.get_node_or_null("Panel/Rows")
+	var hud_visible_labels: int = 0
+	if hud_rows != null:
+		for row_child in hud_rows.get_children():
+			if row_child is Label and (row_child as Label).visible:
+				hud_visible_labels += 1
+	if hud_visible_labels > 8:
+		push_error("Prototype HUD has too many visible text rows (%d) — keep it a compact status card" % hud_visible_labels)
+		quit(1)
+		return
 	var prototype_hud_source: String = FileAccess.get_file_as_string("res://ui/prototype_hud.gd")
 	if not prototype_hud_source.contains("CozyUITheme.apply_hud_panel"):
 		push_error("Prototype HUD no longer applies the shared cozy HUD style")
+		quit(1)
+		return
+	if not prototype_hud_source.contains("_compose_card") or not prototype_hud_source.contains("_insert_hud_divider_after"):
+		push_error("Prototype HUD is no longer composed into a tiered status card (title/divider/sections)")
 		quit(1)
 		return
 	prototype_hud.queue_free()

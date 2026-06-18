@@ -40,6 +40,10 @@ const POLISH_FARM_FILE := OUT_DIR + "/live_limezu_farm_interact_after_ui_generat
 const ICON_ALIGN_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_icon_alignment.png"
 const ICON_ALIGN_HOTBAR_FILE := OUT_DIR + "/live_limezu_hotbar_after_icon_alignment.png"
 const LEFT_MENU_FILE := OUT_DIR + "/live_limezu_left_menu_after_polish.png"
+# This pass: top-left Hearthvale status-card HUD polish.
+const HUD_POLISH_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_hud_polish.png"
+const HUD_POLISH_CLOSEUP_FILE := OUT_DIR + "/live_limezu_hud_closeup_after_hud_polish.png"
+const HUD_POLISH_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_hud_polish.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -71,7 +75,7 @@ func _initialize() -> void:
 		opening_img.save_png(LAYERING_CLEANUP_FILE)
 		opening_img.save_png(UI_REWRITE_OPENING_FILE)
 		opening_img.save_png(AREA_EXPANSION_OPENING_FILE)
-		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE); opening_img.save_png(POLISH_OPENING_FILE); opening_img.save_png(ICON_ALIGN_HOTBAR_FILE)
+		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE); opening_img.save_png(POLISH_OPENING_FILE); opening_img.save_png(ICON_ALIGN_HOTBAR_FILE); opening_img.save_png(HUD_POLISH_OPENING_FILE); opening_img.get_region(Rect2i(0, 0, 360, 230)).save_png(HUD_POLISH_CLOSEUP_FILE)
 		print("[live-capture] saved ", OUT_FILE)
 		print("[live-capture] saved ", UI_REWRITE_OPENING_FILE)
 		print("[live-capture] saved ", AREA_EXPANSION_OPENING_FILE)
@@ -96,7 +100,7 @@ func _initialize() -> void:
 		var inv_img: Image = _grab_image()
 		if inv_img != null and inv_img.save_png(UI_REWRITE_INVENTORY_FILE) == OK:
 			inv_img.save_png(AREA_EXPANSION_INVENTORY_FILE)
-			inv_img.save_png(PLAYABILITY_INVENTORY_FILE); inv_img.save_png(STARDEW_INVENTORY_FILE); inv_img.save_png(POLISH_INVENTORY_FILE); inv_img.save_png(ICON_ALIGN_INVENTORY_FILE)
+			inv_img.save_png(PLAYABILITY_INVENTORY_FILE); inv_img.save_png(STARDEW_INVENTORY_FILE); inv_img.save_png(POLISH_INVENTORY_FILE); inv_img.save_png(ICON_ALIGN_INVENTORY_FILE); inv_img.save_png(HUD_POLISH_INVENTORY_FILE)
 			print("[live-capture] saved ", UI_REWRITE_INVENTORY_FILE)
 			print("[live-capture] saved ", AREA_EXPANSION_INVENTORY_FILE)
 			print("[live-capture] saved ", PLAYABILITY_INVENTORY_FILE)
