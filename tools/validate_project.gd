@@ -14,6 +14,7 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://world/iso_map_helpers.gd",
 	"res://world/outdoor_controller_helpers.gd",
 	"res://systems/world/world_projection.gd",
+	"res://systems/world/asset_world_metadata.gd",
 	"res://systems/visual/live_visual_policy.gd",
 	"res://systems/visual/sprout_asset_requirement.gd",
 	"res://ui/missing_assets_screen.gd",
@@ -1221,10 +1222,13 @@ func _initialize() -> void:
 		if area_limezu_count < 900 or area_generated_count > 40 or area_procedural_count > 2:
 			push_error("LimeZu playable area is not clean enough (limezu=%d generated=%d procedural=%d)" % [area_limezu_count, area_generated_count, area_procedural_count])
 			ow.queue_free(); quit(1); return
-		for collider_snippet in ["LIMEZU_BARN_COLLIDER_RECT", "_add_limezu_rect_collider", "Blocked by barn"]:
+		for collider_snippet in ["_add_limezu_asset_collider", "AssetWorldMetadata.collision_shapes", "Blocked by barn (placement proxy)"]:
 			if not overworld_map_src_live.contains(collider_snippet):
-				push_error("OverworldMap is missing LimeZu collider/placement guard '%s'" % collider_snippet)
+				push_error("OverworldMap is missing LimeZu asset-collision/placement guard '%s'" % collider_snippet)
 				ow.queue_free(); quit(1); return
+		if overworld_map_src_live.contains("_add_limezu_rect_collider") or overworld_map_src_live.contains("LIMEZU_BARN_COLLIDER_RECT"):
+			push_error("OverworldMap still contains the retired LimeZu barn rectangle collider path")
+			ow.queue_free(); quit(1); return
 		var sw_spawn_tile: Vector2i = ow_map.call("get_spawn_tile")
 		var sw_blocked: Array = ow_map.call("get_static_blocked_tiles")
 		var sw_spawn_blocked: bool = sw_spawn_tile in sw_blocked
@@ -1236,12 +1240,16 @@ func _initialize() -> void:
 			push_error("Farm test patch (tilled soil) is not inside the playable area near spawn")
 			ow.queue_free(); quit(1); return
 		var limezu_barn_body: StaticBody2D = ow_map.find_child("LimeZuBarnCollision", true, false) as StaticBody2D
-		if limezu_barn_body == null or limezu_barn_body.get_node_or_null("CollisionShape2D") == null:
-			push_error("Live LimeZu map did not instantiate the barn collider")
+		if limezu_barn_body == null or limezu_barn_body.find_children("*", "CollisionPolygon2D", true, false).size() < 2:
+			push_error("Live LimeZu map did not instantiate asset-shaped barn collision polygons")
 			ow.queue_free(); quit(1); return
 		# Tree trunk colliders (StaticBody2D "Tree_*") must exist for the homestead trees.
 		if ow_map.find_children("Tree_*", "StaticBody2D", true, false).is_empty():
 			push_error("Live LimeZu map did not instantiate the tree trunk colliders")
+			ow.queue_free(); quit(1); return
+		var fence_probe: StaticBody2D = ow_map.find_child("Fence_*", true, false) as StaticBody2D
+		if fence_probe == null or fence_probe.find_children("*", "CollisionShape2D", true, false).is_empty():
+			push_error("Live LimeZu map did not instantiate thin fence collision shapes")
 			ow.queue_free(); quit(1); return
 		ow.queue_free()
 		await process_frame
@@ -3695,6 +3703,54 @@ func _initialize() -> void:
 		road_map.free()
 		quit(1)
 		return
+	if not road_map.has_method("limezu_minimap_features") or not road_map.has_method("limezu_minimap_bounds"):
+		push_error("OverworldMap is missing live LimeZu minimap feature/bounds helpers")
+		minimap.queue_free()
+		road_map.free()
+		quit(1)
+		return
+	var live_bounds: Rect2 = road_map.call("limezu_minimap_bounds") as Rect2
+	var legacy_bounds: Rect2 = Rect2(road_map.get_camera_limits())
+	if live_bounds.size.x <= 1.0 or live_bounds.size.y <= 1.0 or live_bounds.size.x >= legacy_bounds.size.x:
+		push_error("Live LimeZu minimap bounds do not frame the playable slice sanely")
+		minimap.queue_free()
+		road_map.free()
+		quit(1)
+		return
+	var live_features: Array = road_map.call("limezu_minimap_features") as Array
+	var live_feature_kinds: Dictionary = {}
+	for feature_variant in live_features:
+		var feature: Dictionary = feature_variant as Dictionary
+		live_feature_kinds[String(feature.get("kind", ""))] = true
+		if not feature.has("asset_id") or not AssetWorldMetadata.has(String(feature["asset_id"])):
+			push_error("Live minimap feature has no valid AssetWorldMetadata id")
+			minimap.queue_free()
+			road_map.free()
+			quit(1)
+			return
+	for required_live_kind in [
+		AssetWorldMetadata.MINIMAP_BUILDING_FOOTPRINT,
+		AssetWorldMetadata.MINIMAP_FARM_PATCH,
+		AssetWorldMetadata.MINIMAP_PATH_SHAPE,
+		AssetWorldMetadata.MINIMAP_FENCE_LINE,
+		AssetWorldMetadata.MINIMAP_TREE_DOT,
+	]:
+		if not live_feature_kinds.has(required_live_kind):
+			push_error("Live LimeZu minimap is missing feature kind '%s'" % required_live_kind)
+			minimap.queue_free()
+			road_map.free()
+			quit(1)
+			return
+	minimap.call("set_truth_mode", true)
+	minimap.call("setup", live_features, {}, live_bounds)
+	if not bool(minimap.get("_truth_mode")) or (minimap.get("_plots") as Dictionary).size() != 0:
+		push_error("Live LimeZu minimap truth mode must suppress default LandRegistry plot squares")
+		minimap.queue_free()
+		road_map.free()
+		quit(1)
+		return
+	minimap.call("set_truth_mode", false)
+	minimap.call("setup", [], plot_centers, Rect2(road_map.get_camera_limits()))
 	minimap.call("set_plot_states", {})
 	minimap.call("set_admin_debug", true)
 	for center_variant in plot_centers.values():
@@ -3975,5 +4031,250 @@ func _initialize() -> void:
 		push_error("Player collider should be a compact feet shape, not the tall CapsuleShape2D")
 		quit(1)
 		return
+	# --- Asset-world metadata registry: the authoritative collision/interaction/minimap contract ---
+	if load("res://systems/world/asset_world_metadata.gd") == null:
+		push_error("AssetWorldMetadata registry failed to load")
+		quit(1)
+		return
+	for sw_meta_id in ["object.barn", "object.tree", "object.fence_horizontal"]:
+		if not AssetWorldMetadata.has(sw_meta_id):
+			push_error("AssetWorldMetadata is missing required asset: %s" % sw_meta_id)
+			quit(1)
+			return
+	if not (AssetWorldMetadata.is_blocking("object.barn") and AssetWorldMetadata.is_blocking("object.tree") and AssetWorldMetadata.is_blocking("object.fence_horizontal")):
+		push_error("Barn/tree/fence must be declared blocking in AssetWorldMetadata")
+		quit(1)
+		return
+	for sw_open_id in ["object.flower", "terrain.grass", "terrain.dirt_path", "terrain.tilled_soil", "crop.carrot"]:
+		if AssetWorldMetadata.is_blocking(sw_open_id):
+			push_error("%s must be non-blocking in AssetWorldMetadata" % sw_open_id)
+			quit(1)
+			return
+	if AssetWorldMetadata.minimap_visible_ids().is_empty():
+		push_error("AssetWorldMetadata has no minimap-visible features")
+		quit(1)
+		return
+	var expected_minimap_contract := {
+		"object.barn": [AssetWorldMetadata.MINIMAP_BUILDING_FOOTPRINT, "rect"],
+		"terrain.tilled_soil": [AssetWorldMetadata.MINIMAP_FARM_PATCH, "rect"],
+		"terrain.dirt_path": [AssetWorldMetadata.MINIMAP_PATH_SHAPE, "tiles"],
+		"object.fence_horizontal": [AssetWorldMetadata.MINIMAP_FENCE_LINE, "tiles"],
+		"object.tree": [AssetWorldMetadata.MINIMAP_TREE_DOT, "dot"],
+		"object.sign": [AssetWorldMetadata.MINIMAP_SIGN_DOT, "dot"],
+		"placed_object": [AssetWorldMetadata.MINIMAP_PLACED_OBJECT_DOT, "dot"],
+		"npc": [AssetWorldMetadata.MINIMAP_NPC_DOT, "dot"],
+	}
+	for contract_id in expected_minimap_contract.keys():
+		if not AssetWorldMetadata.minimap_visible(String(contract_id)):
+			push_error("%s must be minimap-visible for the live schematic" % contract_id)
+			quit(1)
+			return
+		var contract: Array = expected_minimap_contract[contract_id] as Array
+		if AssetWorldMetadata.minimap_kind(String(contract_id)) != String(contract[0]) \
+				or AssetWorldMetadata.minimap_shape(String(contract_id)) != String(contract[1]):
+			push_error("%s has the wrong minimap kind/shape metadata" % contract_id)
+			quit(1)
+			return
+		if AssetWorldMetadata.minimap_priority(String(contract_id)) <= 0:
+			push_error("%s needs a positive minimap draw priority" % contract_id)
+			quit(1)
+			return
+	if AssetWorldMetadata.minimap_footprint("object.barn").size.x <= 0 \
+			or AssetWorldMetadata.minimap_footprint("terrain.tilled_soil").size.x <= 0:
+		push_error("Building/farm minimap footprints must be declared in AssetWorldMetadata")
+		quit(1)
+		return
+	if not (AssetWorldMetadata.interaction_enabled("object.sign") and AssetWorldMetadata.interaction_enabled("npc")):
+		push_error("AssetWorldMetadata must declare sign/NPC interaction")
+		quit(1)
+		return
+	# Asset collision must now distinguish final sprite-shaped collision from tile/grid
+	# fallback proxies. Tile rectangles are allowed for terrain and placement proxies, but
+	# the live barn/tree/fence runtime colliders must be authored from metadata shapes.
+	for collision_type_name in [
+		AssetWorldMetadata.COLLISION_CIRCLE,
+		AssetWorldMetadata.COLLISION_RECT,
+		AssetWorldMetadata.COLLISION_MULTI_RECT,
+		AssetWorldMetadata.COLLISION_POLYGON,
+		AssetWorldMetadata.COLLISION_MULTI_POLYGON,
+		AssetWorldMetadata.COLLISION_LINE,
+		AssetWorldMetadata.COLLISION_TILE_RECT_FALLBACK,
+		AssetWorldMetadata.COLLISION_ALPHA_MASK_SOURCE,
+		AssetWorldMetadata.COLLISION_GENERATED_POLYGON_FROM_ALPHA,
+	]:
+		if String(collision_type_name).is_empty():
+			push_error("AssetWorldMetadata exposes an empty collision type constant")
+			quit(1)
+			return
+	if AssetWorldMetadata.collision_type("object.barn") != AssetWorldMetadata.COLLISION_MULTI_POLYGON:
+		push_error("Barn must use multi-polygon asset collision, not a tile rectangle as final collision")
+		quit(1)
+		return
+	if AssetWorldMetadata.collision_shapes("object.barn").size() < 2:
+		push_error("Barn must declare multiple asset-shaped collision polygons")
+		quit(1)
+		return
+	if AssetWorldMetadata.collision_tile_proxy("object.barn").size.x <= 0 \
+			or AssetWorldMetadata.collision_rect("object.barn").size.x > 0:
+		push_error("Barn needs a placement proxy, while final collision_rect remains empty")
+		quit(1)
+		return
+	if not AssetWorldMetadata.collision_precision("object.barn").contains("asset") \
+			or AssetWorldMetadata.collision_source("object.barn").is_empty():
+		push_error("Barn collision metadata must record asset-derived precision/source notes")
+		quit(1)
+		return
+	if AssetWorldMetadata.collision_type("object.tree") != AssetWorldMetadata.COLLISION_CIRCLE \
+			or AssetWorldMetadata.collision_anchor("object.tree") != "sprite_bottom_center" \
+			or AssetWorldMetadata.trunk_radius("object.tree") <= 0.0 \
+			or AssetWorldMetadata.trunk_offset("object.tree").y > 0.0:
+		push_error("Tree collision must be a compact trunk/base circle anchored at the sprite base")
+		quit(1)
+		return
+	var fence_shapes: Array = AssetWorldMetadata.collision_shapes("object.fence_horizontal")
+	if AssetWorldMetadata.collision_type("object.fence_horizontal") != AssetWorldMetadata.COLLISION_LINE \
+			or fence_shapes.is_empty() \
+			or String((fence_shapes[0] as Dictionary).get("type", "")) != AssetWorldMetadata.COLLISION_LINE \
+			or float((fence_shapes[0] as Dictionary).get("thickness", 999.0)) > 12.0:
+		push_error("Fence collision must be a thin line/segment, not fat tile cells")
+		quit(1)
+		return
+	# Collision build + minimap truth mode are registry-driven (not hand-patched).
+	var overworld_map_source: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	var homestead_map_source: String = FileAccess.get_file_as_string("res://world/homestead_map.gd")
+	for collision_source_snippet in [
+		"_add_limezu_asset_collider",
+		"_draw_limezu_asset_collision_debug",
+		"_draw_limezu_tile_fallback_debug",
+		"AssetWorldMetadata.collision_shapes",
+		"Blocked by barn (placement proxy)",
+	]:
+		if not overworld_map_source.contains(collision_source_snippet):
+			push_error("OverworldMap asset-collision path is missing '%s'" % collision_source_snippet)
+			quit(1)
+			return
+	if overworld_map_source.contains("_add_limezu_rect_collider") \
+			or overworld_map_source.contains("LIMEZU_BARN_COLLIDER_RECT"):
+		push_error("OverworldMap still contains the retired LimeZu tile-rectangle collider path")
+		quit(1)
+		return
+	# HomesteadMap delegates shape instancing to the shared PlacedObjectCollision builder so
+	# curated + placed objects build collision identically (one source of truth).
+	if not homestead_map_source.contains("PlacedObjectCollision.build_shapes_into"):
+		push_error("HomesteadMap must build collision via the shared PlacedObjectCollision builder")
+		quit(1)
+		return
+	var placed_collision_source: String = FileAccess.get_file_as_string("res://systems/world/placed_object_collision.gd")
+	for placed_shape_snippet in [
+		"func build_shapes_into(",
+		"func apply_to_placed(",
+		"CollisionPolygon2D",
+		"CircleShape2D",
+		"RectangleShape2D",
+		"AssetWorldMetadata.collision_shapes",
+	]:
+		if not placed_collision_source.contains(placed_shape_snippet):
+			push_error("PlacedObjectCollision builder is missing '%s'" % placed_shape_snippet)
+			quit(1)
+			return
+	# Placed objects use the asset-metadata builder + tag debug footprints for the overlay.
+	var sw_placement_source: String = FileAccess.get_file_as_string("res://systems/building_placement_system.gd")
+	for placement_snippet in [
+		"PlacedObjectCollision.apply_to_placed",
+		"AssetWorldMetadata.asset_id_for_placeable",
+		"debug_footprint_tiles",
+	]:
+		if not sw_placement_source.contains(placement_snippet):
+			push_error("BuildingPlacementSystem placed-object collision path is missing '%s'" % placement_snippet)
+			quit(1)
+			return
+	# At least fence/sign/crate/building placeables map to explicit asset metadata.
+	for placeable_id in ["fence_segment", "signpost", "crate", "barn_shell"]:
+		if AssetWorldMetadata.asset_id_for_placeable(placeable_id).is_empty():
+			push_error("Buildable '%s' has no AssetWorldMetadata mapping (or documented fallback)" % placeable_id)
+			quit(1)
+			return
+	if not FileAccess.file_exists("res://tools/art/limezu_collision_mask_builder.py"):
+		push_error("Local LimeZu collision mask builder tool is missing")
+		quit(1)
+		return
+	var collision_tool_source: String = FileAccess.get_file_as_string("res://tools/art/limezu_collision_mask_builder.py")
+	for collision_tool_snippet in [
+		"alpha_bounds",
+		"collision_masks",
+		"collision_review",
+		"candidate_polygon",
+		"lower-body-only",
+		"anchor-mode",
+	]:
+		if not collision_tool_source.contains(collision_tool_snippet):
+			push_error("Collision mask builder is missing '%s'" % collision_tool_snippet)
+			quit(1)
+			return
+	var live_capture_source: String = FileAccess.get_file_as_string("res://tools/live_visual_capture.gd")
+	for live_capture_snippet in [
+		"live_limezu_barn_pixel_collision_overlay.png",
+		"live_limezu_tree_pixel_collision_overlay.png",
+		"live_limezu_fence_pixel_collision_overlay.png",
+		"live_limezu_minimap_after_pixel_collision.png",
+		"live_limezu_farm_prompt_after_pixel_collision.png",
+	]:
+		if not live_capture_source.contains(live_capture_snippet):
+			push_error("Live visual capture is missing pixel-collision output '%s'" % live_capture_snippet)
+			quit(1)
+			return
+	var minimap_live_source: String = FileAccess.get_file_as_string("res://ui/minimap_panel.gd")
+	if not minimap_live_source.contains("_truth_mode"):
+		push_error("Minimap is missing truth mode (phantom bands/plots not suppressed in the live slice)")
+		quit(1)
+		return
+	if not minimap_live_source.contains("not _truth_mode") or not minimap_live_source.contains("_plots.keys() if show_schematic else []"):
+		push_error("Default truth-mode minimap must suppress phantom schematic bands and LandRegistry plot squares")
+		quit(1)
+		return
+	for draw_kind in [
+		"building_footprint",
+		"farm_patch",
+		"path_shape",
+		"fence_line",
+		"tree_dot",
+		"npc_dot",
+		"sign_dot",
+	]:
+		if not minimap_live_source.contains(draw_kind):
+			push_error("Minimap renderer is missing drawing support for '%s'" % draw_kind)
+			quit(1)
+			return
+	var controller_live_source: String = FileAccess.get_file_as_string("res://world/overworld_controller.gd")
+	if not controller_live_source.contains("set_truth_mode"):
+		push_error("OverworldController must put the live LimeZu minimap into truth mode")
+		quit(1)
+		return
+	if not controller_live_source.contains("limezu_minimap_bounds") or not controller_live_source.contains("_limezu_actor_minimap_feature") or not controller_live_source.contains("_limezu_sign_minimap_feature"):
+		push_error("OverworldController must source live minimap bounds/features and append NPC/sign markers")
+		quit(1)
+		return
+	var placement_source: String = FileAccess.get_file_as_string("res://systems/building_placement_system.gd")
+	if not placement_source.contains("func minimap_features()") or not placement_source.contains("placed_node.visible") or not controller_live_source.contains("minimap_features"):
+		push_error("Visible player-placed objects must have a safe minimap feature path")
+		quit(1)
+		return
+	for overlay_snippet in [
+		"CollisionDebugLegend",
+		"Red: asset collision",
+		"Red hatch: tile fallback",
+		"Blue: spawn",
+		"Green: farm patch",
+		"Yellow: interaction",
+		"Purple: minimap feature",
+		"_draw_limezu_asset_collision_debug",
+		"_draw_limezu_tile_fallback_debug",
+		"_limezu_visual_tile_rect(Vector2i(gx, gy))",
+		"AssetWorldMetadata.minimap_footprint(\"object.barn\")",
+	]:
+		if not overworld_map_source.contains(overlay_snippet):
+			push_error("Collision/minimap overlay source is missing snippet '%s'" % overlay_snippet)
+			quit(1)
+			return
 	print("Project smoke test passed.")
 	quit(0)

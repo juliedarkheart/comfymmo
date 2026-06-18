@@ -50,6 +50,26 @@ const COLLISION_FARM_FILE := OUT_DIR + "/live_limezu_farm_prompt_after_collision
 const COLLISION_BUILD_FILE := OUT_DIR + "/live_limezu_build_after_collision_interaction.png"
 const COLLISION_ADMIN_FILE := OUT_DIR + "/live_limezu_admin_after_collision_interaction.png"
 const COLLISION_DEBUG_FILE := OUT_DIR + "/live_limezu_collision_debug_after_collision_interaction.png"
+# This pass: asset-aware collision metadata + minimap truth.
+const MINIMAP_TRUTH_FILE := OUT_DIR + "/live_limezu_minimap_truth_pass.png"
+const ASSET_COLLISION_FILE := OUT_DIR + "/live_limezu_asset_collision_overlay.png"
+const BARN_COLLISION_FILE := OUT_DIR + "/live_limezu_barn_collision_debug.png"
+const FARM_META_FILE := OUT_DIR + "/live_limezu_farm_prompt_asset_metadata.png"
+# This pass: placed-object instance collision + minimap integration.
+const PLACED_COLLISION_FILE := OUT_DIR + "/live_limezu_placed_object_collision_overlay.png"
+const PLACED_MINIMAP_FILE := OUT_DIR + "/live_limezu_placed_object_minimap.png"
+const BUILD_INSTANCE_FILE := OUT_DIR + "/live_limezu_build_after_instance_collision.png"
+const MINIMAP_INSTANCE_FILE := OUT_DIR + "/live_limezu_minimap_after_instance_collision.png"
+const MINIMAP_SCHEMATIC_FILE := OUT_DIR + "/live_limezu_minimap_schematic.png"
+const MINIMAP_SCHEMATIC_CLOSEUP_FILE := OUT_DIR + "/live_limezu_minimap_schematic_closeup.png"
+const OVERLAY_LEGEND_FILE := OUT_DIR + "/live_limezu_overlay_legend.png"
+const FARM_OVERLAY_ALIGNMENT_FILE := OUT_DIR + "/live_limezu_farm_overlay_alignment.png"
+const COLLISION_OVERLAY_ALIGNMENT_FILE := OUT_DIR + "/live_limezu_collision_overlay_alignment.png"
+const PIXEL_BARN_COLLISION_FILE := OUT_DIR + "/live_limezu_barn_pixel_collision_overlay.png"
+const PIXEL_TREE_COLLISION_FILE := OUT_DIR + "/live_limezu_tree_pixel_collision_overlay.png"
+const PIXEL_FENCE_COLLISION_FILE := OUT_DIR + "/live_limezu_fence_pixel_collision_overlay.png"
+const PIXEL_MINIMAP_FILE := OUT_DIR + "/live_limezu_minimap_after_pixel_collision.png"
+const PIXEL_FARM_PROMPT_FILE := OUT_DIR + "/live_limezu_farm_prompt_after_pixel_collision.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -81,7 +101,7 @@ func _initialize() -> void:
 		opening_img.save_png(LAYERING_CLEANUP_FILE)
 		opening_img.save_png(UI_REWRITE_OPENING_FILE)
 		opening_img.save_png(AREA_EXPANSION_OPENING_FILE)
-		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE); opening_img.save_png(POLISH_OPENING_FILE); opening_img.save_png(ICON_ALIGN_HOTBAR_FILE); opening_img.save_png(HUD_POLISH_OPENING_FILE); opening_img.save_png(COLLISION_OPENING_FILE); opening_img.get_region(Rect2i(0, 0, 360, 230)).save_png(HUD_POLISH_CLOSEUP_FILE)
+		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE); opening_img.save_png(POLISH_OPENING_FILE); opening_img.save_png(ICON_ALIGN_HOTBAR_FILE); opening_img.save_png(HUD_POLISH_OPENING_FILE); opening_img.save_png(COLLISION_OPENING_FILE); opening_img.save_png(MINIMAP_TRUTH_FILE); opening_img.save_png(PLACED_MINIMAP_FILE); opening_img.save_png(MINIMAP_INSTANCE_FILE); opening_img.save_png(MINIMAP_SCHEMATIC_FILE); opening_img.save_png(PIXEL_MINIMAP_FILE); opening_img.get_region(Rect2i(940, 8, 332, 184)).save_png(OUT_DIR + "/live_limezu_minimap_closeup_truth.png"); opening_img.get_region(Rect2i(940, 8, 332, 184)).save_png(MINIMAP_SCHEMATIC_CLOSEUP_FILE); opening_img.get_region(Rect2i(0, 0, 360, 230)).save_png(HUD_POLISH_CLOSEUP_FILE)
 		print("[live-capture] saved ", OUT_FILE)
 		print("[live-capture] saved ", UI_REWRITE_OPENING_FILE)
 		print("[live-capture] saved ", AREA_EXPANSION_OPENING_FILE)
@@ -122,7 +142,7 @@ func _initialize() -> void:
 			await process_frame
 		var build_img: Image = _grab_image()
 		if build_img != null and build_img.save_png(PLAYABILITY_BUILD_MENU_FILE) == OK:
-			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); build_img.save_png(POLISH_BUILD_FILE); build_img.save_png(COLLISION_BUILD_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
+			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); build_img.save_png(POLISH_BUILD_FILE); build_img.save_png(BUILD_INSTANCE_FILE); build_img.save_png(COLLISION_BUILD_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
 		else:
 			push_warning("[live-capture] failed to save build menu screenshot")
 	else:
@@ -149,7 +169,7 @@ func _initialize() -> void:
 				await process_frame
 			var farm_img: Image = _grab_image()
 			if farm_img != null and farm_img.save_png(PLAYABILITY_FARM_PROMPT_FILE) == OK:
-				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); farm_img.save_png(POLISH_PROMPT_FILE); farm_img.save_png(POLISH_FARM_FILE); farm_img.save_png(COLLISION_FARM_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
+				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); farm_img.save_png(POLISH_PROMPT_FILE); farm_img.save_png(POLISH_FARM_FILE); farm_img.save_png(COLLISION_FARM_FILE); farm_img.save_png(FARM_META_FILE); farm_img.save_png(PIXEL_FARM_PROMPT_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
 			else:
 				push_warning("[live-capture] failed to save farm prompt screenshot")
 	_close_review_overlays()
@@ -163,6 +183,14 @@ func _initialize() -> void:
 			await process_frame
 		var dbg_img: Image = _grab_image()
 		if dbg_img != null and dbg_img.save_png(COLLISION_DEBUG_FILE) == OK:
+			dbg_img.save_png(ASSET_COLLISION_FILE); dbg_img.save_png(PLACED_COLLISION_FILE)
+			dbg_img.get_region(Rect2i(700, 0, 580, 540)).save_png(BARN_COLLISION_FILE)
+			dbg_img.save_png(OVERLAY_LEGEND_FILE)
+			dbg_img.get_region(Rect2i(0, 120, 640, 560)).save_png(FARM_OVERLAY_ALIGNMENT_FILE)
+			dbg_img.get_region(Rect2i(600, 0, 680, 560)).save_png(COLLISION_OVERLAY_ALIGNMENT_FILE)
+			dbg_img.get_region(Rect2i(600, 0, 680, 560)).save_png(PIXEL_BARN_COLLISION_FILE)
+			dbg_img.get_region(Rect2i(0, 190, 680, 470)).save_png(PIXEL_TREE_COLLISION_FILE)
+			dbg_img.get_region(Rect2i(360, 0, 560, 220)).save_png(PIXEL_FENCE_COLLISION_FILE)
 			print("[live-capture] saved ", COLLISION_DEBUG_FILE)
 	quit(0)
 

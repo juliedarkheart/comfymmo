@@ -53,8 +53,8 @@ const LIMEZU_APPROACH_PATH_TILES: Array[Vector2i] = [
 	Vector2i(20, 18),
 ]
 const LIMEZU_TILLED_SOIL_RECT := Rect2i(2, 12, 3, 3)
+const LIMEZU_BARN_BASE_TILE := Vector2i(13, 13)
 const LIMEZU_BARN_VISUAL_FOOTPRINT := Rect2i(9, 4, 9, 10)
-const LIMEZU_BARN_COLLIDER_RECT := Rect2i(9, 4, 9, 10)
 const LIMEZU_CRATE_VISUAL_FOOTPRINT := Rect2i(10, 13, 1, 1)
 const LIMEZU_SIGN_VISUAL_FOOTPRINTS: Array[Rect2i] = [
 	Rect2i(9, 11, 1, 2),
@@ -126,6 +126,112 @@ func _projected_bounds(rect: Rect2i) -> Rect2:
 		max_p = max_p.max(c as Vector2)
 	return Rect2(min_p, max_p - min_p)
 
+func _limezu_tile_cell_size() -> Vector2:
+	var ts: Vector2i = WorldProjection.tile_size(visual_projection_mode())
+	return Vector2(ts.x, ts.y)
+
+## Visual ground tiles in the LimeZu slice are centered on grid_to_world(tile).
+func _limezu_visual_tile_rect(tile: Vector2i) -> Rect2:
+	var cell: Vector2 = _limezu_tile_cell_size()
+	return Rect2(grid_to_world(tile) - cell * 0.5, cell)
+
+## Collision cells are gameplay-space tile rects; keep these distinct from visual ground.
+func _limezu_collision_tile_rect(tile: Vector2i) -> Rect2:
+	return Rect2(grid_to_world(tile), _limezu_tile_cell_size())
+
+func _limezu_visual_rect_world(rect: Rect2i) -> Rect2:
+	var bounds := Rect2()
+	var first := true
+	for gy in range(rect.position.y, rect.end.y):
+		for gx in range(rect.position.x, rect.end.x):
+			var tile_rect := _limezu_visual_tile_rect(Vector2i(gx, gy))
+			if first:
+				bounds = tile_rect
+				first = false
+			else:
+				bounds = bounds.merge(tile_rect)
+	return bounds
+
+func _limezu_collision_rect_world(rect: Rect2i) -> Rect2:
+	var cell: Vector2 = _limezu_tile_cell_size()
+	return Rect2(grid_to_world(rect.position), Vector2(rect.size.x * cell.x, rect.size.y * cell.y))
+
+func _limezu_object_origin(base_tile: Vector2i) -> Vector2:
+	return grid_to_world(base_tile) + Vector2(0, 16)
+
+func limezu_minimap_bounds() -> Rect2:
+	return _limezu_visual_rect_world(LIMEZU_PLAYABLE_AREA_BOUNDS).grow(16.0)
+
+func _limezu_minimap_feature(asset_id: String, extras: Dictionary = {}) -> Dictionary:
+	var feature := extras.duplicate(true)
+	feature["asset_id"] = asset_id
+	feature["kind"] = String(feature.get("kind", AssetWorldMetadata.minimap_kind(asset_id)))
+	feature["color"] = feature.get("color", AssetWorldMetadata.minimap_color(asset_id))
+	feature["priority"] = int(feature.get("priority", AssetWorldMetadata.minimap_priority(asset_id)))
+	var label: String = AssetWorldMetadata.minimap_label(asset_id)
+	if not label.is_empty() and not feature.has("label"):
+		feature["label"] = label
+	return feature
+
+func _limezu_tile_rects_world(tiles: Array) -> Array:
+	var rects: Array = []
+	for tile_variant in tiles:
+		rects.append(_limezu_visual_tile_rect(tile_variant as Vector2i))
+	return rects
+
+func _limezu_rect_center(rect: Rect2) -> Vector2:
+	return rect.position + rect.size * 0.5
+
+## Real, present LimeZu slice features for the truth-mode minimap. No phantom
+## region bands, plot squares, or future-world promises live here.
+func limezu_minimap_features() -> Array:
+	var features: Array = []
+	if AssetWorldMetadata.minimap_visible("terrain.dirt_path"):
+		var path_tiles: Array[Vector2i] = []
+		for tile in LIMEZU_CURATED_PATH_TILES + LIMEZU_APPROACH_PATH_TILES:
+			if _limezu_should_draw_path(tile):
+				path_tiles.append(tile)
+		if not path_tiles.is_empty():
+			features.append(_limezu_minimap_feature("terrain.dirt_path", {
+				"tile_rects_world": _limezu_tile_rects_world(path_tiles),
+				"pos": _limezu_rect_center(_limezu_visual_rect_world(Rect2i(7, 14, 14, 5))),
+			}))
+	if AssetWorldMetadata.minimap_visible("object.fence_horizontal"):
+		var fence_tiles: Array[Vector2i] = []
+		for offset in range(FENCE_LENGTH):
+			fence_tiles.append(FENCE_START_TILE + Vector2i(offset, 0))
+		for fence_tile in LIMEZU_EDGE_FENCE_TILES:
+			fence_tiles.append(fence_tile)
+		features.append(_limezu_minimap_feature("object.fence_horizontal", {
+			"tile_rects_world": _limezu_tile_rects_world(fence_tiles),
+			"pos": grid_to_world(FENCE_START_TILE + Vector2i(int(FENCE_LENGTH / 2), 0)),
+		}))
+	if AssetWorldMetadata.minimap_visible("object.tree"):
+		for tree_tile in TREE_TILES:
+			features.append(_limezu_minimap_feature("object.tree", {"pos": grid_to_world(tree_tile as Vector2i)}))
+		for edge_tree_tile in LIMEZU_EDGE_TREE_TILES:
+			features.append(_limezu_minimap_feature("object.tree", {
+				"pos": grid_to_world(edge_tree_tile),
+				"alpha": 0.72,
+				"priority": AssetWorldMetadata.minimap_priority("object.tree") - 1,
+			}))
+	if AssetWorldMetadata.minimap_visible("terrain.tilled_soil"):
+		var farm_rect: Rect2 = _limezu_visual_rect_world(LIMEZU_TILLED_SOIL_RECT)
+		features.append(_limezu_minimap_feature("terrain.tilled_soil", {
+			"rect_world": farm_rect,
+			"pos": _limezu_rect_center(farm_rect),
+		}))
+	if AssetWorldMetadata.minimap_visible("object.barn"):
+		var barn_footprint: Rect2i = AssetWorldMetadata.minimap_footprint("object.barn")
+		if barn_footprint.size.x <= 0 or barn_footprint.size.y <= 0:
+			barn_footprint = LIMEZU_BARN_VISUAL_FOOTPRINT
+		var barn_rect: Rect2 = _limezu_visual_rect_world(barn_footprint)
+		features.append(_limezu_minimap_feature("object.barn", {
+			"rect_world": barn_rect,
+			"pos": _limezu_rect_center(barn_rect),
+		}))
+	return features
+
 ## Union (world px) of the homestead core, every static plot (grown by the path
 ## margin), and the fixed town/forest areas — the real extent of the world.
 func _content_bounds_world() -> Rect2:
@@ -183,37 +289,61 @@ func _build_homestead_colliders() -> void:
 	if not LiveVisualPolicy.live_limezu_slice():
 		super._build_homestead_colliders()
 		return
-	_add_limezu_rect_collider("LimeZuBarnCollision", LIMEZU_BARN_COLLIDER_RECT)
-	for tree_tile in TREE_TILES:
-		_add_tree(tree_tile as Vector2i)
-	_add_fence_line(FENCE_START_TILE, FENCE_LENGTH)
+	# Registry-driven: barn polygons, tree base circles, and fence strips all come from
+	# AssetWorldMetadata. Tile rectangles are placement proxies only, not physics.
+	_add_limezu_asset_collider("LimeZuBarnCollision", "object.barn", _limezu_object_origin(LIMEZU_BARN_BASE_TILE))
+	if AssetWorldMetadata.is_blocking("object.tree"):
+		for tree_tile in _limezu_blocking_tree_tiles():
+			_add_tree(tree_tile)
+	if AssetWorldMetadata.is_blocking("object.fence_horizontal"):
+		_add_fence_line(FENCE_START_TILE, FENCE_LENGTH)
+		for edge_fence_tile in LIMEZU_EDGE_FENCE_TILES:
+			_add_fence_line(edge_fence_tile, 1)
 
-func _add_limezu_rect_collider(label: String, rect: Rect2i) -> void:
-	var tile_size: Vector2i = WorldProjection.tile_size(visual_projection_mode())
+## Barn collision footprint, declared in AssetWorldMetadata (building body only — the silo
+## dome top rows + empty right column are trimmed from the old coarse 9x10 block).
+func _lz_barn_tile_proxy_rect() -> Rect2i:
+	return AssetWorldMetadata.collision_tile_proxy("object.barn")
+
+func _limezu_blocking_tree_tiles() -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	for tree_tile in TREE_TILES:
+		tiles.append(tree_tile as Vector2i)
+	for edge_tree_tile in LIMEZU_EDGE_TREE_TILES:
+		tiles.append(edge_tree_tile)
+	return tiles
+
+func _limezu_blocking_fence_tiles() -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	for offset in range(FENCE_LENGTH):
+		tiles.append(FENCE_START_TILE + Vector2i(offset, 0))
+	for edge_fence_tile in LIMEZU_EDGE_FENCE_TILES:
+		tiles.append(edge_fence_tile)
+	return tiles
+
+func _add_limezu_asset_collider(label: String, asset_id: String, origin: Vector2) -> void:
 	var body := StaticBody2D.new()
 	body.name = label
-	body.position = grid_to_world(rect.position) + Vector2(rect.size.x * tile_size.x, rect.size.y * tile_size.y) * 0.5
+	body.position = origin
 	body.set_meta("limezu_collider", true)
+	body.set_meta("asset_id", asset_id)
 	gameplay_layer.add_child(body)
-
-	var collision := CollisionShape2D.new()
-	collision.name = "CollisionShape2D"
-	var shape := RectangleShape2D.new()
-	shape.size = Vector2(rect.size.x * tile_size.x, rect.size.y * tile_size.y)
-	collision.shape = shape
-	body.add_child(collision)
+	_add_asset_collision_shapes(body, asset_id)
 
 func get_static_blocked_tiles() -> Array[Vector2i]:
 	if not LiveVisualPolicy.live_limezu_slice():
 		return super.get_static_blocked_tiles()
 	var blocked: Array[Vector2i] = []
-	for ty in range(LIMEZU_BARN_COLLIDER_RECT.position.y, LIMEZU_BARN_COLLIDER_RECT.end.y):
-		for tx in range(LIMEZU_BARN_COLLIDER_RECT.position.x, LIMEZU_BARN_COLLIDER_RECT.end.x):
+	var barn_rect: Rect2i = _lz_barn_tile_proxy_rect()
+	for ty in range(barn_rect.position.y, barn_rect.end.y):
+		for tx in range(barn_rect.position.x, barn_rect.end.x):
 			blocked.append(Vector2i(tx, ty))
-	for tree_tile in TREE_TILES:
-		blocked.append(tree_tile as Vector2i)
-	for offset in range(FENCE_LENGTH):
-		blocked.append(FENCE_START_TILE + Vector2i(offset, 0))
+	if AssetWorldMetadata.is_blocking("object.tree"):
+		for tree_tile in _limezu_blocking_tree_tiles():
+			blocked.append(tree_tile)
+	if AssetWorldMetadata.is_blocking("object.fence_horizontal"):
+		for fence_tile in _limezu_blocking_fence_tiles():
+			blocked.append(fence_tile)
 	return blocked
 
 func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = []) -> Dictionary:
@@ -225,20 +355,21 @@ func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = [])
 		return {"valid": false, "reason": "Reserved spawn"}
 	if tile in occupied_tiles:
 		return {"valid": false, "reason": "Occupied"}
-	if LIMEZU_BARN_COLLIDER_RECT.has_point(tile):
-		return {"valid": false, "reason": "Blocked by barn"}
-	if tile in TREE_TILES:
+	if _lz_barn_tile_proxy_rect().has_point(tile):
+		return {"valid": false, "reason": "Blocked by barn (placement proxy)"}
+	if AssetWorldMetadata.is_blocking("object.tree") and tile in _limezu_blocking_tree_tiles():
 		return {"valid": false, "reason": "Blocked by tree"}
-	for offset in range(FENCE_LENGTH):
-		if tile == FENCE_START_TILE + Vector2i(offset, 0):
-			return {"valid": false, "reason": "Blocked by fence"}
+	if AssetWorldMetadata.is_blocking("object.fence_horizontal"):
+		for fence_tile in _limezu_blocking_fence_tiles():
+			if tile == fence_tile:
+				return {"valid": false, "reason": "Blocked by fence"}
 	return {"valid": true, "reason": ""}
 
 # --- Dev collision debug overlay (off by default; toggled via the admin panel) ----------
-# Draws translucent cells over the blocked footprints (red), the reserved spawn (blue), and
-# the farm test patch (green) so collision-vs-art alignment can be verified in play without
-# guessing. Map-static (does not follow the player); a pure diagnostic, not a play feature.
+# Red = gameplay collision, blue = spawn, green = farm patch, yellow = interaction radius,
+# purple = minimap-visible feature. Map-static diagnostic only; not a play feature.
 var _collision_debug: Node2D = null
+var _collision_debug_legend: CanvasLayer = null
 
 func set_collision_debug(enabled: bool) -> void:
 	if enabled:
@@ -250,28 +381,180 @@ func set_collision_debug(enabled: bool) -> void:
 			gameplay_layer.add_child(_collision_debug)
 		_collision_debug.visible = true
 		_collision_debug.queue_redraw()
+		_ensure_collision_debug_legend()
+		_collision_debug_legend.visible = true
 	elif _collision_debug != null:
 		_collision_debug.visible = false
+		if _collision_debug_legend != null:
+			_collision_debug_legend.visible = false
 
 func is_collision_debug_enabled() -> bool:
 	return _collision_debug != null and _collision_debug.visible
 
+func _limezu_collision_debug_instances() -> Array:
+	var instances: Array = []
+	if AssetWorldMetadata.has_asset_collision_shapes("object.barn"):
+		instances.append({"asset_id": "object.barn", "origin": _limezu_object_origin(LIMEZU_BARN_BASE_TILE)})
+	if AssetWorldMetadata.has_asset_collision_shapes("object.tree"):
+		for tree_tile in _limezu_blocking_tree_tiles():
+			instances.append({"asset_id": "object.tree", "origin": _limezu_object_origin(tree_tile)})
+	if AssetWorldMetadata.has_asset_collision_shapes("object.fence_horizontal"):
+		for fence_tile in _limezu_blocking_fence_tiles():
+			instances.append({"asset_id": "object.fence_horizontal", "origin": _limezu_object_origin(fence_tile)})
+	return instances
+
+func _debug_points(origin: Vector2, points: Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for point_variant in points:
+		out.append(origin + (point_variant as Vector2))
+	return out
+
+func _debug_polyline(points: PackedVector2Array) -> PackedVector2Array:
+	var out := PackedVector2Array(points)
+	if out.size() > 0:
+		out.append(out[0])
+	return out
+
+func _draw_limezu_asset_collision_debug(asset_id: String, origin: Vector2) -> void:
+	for shape_variant in AssetWorldMetadata.collision_shapes(asset_id):
+		var shape: Dictionary = shape_variant as Dictionary
+		match String(shape.get("type", AssetWorldMetadata.collision_type(asset_id))):
+			AssetWorldMetadata.COLLISION_POLYGON:
+				var poly: PackedVector2Array = _debug_points(origin, shape.get("points", []) as Array)
+				if poly.size() >= 3:
+					_collision_debug.draw_colored_polygon(poly, Color(0.92, 0.18, 0.18, 0.36))
+					_collision_debug.draw_polyline(_debug_polyline(poly), Color(1.0, 0.3, 0.25, 0.96), 2.0)
+			AssetWorldMetadata.COLLISION_CIRCLE, AssetWorldMetadata.COLLISION_TRUNK:
+				var center: Vector2 = origin + (shape.get("offset", Vector2.ZERO) as Vector2)
+				var radius: float = maxf(float(shape.get("radius", 8.0)), 1.0)
+				_collision_debug.draw_circle(center, radius, Color(0.92, 0.18, 0.18, 0.36))
+				_collision_debug.draw_arc(center, radius, 0.0, TAU, 40, Color(1.0, 0.3, 0.25, 0.96), 2.0)
+			AssetWorldMetadata.COLLISION_LINE:
+				var from_point: Vector2 = origin + (shape.get("from", Vector2.ZERO) as Vector2)
+				var to_point: Vector2 = origin + (shape.get("to", Vector2.ZERO) as Vector2)
+				var thickness: float = maxf(float(shape.get("thickness", 4.0)), 1.0)
+				_collision_debug.draw_line(from_point, to_point, Color(0.92, 0.18, 0.18, 0.42), thickness)
+				_collision_debug.draw_line(from_point, to_point, Color(1.0, 0.3, 0.25, 0.96), 2.0)
+				_collision_debug.draw_circle(from_point, thickness * 0.35, Color(1.0, 0.3, 0.25, 0.75))
+				_collision_debug.draw_circle(to_point, thickness * 0.35, Color(1.0, 0.3, 0.25, 0.75))
+			AssetWorldMetadata.COLLISION_RECT:
+				var size: Vector2 = shape.get("size", Vector2.ONE) as Vector2
+				var center: Vector2 = origin + (shape.get("offset", Vector2.ZERO) as Vector2)
+				var rect := Rect2(center - size * 0.5, size)
+				_collision_debug.draw_rect(rect, Color(0.92, 0.18, 0.18, 0.34))
+				_collision_debug.draw_rect(rect, Color(1.0, 0.3, 0.25, 0.96), false, 2.0)
+
+func _draw_limezu_tile_fallback_debug(rect: Rect2) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	_collision_debug.draw_rect(rect, Color(1.0, 0.15, 0.1, 0.08))
+	_collision_debug.draw_rect(rect, Color(1.0, 0.3, 0.25, 0.32), false, 1.0)
+	var step := 16.0
+	var x := rect.position.x - rect.size.y
+	while x < rect.end.x:
+		_collision_debug.draw_line(Vector2(x, rect.end.y), Vector2(x + rect.size.y, rect.position.y), Color(1.0, 0.3, 0.25, 0.22), 1.0)
+		x += step
+
+func _ensure_collision_debug_legend() -> void:
+	if _collision_debug_legend != null and is_instance_valid(_collision_debug_legend):
+		return
+	_collision_debug_legend = CanvasLayer.new()
+	_collision_debug_legend.name = "CollisionDebugLegend"
+	_collision_debug_legend.layer = 90
+	add_child(_collision_debug_legend)
+	var panel := PanelContainer.new()
+	panel.name = "LegendPanel"
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.position = Vector2(16, 238)
+	_collision_debug_legend.add_child(panel)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	panel.add_child(margin)
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 2)
+	margin.add_child(rows)
+	for entry in [
+		{"color": Color(1.0, 0.3, 0.25, 0.95), "text": "Red: asset collision"},
+		{"color": Color(1.0, 0.3, 0.25, 0.35), "text": "Red hatch: tile fallback"},
+		{"color": Color(0.5, 0.7, 1.0, 0.95), "text": "Blue: spawn"},
+		{"color": Color(0.4, 1.0, 0.45, 0.95), "text": "Green: farm patch"},
+		{"color": Color(1.0, 0.9, 0.2, 0.95), "text": "Yellow: interaction"},
+		{"color": Color(0.7, 0.4, 0.95, 0.95), "text": "Purple: minimap feature"},
+	]:
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 5)
+		rows.add_child(row)
+		var swatch := ColorRect.new()
+		swatch.color = entry["color"] as Color
+		swatch.custom_minimum_size = Vector2(12, 12)
+		swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(swatch)
+		var label := Label.new()
+		label.text = String(entry["text"])
+		label.add_theme_font_size_override("font_size", 12)
+		label.add_theme_color_override("font_color", Color("#fff2cc"))
+		label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.65))
+		label.add_theme_constant_override("shadow_offset_x", 1)
+		label.add_theme_constant_override("shadow_offset_y", 1)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(label)
+	_collision_debug_legend.visible = false
+
 func _draw_collision_debug() -> void:
-	var ts: Vector2i = WorldProjection.tile_size(visual_projection_mode())
-	var cell := Vector2(ts.x, ts.y)
-	for tile in get_static_blocked_tiles():
-		var r := Rect2(grid_to_world(tile), cell)
-		_collision_debug.draw_rect(r, Color(0.92, 0.18, 0.18, 0.45))
-		_collision_debug.draw_rect(r, Color(1.0, 0.3, 0.25, 0.95), false, 2.0)
-	var spawn_rect := Rect2(grid_to_world(get_spawn_tile()), cell)
+	if LiveVisualPolicy.live_limezu_slice():
+		for instance_variant in _limezu_collision_debug_instances():
+			var instance: Dictionary = instance_variant as Dictionary
+			_draw_limezu_asset_collision_debug(String(instance["asset_id"]), instance["origin"] as Vector2)
+		var barn_proxy_rect: Rect2i = _lz_barn_tile_proxy_rect()
+		if barn_proxy_rect.size.x > 0 and barn_proxy_rect.size.y > 0:
+			_draw_limezu_tile_fallback_debug(_limezu_collision_rect_world(barn_proxy_rect))
+	else:
+		for tile in get_static_blocked_tiles():
+			var r := _limezu_collision_tile_rect(tile)
+			_collision_debug.draw_rect(r, Color(0.92, 0.18, 0.18, 0.45))
+			_collision_debug.draw_rect(r, Color(1.0, 0.3, 0.25, 0.95), false, 2.0)
+	var spawn_rect := _limezu_collision_tile_rect(get_spawn_tile())
 	_collision_debug.draw_rect(spawn_rect, Color(0.3, 0.5, 1.0, 0.6))
 	_collision_debug.draw_rect(spawn_rect, Color(0.5, 0.7, 1.0, 0.95), false, 2.0)
 	if LiveVisualPolicy.live_limezu_slice():
+		var farm_center := Vector2.ZERO
+		var farm_n := 0
 		for gy in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
 			for gx in range(LIMEZU_TILLED_SOIL_RECT.position.x, LIMEZU_TILLED_SOIL_RECT.end.x):
-				var fr := Rect2(grid_to_world(Vector2i(gx, gy)), cell)
+				var fr := _limezu_visual_tile_rect(Vector2i(gx, gy))
 				_collision_debug.draw_rect(fr, Color(0.3, 0.85, 0.35, 0.5))
 				_collision_debug.draw_rect(fr, Color(0.4, 1.0, 0.45, 0.95), false, 2.0)
+				farm_center += fr.position + fr.size * 0.5
+				farm_n += 1
+		# Yellow = interaction radius at the (interactable) farm patch centre (from metadata).
+		if farm_n > 0 and AssetWorldMetadata.interaction_enabled("terrain.tilled_soil"):
+			_collision_debug.draw_arc(farm_center / float(farm_n), LiveVisualPolicy.INTERACTION_RADIUS, 0.0, TAU, 40, Color(1.0, 0.9, 0.2, 0.9), 2.0)
+		# Purple = minimap-visible building (barn) outline (from metadata).
+		if AssetWorldMetadata.minimap_visible("object.barn"):
+			var br: Rect2i = AssetWorldMetadata.minimap_footprint("object.barn")
+			if br.size.x <= 0 or br.size.y <= 0:
+				br = LIMEZU_BARN_VISUAL_FOOTPRINT
+			var brw := _limezu_visual_rect_world(br)
+			_collision_debug.draw_rect(brw, Color(0.7, 0.4, 0.95, 0.9), false, 2.0)
+		if AssetWorldMetadata.minimap_visible("terrain.tilled_soil"):
+			_collision_debug.draw_rect(_limezu_visual_rect_world(LIMEZU_TILLED_SOIL_RECT), Color(0.7, 0.4, 0.95, 0.65), false, 1.5)
+		# Orange = player-PLACED object footprints (distinct from curated red). Solid fill =
+		# asset-metadata-shaped collision, lighter fill = fallback placement proxy, outline-only
+		# = non-blocking decor (metadata_none). Tagged by BuildingPlacementSystem.
+		for child in gameplay_layer.get_children():
+			if not (child is Node2D) or not (child as Node2D).visible or not child.has_meta("debug_footprint_tiles"):
+				continue
+			var placed_kind: String = String(child.get_meta("debug_collision_kind", "proxy"))
+			var placed_fill: float = 0.42 if placed_kind == "metadata_blocking" else (0.22 if placed_kind == "proxy" else 0.0)
+			for placed_tile_variant in (child.get_meta("debug_footprint_tiles") as Array):
+				var placed_rect := _limezu_collision_tile_rect(placed_tile_variant as Vector2i)
+				if placed_fill > 0.0:
+					_collision_debug.draw_rect(placed_rect, Color(1.0, 0.55, 0.12, placed_fill))
+				_collision_debug.draw_rect(placed_rect, Color(1.0, 0.6, 0.18, 0.9), false, 2.0)
 
 func _configure_visual_layers() -> void:
 	ground_layer.z_index = LIMEZU_GROUND_LAYER_Z
@@ -797,7 +1080,7 @@ func _build_limezu_slice() -> void:
 			crop_i += 1
 	# 4) Focal barn (decor, placed low so it is fully on-screen), framing trees on the
 	#    existing tree colliders, and the garden fence on the existing fence colliders.
-	_limezu_object("object.barn", Vector2i(13, 13))
+	_limezu_object("object.barn", LIMEZU_BARN_BASE_TILE)
 	for tree_tile in TREE_TILES:
 		_limezu_object("object.tree", tree_tile as Vector2i)
 	for offset in range(FENCE_LENGTH):

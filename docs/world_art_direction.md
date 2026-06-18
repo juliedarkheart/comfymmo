@@ -14,6 +14,30 @@ fence; visual-only = edge trees, flowers, grass, path, soil, crops, crate; signs
 are interactable but not solid. The full contract + the F7 "Show Collision" debug overlay are
 in `docs/playtest_readiness.md`.
 
+This behaviour is now declared in one authoritative, commit-safe registry —
+`systems/world/asset_world_metadata.gd` (`AssetWorldMetadata`) — which the map, minimap, and
+debug overlay read for each asset's collision footprint, interaction point, and minimap
+visibility. Collision footprints are **curated** (never auto-traced from licensed PNG alpha at
+runtime). The minimap runs in **truth mode** for the live slice (only real features, no
+phantom planned regions/plots).
+
+**Player-placed/build objects use the same model.** `systems/world/placed_object_collision.gd`
+(`PlacedObjectCollision`) is the single shape builder for both curated and placed objects;
+`BuildingPlacementSystem` maps each buildable to a world-asset id and builds metadata collision
+(retiring the generic proxy), or keeps a conservative proxy for unmapped pieces. Placed objects
+also feed the truth-mode minimap and the F7 overlay (orange = placed, distinct from curated
+red). See `docs/playtest_readiness.md`.
+
+The live minimap is allowed to be schematic, but not fictional. Buildings and farms may draw
+as simplified footprints/patches, path and fence data may draw as tiny strips, and player/NPC
+markers may remain dots. Planned town/forest bands, LandRegistry plot squares, and other
+legacy/full-world markers belong in debug/admin views unless those features are visibly present
+in the current LimeZu slice. The debug overlay legend uses the same contract: red solid asset
+collision, red hatch tile fallback/proxy, blue spawn, green farm patch, yellow interaction
+radius, purple minimap-visible feature.
+Visible player placements may use a generic placed-object dot, but any placement hidden from
+the LimeZu opening for source-purity must also stay off the player-facing minimap.
+
 ## UI art direction (LimeZu Modern UI, cozy-survival inspired)
 
 The live UI uses the LimeZu **Modern UI** kit as real 9-patch frames — a Stardew /
@@ -122,11 +146,15 @@ wrong, simplify or resize the surface first; a flat fallback is only for missing
 or deliberately muted blocked/unavailable states.
 
 Collision/interaction rule: gameplay footprints must match the visible LimeZu art.
-The live barn uses an explicit LimeZu footprint collider and blocked-tile rect; trees
-and fences keep aligned blockers; decorative ground/flowers stay visual-only. The
-visible garden bed is wired to the existing farm plot interactions, and LimeZu mode
-uses a slightly wider interaction radius so prompts line up with 32px top-down art
-instead of the old hidden cottage/farm positions.
+Major props/buildings should use asset-shaped metadata (polygons, multi-polygons,
+circles, thin lines, or multi-rects) reviewed against the sprite alpha/silhouette.
+Tile rectangles are allowed for terrain/grid logic and conservative placement
+proxies only. The live barn uses curated lower-body/silo polygons, trees block only
+at compact trunk/base circles, and fences use thin line/strip collision; decorative
+ground/flowers stay visual-only. The visible garden bed is wired to the existing
+farm plot interactions, and LimeZu mode uses a slightly wider interaction radius so
+prompts line up with 32px top-down art instead of the old hidden cottage/farm
+positions.
 
 Small playable-area expansion: the live LimeZu treatment now has a named bounded
 homestead area (`OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS`) around spawn, the barn,

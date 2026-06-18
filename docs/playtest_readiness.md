@@ -1,5 +1,34 @@
 # Playtest Readiness
 
+## Placed-object instance collision + minimap (2026-06-18 follow-up 6)
+
+Player-PLACED/build objects now use the **same** `AssetWorldMetadata` collision model as
+curated world objects — not a separate placement proxy.
+
+- **Shared builder:** `systems/world/placed_object_collision.gd` (`PlacedObjectCollision`)
+  instantiates collision shapes (circle/rect/line/polygon; multi-* via repeats) from
+  `AssetWorldMetadata.collision_shapes`. Both `HomesteadMap` (curated) and
+  `BuildingPlacementSystem` (placed) call it — one source of truth.
+- **Placement → collision:** on place, `BuildingPlacementSystem._apply_placed_object_collision`
+  maps the placeable content id to a world-asset id (`AssetWorldMetadata.asset_id_for_placeable`)
+  and, when mapped, builds metadata shapes at the footprint bottom-centre and **retires the
+  generic proxy**. `metadata_none` assets (placed sign/crate/flower/decor) become intentionally
+  **non-blocking**; `metadata_blocking` (fence/barn-shell) use real shapes; **unmapped
+  placeables keep the conservative proxy** (documented fallback).
+- **Move/delete/clear/save:** shapes are children of the body, so **move** carries them (the
+  proxy is re-retired after move); **delete-twice** and **Clear Local Test Placements** free the
+  body + shapes together (no ghost collision); **load** rebuilds collision through the same path.
+- **Minimap:** `BuildingPlacementSystem.minimap_features()` feeds visible placed objects to the
+  truth-mode minimap via metadata; hidden/save-restored clutter stays off; deleted/moved objects
+  update.
+- **F7 overlay:** placed objects draw in **orange** (solid = metadata-shaped, lighter = fallback
+  proxy, outline-only = non-blocking decor) — distinct from curated **red**, plus blue spawn,
+  green farm, yellow interaction, purple minimap-visible.
+- **Buildable coverage:** crate/berry_basket/wood_pile → `object.crate`; signpost → `object.sign`;
+  fence_segment/fence_corner → `object.fence_horizontal`; barn_shell → `object.barn`;
+  dirt_path/floor_deck → `terrain.dirt_path`; flower_bed → `object.flower`; decor_shrub →
+  `object.tree_small`. Walls/foundations/well/sheds/gate/workbench → conservative proxy (fallback).
+
 ## UI: Stardew-style LimeZu reconstruction (2026-06-18)
 
 The live UI was rebuilt to use the real LimeZu **Modern UI** kit as proper 9-patch art —
@@ -64,13 +93,58 @@ the controls line is hidden by default, the "Hearthvale" title header exists, th
 compact (≤ 8 visible rows), and it is composed (`_compose_card`/`_insert_hud_divider_after`).
 The hotbar, inventory, admin panel, and generator pipeline were not touched.
 
+## Asset-world metadata (collision/interaction/minimap registry) — 2026-06-18 follow-up 5
+
+`systems/world/asset_world_metadata.gd` (`AssetWorldMetadata`) is now the **single
+authoritative contract** for how each live LimeZu asset behaves: `collision_type`
+(none/circle/rect/multi_rect/polygon/multi_polygon/line) plus authored shape data,
+placement-only tile proxies, `interaction_enabled` + label + point offset, and
+`minimap_visible` + kind + colour. The map/minimap/overlay **read** it instead of hand-patched
+blockers. Collision is **curated against sprite alpha/silhouette data, never auto-derived from
+PNG alpha at runtime** (alpha analysis is an offline authoring aid only). Commit-safe (pure
+shape data + helpers, no copied pixels); clean checkout
++ Sprout unaffected.
+
+- **Collision is registry-driven:** `OverworldMap` instantiates barn polygons, tree trunk/base
+  circles, and fence strips from `AssetWorldMetadata.collision_shapes(...)`, and gates
+  blockers on `is_blocking(...)`. The barn `collision_tile_proxy` is only a conservative
+  placement/build proxy, not final runtime physics.
+- **Tree classification is explicit:** `object.tree` = foreground trunk blocker (the 5
+  `TREE_TILES`); `object.tree_small` / `object.tree_edge` = background/edge **visual-only**
+  decoration (no collider, no prompt) — no more "some trees block, some don't" by accident.
+- **Minimap truth:** in the live LimeZu slice the minimap is in **truth mode** — it maps the
+  actual playable bounds and draws only real features (player + the two NPCs + barn + farm
+  patch, coloured from metadata). The phantom town/forest bands and broad-overworld plot
+  squares are suppressed (kept for admin/debug only). It no longer shows things that don't
+  exist.
+- **Debug overlay (F7 -> Show Collision) colours:** red solid = asset collision, red hatch =
+  tile fallback/proxy, blue = spawn, green = farm patch, **yellow = interaction radius**
+  (metadata-interactable farm), **purple = minimap-visible object** (barn). Off by default.
+
+## Minimap schematic + overlay legend (2026-06-18 follow-up 6)
+
+The live LimeZu minimap is still in truth mode, but it is no longer just sparse dots. Default
+live mode frames `LIMEZU_PLAYABLE_AREA_BOUNDS` and draws a simplified schematic of real current
+features only: the player/NPC/signs are dots, the barn draws as a footprint, the farm draws as a
+patch, and path/fence/tree features come from the same curated LimeZu slice data that spawns the
+visible world. Phantom town/forest bands and broad-overworld LandRegistry plot squares remain
+debug/schematic-only unless those features visibly exist in the live world.
+Visible in-session player placements can appear as generic placed-object dots; save-restored
+objects hidden for LimeZu source-purity remain hidden on the minimap too.
+
+F7 -> **Show Collision** now includes an on-screen legend: red solid = asset collision, red
+hatch = tile fallback/proxy, blue = spawn, green = farm patch, yellow = interaction radius,
+purple = minimap-visible feature. The green farm overlay uses centered LimeZu visual tile
+rects so it lines up with the visible soil/crops; the minimap remains schematic and should not
+be used to judge collision precision.
+
 ## Collision / interaction / farm alignment (2026-06-18 follow-up 4)
 
 ### Homestead collision contract
-- **Solid blockers (block at ground footprint):** the barn/building (full footprint rect,
-  `LIMEZU_BARN_COLLIDER_RECT`), the homestead apple trees (`TREE_TILES`) — blocked at the
-  **trunk base only** (compact radius-10 circle at the visible feet, not the canopy), and the
-  fence line (`FENCE_START_TILE`..+`FENCE_LENGTH`).
+- **Solid blockers (asset-shaped):** the barn/building uses two local-space polygons traced
+  against the lower body/silo silhouette, the homestead apple trees block at the **trunk base
+  only** (compact radius-10 circle at the visible feet, not the canopy), and fence segments use
+  thin line/strip collision.
 - **Visual-only decor (never block):** edge/background trees + small trees, flowers, grass,
   path, tilled soil, crops, the apple crate, signs (interactable, not solid), and the cow/NPCs.
 - **Interactables (do not block):** plot/area signs, NPCs (Rowan/Hazel), the farm patch,
@@ -93,8 +167,9 @@ above soil. Walking onto it shows "Press F to plant carrot". (No old diamond/iso
   removes leftover local test clutter; **Show Collision** toggles the debug overlay.
 
 ### Collision debug overlay
-F7 → **Show Collision** draws translucent cells: **red** = blocked footprints, **blue** =
-spawn, **green** = farm patch — for verifying collision-vs-art alignment in play. Off by default.
+F7 -> **Show Collision** draws the actual metadata shapes: **red solid** = asset collision,
+**red hatch** = tile fallback/proxy, **blue** = spawn, **green** = farm patch, **yellow** =
+interaction radius, **purple** = minimap-visible schematic feature. Off by default.
 
 ### Minimap
 Schematic top-down map; the player marker maps world→rect linearly (`_world_to_map`) and moves
@@ -108,6 +183,13 @@ world bounds) and intentionally small.
 4. Approach Rowan/Hazel/a sign — F talks/reads at sensible range.
 5. B → place a piece on the grid; E → select; Del twice → removes.
 6. F7 → Show Collision (verify alignment), Clear Local Test Placements (clears clutter).
+
+Additional minimap/overlay checklist:
+1. Press M and confirm the minimap remains clipped, the player marker moves while walking,
+   the barn/farm are shapes, and no fake town/forest/plot markers appear in default live mode.
+2. F7 -> Show Collision and confirm the legend appears, green covers the visible farm patch,
+   red covers blockers, yellow marks interaction radius, and purple outlines minimap-visible
+   features.
 
 ## Sprout secondary-provider status
 

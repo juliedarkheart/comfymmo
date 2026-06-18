@@ -515,6 +515,12 @@ func _build_homestead_colliders() -> void:
 		_add_tree(tree_tile)
 	_add_fence_line(FENCE_START_TILE, FENCE_LENGTH)
 
+## Curated world objects sit at the sprite bottom-centre, so shapes use a zero base offset.
+## Delegates to the shared PlacedObjectCollision builder so curated + placed objects build
+## collision identically (one source of truth).
+func _add_asset_collision_shapes(body: CollisionObject2D, asset_id: String) -> void:
+	PlacedObjectCollision.build_shapes_into(body, asset_id)
+
 func _add_building(origin: Vector2i, footprint: Vector2i, _color: Color, label: String) -> void:
 	# A front-facing toy cottage: domed rosy roof with an overhang, cream walls,
 	# round windows with flower boxes, an arched door, and a smoking chimney.
@@ -696,16 +702,10 @@ func _add_tree(tile: Vector2i) -> void:
 	# LimeZu live mode: keep the collider, skip the Sprout visual (the LimeZu tree in
 	# OverworldMap._build_limezu_slice sits on this collider).
 	if LiveVisualPolicy.live_limezu_slice():
-		# Block only the TRUNK BASE, not the canopy. The LimeZu tree sprite is bottom-
-		# anchored with its feet ~+16 below this StaticBody origin (tile top-left), so a
-		# small circle centred near +12 sits on the visible trunk instead of floating ~22px
-		# above it (the old (0,-6) r14 collider read as an invisible wall above the tree).
-		var lz_collision := CollisionShape2D.new()
-		var lz_shape := CircleShape2D.new()
-		lz_shape.radius = 10.0
-		lz_collision.position = Vector2(0, 12)
-		lz_collision.shape = lz_shape
-		tree.add_child(lz_collision)
+		# Block only the TRUNK BASE, not the canopy. The StaticBody origin matches the
+		# LimeZu sprite's bottom-center holder, and shape data comes from AssetWorldMetadata.
+		tree.position = grid_to_world(tile) + Vector2(0, 16)
+		_add_asset_collision_shapes(tree, "object.tree")
 		return
 
 	# Live top-down: cozy top-down tree sprite (keep body + collision); the
@@ -800,11 +800,8 @@ func _add_fence_line(start_tile: Vector2i, length: int) -> void:
 		# LimeZu live mode: keep the collider, skip the Sprout visual (the LimeZu fence
 		# in OverworldMap._build_limezu_slice sits on this collider).
 		if LiveVisualPolicy.live_limezu_slice():
-			var lz_collision := CollisionShape2D.new()
-			var lz_shape := RectangleShape2D.new()
-			lz_shape.size = Vector2(48, 12)
-			lz_collision.shape = lz_shape
-			fence.add_child(lz_collision)
+			fence.position = grid_to_world(tile) + Vector2(0, 16)
+			_add_asset_collision_shapes(fence, "object.fence_horizontal")
 			continue
 
 		var post_left := Polygon2D.new()

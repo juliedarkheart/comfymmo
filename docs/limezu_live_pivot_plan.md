@@ -28,11 +28,28 @@ Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
 > clean LimeZu UI element, or be hidden. The road/path must be the LimeZu path tile or hidden.
 
 > **Playability (collision/interaction):** the LimeZu homestead has an explicit collision
-> contract — barn/tree-trunk/fence are solid (ground footprints), decor is visual-only,
+> contract: barn polygons, tree trunk/base circles, and thin fence strips are solid; decor is visual-only,
 > signs/NPCs/farm are interactable on F (`INTERACTION_RADIUS=78`). The player uses a compact
 > feet collider, spawn `(7,11)` is open, and a tilled farm patch sits at `(2-4,12-14)`. A F7
 > "Show Collision" debug overlay + "Clear Local Test Placements" support building/testing. See
 > `docs/playtest_readiness.md` for the contract + manual checklist.
+>
+> **Asset-world metadata:** collision/interaction/minimap behaviour is declared in one
+> authoritative commit-safe registry — `systems/world/asset_world_metadata.gd` — that the
+> map/minimap/overlay read (no hand-patched blockers). The minimap runs in truth mode for the
+> live slice (real features only). Collision shapes are curated/reviewed from local licensed
+> PNG alpha, but committed metadata stores simplified shape data, never pixels. **Player-placed
+> objects use the same model** via the shared `PlacedObjectCollision` builder (metadata shapes
+> preferred; conservative proxy only for unmapped placeables), and feed the truth-mode minimap +
+> F7 overlay (orange = placed, distinct from curated red).
+
+> **Minimap readability + overlay clarity:** the live minimap remains truthful but now draws
+> real current features as a tiny schematic: barn/farm footprints, path/fence strips, subtle
+> tree dots, NPC dots, and sign dots. Phantom town/forest/plot markers stay out of the default
+> player-facing minimap. The F7 collision overlay includes a legend: red solid asset collision,
+> red hatch tile fallback/proxy, blue spawn, green farm patch, yellow interaction radius,
+> purple minimap-visible feature; farm overlay rectangles are aligned to the centered LimeZu
+> soil/crop visual tiles.
 
 ## Why LimeZu looks better for Hearthvale
 
@@ -88,12 +105,13 @@ walking a few steps from spawn remains coherent. It is not a village/forest/full
 conversion; broader overworld, tameable creature, dungeon, and player-created
 adventure-plot art remain future work.
 
-Playability alignment update: the live barn collision now matches the visible LimeZu
-barn footprint instead of the older hidden cottage collider, visible crop beds align
-with the existing farm plot interactions, and LimeZu prompts use a 32px-top-down
-interaction radius. The bottom-center quick tools and compact inventory are sized
-around the smaller Modern UI control assets instead of forcing the art to fit the
-old oversized prototype UI.
+Playability alignment update: the live barn collision now uses curated local-space
+polygons for the visible lower body/silo instead of a tile rectangle or the older
+hidden cottage collider. Tree blockers are compact trunk/base circles, fence blockers
+are thin strips, visible crop beds align with the existing farm plot interactions,
+and LimeZu prompts use a 32px-top-down interaction radius. The bottom-center quick
+tools and compact inventory are sized around the smaller Modern UI control assets
+instead of forcing the art to fit the old oversized prototype UI.
 
 ## Must remain unchanged (no gameplay churn)
 

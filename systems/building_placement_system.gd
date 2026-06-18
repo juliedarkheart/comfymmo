@@ -503,6 +503,7 @@ func _place_record(record: Dictionary, should_append: bool) -> void:
 	# and in-session placements (should_append) stay visible so place-and-see still works.
 	if not should_append and LiveVisualPolicy.live_limezu_slice():
 		placed_object.visible = false
+	_apply_placed_object_collision(placed_object, object_id, tile, placeable_data.footprint)
 	_placed_nodes[record_id] = placed_object
 	_apply_mailbox_state_to_node(placed_object)
 	_register_interactable_for_object(record_id, object_id, placed_object)
@@ -517,6 +518,25 @@ func _place_record(record: Dictionary, should_append: bool) -> void:
 			"tile_x": tile.x,
 			"tile_y": tile.y,
 		})
+
+## Asset-aware collision for a placed object: prefer AssetWorldMetadata shapes, retiring the
+## generic placement proxy when metadata governs the object (so curated + placed objects use
+## the same collision model). Objects with no mapped asset keep the conservative proxy.
+## Also tags the node with debug metadata the F7 overlay reads. Move just works (shapes are
+## children of the body); delete/clear free the body and its shapes together.
+func _apply_placed_object_collision(placed_object: PlaceableCrate, object_id: String, tile: Vector2i, footprint: Vector2i) -> void:
+	if placed_object == null or map == null:
+		return
+	var asset_id: String = AssetWorldMetadata.asset_id_for_placeable(object_id)
+	var tile_size := Vector2i(map.grid_to_world(Vector2i.ONE) - map.grid_to_world(Vector2i.ZERO))
+	var status: String = PlacedObjectCollision.apply_to_placed(placed_object, asset_id, footprint, tile_size)
+	if status != "proxy" and placed_object.collision_shape != null:
+		# Metadata is authoritative -> retire the generic proxy (avoids double-collision;
+		# "metadata_none" intentionally leaves decor like signs/crates non-blocking).
+		placed_object.collision_shape.disabled = true
+	placed_object.set_meta("debug_collision_kind", status)
+	placed_object.set_meta("debug_collision_asset", asset_id)
+	placed_object.set_meta("debug_footprint_tiles", map.get_footprint_tiles(tile, footprint))
 
 func _mark_occupied_tiles(origin: Vector2i, footprint: Vector2i) -> void:
 	for tile in map.get_footprint_tiles(origin, footprint):
@@ -670,6 +690,15 @@ func _confirm_move_selected_object() -> void:
 		moving_node.set_preview_mode(false)
 		moving_node.set_placed_visual()
 		moving_node.set_selected(true)
+		# The metadata collision shapes are children of the body, so they moved with it.
+		# set_placed_visual() re-enabled the proxy, so re-retire it for metadata objects and
+		# refresh the debug footprint to the new tile.
+		var moved_object_id: String = String(moving_record.get("object_id", ""))
+		if object_registry != null and object_registry.has_placeable(moved_object_id):
+			var moved_fp: Vector2i = object_registry.get_placeable_data(moved_object_id).footprint
+			if String(moving_node.get_meta("debug_collision_kind", "proxy")) != "proxy" and moving_node.collision_shape != null:
+				moving_node.collision_shape.disabled = true
+			moving_node.set_meta("debug_footprint_tiles", map.get_footprint_tiles(_current_tile, moved_fp))
 
 	_rebuild_occupied_tiles()
 	save_system.set_region_placed_objects(_region_id, _placed_objects)
@@ -1071,6 +1100,30 @@ func has_placed_object_near(object_id: String, world_pos: Vector2, radius: float
 		if map.grid_to_world(tile).distance_to(world_pos) <= radius:
 			return true
 	return false
+
+## Read-only minimap feed for currently visible player-placed objects. Save-restored
+## LimeZu-hidden clutter stays hidden here too, so the minimap does not resurrect it.
+func minimap_features() -> Array:
+	var features: Array = []
+	if map == null or not AssetWorldMetadata.minimap_visible("placed_object"):
+		return features
+	for record in _placed_objects:
+		var record_id: String = String((record as Dictionary).get("record_id", ""))
+		var object_id: String = String((record as Dictionary).get("object_id", ""))
+		var placed_node: Node = _placed_nodes.get(record_id) as Node
+		if placed_node == null or not is_instance_valid(placed_node) or not placed_node.visible:
+			continue
+		var tile := Vector2i(int((record as Dictionary).get("tile_x", 0)), int((record as Dictionary).get("tile_y", 0)))
+		features.append({
+			"asset_id": "placed_object",
+			"content_id": object_id,
+			"kind": AssetWorldMetadata.minimap_kind("placed_object"),
+			"color": AssetWorldMetadata.minimap_color("placed_object"),
+			"priority": AssetWorldMetadata.minimap_priority("placed_object"),
+			"label": String((ContentRegistry.placeables().get(object_id, {}) as Dictionary).get("display_name", object_id)),
+			"pos": map.grid_to_world(tile),
+		})
+	return features
 
 ## Content id of a placed record (for station interactions keyed by record id).
 func get_placed_object_id(record_id: String) -> String:

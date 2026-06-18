@@ -185,6 +185,15 @@ func _overworld_landmarks() -> Array:
 func _refresh_minimap_setup() -> void:
 	if _minimap == null:
 		return
+	# Truth mode for the live LimeZu slice: only real features + the player, mapped to the
+	# actual playable bounds (no phantom town/forest bands or broad-overworld plot squares).
+	if LiveVisualPolicy.live_limezu_slice():
+		_minimap.call("set_truth_mode", true)
+		var pb: Rect2i = OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS
+		var bounds: Rect2 = map.call("limezu_minimap_bounds") if map.has_method("limezu_minimap_bounds") else Rect2(map.grid_to_world(pb.position), map.grid_to_world(pb.end) - map.grid_to_world(pb.position))
+		_minimap.call("setup", _limezu_minimap_features(), {}, bounds)
+		return
+	_minimap.call("set_truth_mode", false)
 	var plot_centers: Dictionary = {}
 	for plot_id in LandRegistry.claimable_plot_ids():
 		var plot: Dictionary = LandRegistry.get_plot(String(plot_id))
@@ -196,6 +205,44 @@ func _refresh_minimap_setup() -> void:
 	var world_bounds := Rect2(map.get_camera_limits())
 	_minimap.call("setup", _overworld_landmarks(), plot_centers, world_bounds)
 	_refresh_minimap_plots()
+
+## Real, present features for the live LimeZu minimap (truth mode), coloured via
+## AssetWorldMetadata: the two NPCs, the barn, and the farm patch — nothing phantom.
+func _limezu_minimap_features() -> Array:
+	var features: Array = map.call("limezu_minimap_features") if map.has_method("limezu_minimap_features") else []
+	if AssetWorldMetadata.minimap_visible("npc"):
+		features.append(_limezu_actor_minimap_feature("Farmer Rowan", Vector2i(3, 8)))
+		features.append(_limezu_actor_minimap_feature("Clerk Hazel", Vector2i(13, 18)))
+	if AssetWorldMetadata.minimap_visible("object.sign"):
+		features.append(_limezu_sign_minimap_feature("Welcome Board", Vector2i(9, 12)))
+		features.append(_limezu_sign_minimap_feature("Neighborhood Sign", Vector2i(16, 18)))
+	if building_placement_system != null and building_placement_system.has_method("minimap_features"):
+		features.append_array(building_placement_system.call("minimap_features") as Array)
+	return features
+
+func _limezu_actor_minimap_feature(label: String, tile: Vector2i) -> Dictionary:
+	return {
+		"asset_id": "npc",
+		"kind": AssetWorldMetadata.minimap_kind("npc"),
+		"color": AssetWorldMetadata.minimap_color("npc"),
+		"priority": AssetWorldMetadata.minimap_priority("npc"),
+		"label": label,
+		"pos": map.grid_to_world(tile),
+	}
+
+func _limezu_sign_minimap_feature(label: String, tile: Vector2i) -> Dictionary:
+	return {
+		"asset_id": "object.sign",
+		"kind": AssetWorldMetadata.minimap_kind("object.sign"),
+		"color": AssetWorldMetadata.minimap_color("object.sign"),
+		"priority": AssetWorldMetadata.minimap_priority("object.sign"),
+		"label": label,
+		"pos": map.grid_to_world(tile),
+	}
+
+func _on_object_placed_for_xp(object_id: String) -> void:
+	super._on_object_placed_for_xp(object_id)
+	_refresh_minimap_setup()
 
 func _refresh_minimap_plots() -> void:
 	if _minimap == null:

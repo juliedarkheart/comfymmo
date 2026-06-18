@@ -217,6 +217,30 @@ never committed (including the `modified/` recolors/tints that resolve as the
 `licensed_modified` tier). Tooling is `tools/art/sprout_integrate.py`. Full rules:
 docs/licensed_asset_policy.md.
 
+### LimeZu collision-mask review tooling
+
+`tools/art/limezu_collision_mask_builder.py` analyzes local LimeZu PNG alpha masks and writes
+review-only collision candidates under the gitignored paths
+`licensed_assets/limezu/collision_masks/` and `licensed_assets/limezu/collision_review/`.
+It supports alpha threshold, simplification tolerance, lower-body-only/full-body candidates,
+and anchor modes (`bottom`, `center`, `tile_origin`). The outputs are for human review; they
+must not include copied image pixels in committed files. Runtime collision should be committed
+only as simplified metadata/code such as polygons, multi-polygons, circles, thin lines, or
+multi-rects in `systems/world/asset_world_metadata.gd`.
+
+For the live LimeZu opening, the minimap is schematic while the F7 collision overlay is the
+collision source of truth: red solid shapes are asset collision, red hatching is tile/grid
+fallback or placement proxy, and major props/buildings should not rely on tile rectangles as
+their final runtime collision. Player-PLACED objects draw **orange** in the overlay (distinct
+from curated red).
+
+`systems/world/placed_object_collision.gd` (`PlacedObjectCollision`) is the single runtime
+shape builder for BOTH curated world objects and player-placed/build objects: it reads
+`AssetWorldMetadata.collision_shapes` and instantiates Godot collision nodes. `HomesteadMap`
+and `BuildingPlacementSystem` both delegate to it, so placed objects use the same asset-metadata
+collision as curated ones (metadata preferred; a conservative placement proxy is kept only for
+buildables with no mapped asset). This is commit-safe code; no licensed pixels are committed.
+
 **Sprout-required live build.** The resolver still *technically* falls through to
 generated art when Sprout is absent, but the live game no longer ships that
 fallback as the playable look: `WorldRegionManager` checks
