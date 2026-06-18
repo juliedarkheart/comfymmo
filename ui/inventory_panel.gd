@@ -8,7 +8,9 @@ var _get_count: Callable = Callable()       # (item_id) -> int
 var _get_identity: Callable = Callable()    # () -> Dictionary
 
 var _identity_label: Label = null
+var _detail_label: Label = null
 var _body: VBoxContainer = null
+const DEFAULT_DETAIL := "Hover an item for details."
 
 @onready var _panel: PanelContainer = $Panel
 @onready var _root_rows: VBoxContainer = $Panel/Rows
@@ -47,6 +49,16 @@ func _ready() -> void:
 	_root_rows.add_child(_identity_label)
 	_root_rows.move_child(_identity_label, 1)
 
+	# Grid-first inventory: item names live on this hover/selection detail line at the
+	# bottom (Stardew-style) instead of wrapping under every slot.
+	_detail_label = Label.new()
+	_detail_label.text = DEFAULT_DETAIL
+	_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_detail_label.add_theme_stylebox_override("normal", LimeZuUITheme.tooltip_panel_style())
+	_detail_label.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	CozyUITheme.apply_body_label(_detail_label, 12)
+	_root_rows.add_child(_detail_label)
+
 func open_panel() -> void:
 	visible = true
 	refresh()
@@ -78,6 +90,8 @@ func refresh() -> void:
 	if not visible:
 		return
 	_refresh_identity()
+	if _detail_label != null:
+		_detail_label.text = DEFAULT_DETAIL
 	for child in _body.get_children():
 		child.queue_free()
 	# Owned items only, grouped; empty categories are skipped entirely (no header, no
@@ -125,67 +139,74 @@ func _add_category(title: String, ids: Array) -> int:
 	_body.add_child(header)
 
 	var grid := GridContainer.new()
-	grid.columns = 3
+	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 5)
-	grid.add_theme_constant_override("v_separation", 4)
+	grid.add_theme_constant_override("v_separation", 5)
 	_body.add_child(grid)
 	for entry_variant in entries:
 		var entry: Dictionary = entry_variant as Dictionary
 		grid.add_child(_build_inventory_slot(String(entry["item_id"]), int(entry["count"])))
 	return entries.size()
 
-## Compact item cell: a LimeZu-compatible square slot (centered icon + count) with the
-## item name on a tidy line beneath, so icons stay aligned and labels never overlap.
+## Grid-first square item slot: a LimeZu Modern UI slot frame with a centered icon and a
+## bottom-right count overlay. The item NAME is shown on the panel's hover/detail line (set
+## via mouse_entered), not under every slot — so the grid stays tidy and aligned.
 func _build_inventory_slot(item_id: String, count: int) -> Control:
-	var cell := VBoxContainer.new()
-	cell.custom_minimum_size = Vector2(94, 0)
-	cell.add_theme_constant_override("separation", 1)
-
-	var slot := PanelContainer.new()
+	var slot := Panel.new()
 	slot.name = "InventorySlot_%s" % item_id
-	slot.custom_minimum_size = Vector2(88, 48)
-	CozyUITheme.apply_slot(slot, false, false)
+	slot.custom_minimum_size = Vector2(56, 56)
+	slot.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	slot.mouse_filter = Control.MOUSE_FILTER_PASS
+	slot.add_theme_stylebox_override("panel", LimeZuUITheme.slot_texture_style(false))
 
-	var stack := VBoxContainer.new()
-	stack.alignment = BoxContainer.ALIGNMENT_CENTER
-	stack.add_theme_constant_override("separation", 0)
-	slot.add_child(stack)
-
-	# LimeZu live icons where mapped; otherwise the existing registry fallback.
-	var limezu_icon: Texture2D = _limezu_icon_for_item(item_id)
-	if limezu_icon != null:
+	var tex: Texture2D = _icon_texture_for_item(item_id)
+	if tex != null:
 		var icon := TextureRect.new()
-		icon.texture = limezu_icon
-		icon.custom_minimum_size = Vector2(32, 32)
+		icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		icon.offset_left = 8
+		icon.offset_top = 8
+		icon.offset_right = -8
+		icon.offset_bottom = -8
+		icon.texture = tex
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		stack.add_child(icon)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(icon)
 	else:
-		var icon_path: String = ObjectArtRegistry.texture_path(item_id)
-		if ObjectArtRegistry.source_of(icon_path) != "missing":
-			var icon := TextureRect.new()
-			icon.texture = load(icon_path) as Texture2D
-			icon.custom_minimum_size = Vector2(32, 32)
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			stack.add_child(icon)
+		var glyph := Label.new()
+		glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		glyph.text = _item_label(item_id).substr(0, 3)
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		CozyUITheme.apply_body_label(glyph, 11)
+		slot.add_child(glyph)
 
 	var count_label := Label.new()
-	count_label.text = "x%d" % count
-	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	CozyUITheme.apply_secondary_label(count_label, 11)
-	stack.add_child(count_label)
-	cell.add_child(slot)
+	count_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 4)
+	count_label.text = "%d" % count
+	count_label.add_theme_font_size_override("font_size", 11)
+	count_label.add_theme_color_override("font_color", LimeZuUITheme.readable_text_color())
+	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(count_label)
 
-	var name_label := Label.new()
-	name_label.text = _item_label(item_id)
-	name_label.custom_minimum_size = Vector2(94, 24)
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_label.clip_text = false
-	CozyUITheme.apply_body_label(name_label, 10)
-	cell.add_child(name_label)
-	return cell
+	var detail: String = "%s   x%d" % [_item_label(item_id), count]
+	slot.mouse_entered.connect(func() -> void: _set_detail(detail))
+	return slot
+
+func _set_detail(text: String) -> void:
+	if _detail_label != null:
+		_detail_label.text = text
+
+## LimeZu live icon where mapped, else the cozy ObjectArtRegistry icon, else null.
+func _icon_texture_for_item(item_id: String) -> Texture2D:
+	var limezu_icon: Texture2D = _limezu_icon_for_item(item_id)
+	if limezu_icon != null:
+		return limezu_icon
+	var icon_path: String = ObjectArtRegistry.texture_path(item_id)
+	if ObjectArtRegistry.source_of(icon_path) != "missing":
+		return load(icon_path) as Texture2D
+	return null
 
 func _limezu_icon_for_item(item_id: String) -> Texture2D:
 	if not LiveVisualPolicy.live_limezu_slice():

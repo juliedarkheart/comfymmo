@@ -1128,7 +1128,7 @@ func _initialize() -> void:
 		return
 	# Esc/close-button behavior + LimeZu/Sprout styling, not hardcoded panel art.
 	var inventory_src: String = FileAccess.get_file_as_string("res://ui/inventory_panel.gd")
-	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_inventory_panel", "CozyUITheme.apply_slot", "apply_close_button", "_limezu_icon_for_item"]:
+	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_inventory_panel", "slot_texture_style", "apply_close_button", "_limezu_icon_for_item"]:
 		if not inventory_src.contains(inventory_snippet):
 			push_error("Inventory panel is missing required behavior/styling: %s" % inventory_snippet)
 			inventory_probe.queue_free()
@@ -1136,11 +1136,11 @@ func _initialize() -> void:
 			return
 	for inventory_readability_snippet in [
 		"grid.add_theme_constant_override(\"h_separation\", 5)",
-		"grid.columns = 3",
-		"cell.custom_minimum_size = Vector2(94, 0)",
-		"slot.custom_minimum_size = Vector2(88, 48)",
-		"name_label.custom_minimum_size = Vector2(94, 24)",
-		"name_label.clip_text = false",
+		"grid.columns = 4",
+		"LimeZuUITheme.slot_texture_style(false)",
+		"slot.custom_minimum_size = Vector2(56, 56)",
+		"Hover an item for details.",
+		"_detail_label",
 	]:
 		if not inventory_src.contains(inventory_readability_snippet):
 			push_error("Inventory panel is missing LimeZu readable-slot layout guard: %s" % inventory_readability_snippet)
@@ -1508,12 +1508,12 @@ func _initialize() -> void:
 			quit(1)
 			return
 		var quick_tools_source: String = FileAccess.get_file_as_string("res://ui/quick_tools_bar.gd")
-		if not quick_tools_source.contains("CozyUITheme.slot_box") or quick_tools_source.contains("CozyUITheme.slot_style("):
-			push_error("Quick tools still bypass Modern UI slot_box styling")
+		if not quick_tools_source.contains("LimeZuUITheme.slot_texture_style"):
+			push_error("Hotbar slots must use the asset-backed LimeZuUITheme.slot_texture_style")
 			quit(1)
 			return
-		if not quick_tools_source.contains("chip.custom_minimum_size = Vector2(70, 46)") or not quick_tools_source.contains("chip.autowrap_mode"):
-			push_error("Quick tools are missing asset-compatible hotbar slot sizing")
+		if not quick_tools_source.contains("const SLOT_COUNT := 9") or not quick_tools_source.contains("slot_texture_style(selected)"):
+			push_error("Hotbar is missing the 9-slot count or selected-slot styling")
 			quit(1)
 			return
 		var quick_tools_scene: PackedScene = load("res://ui/quick_tools_bar.tscn") as PackedScene
@@ -1526,9 +1526,9 @@ func _initialize() -> void:
 		await process_frame
 		quick_tools.call("setup", Callable(self, "_validation_get_inventory_count"))
 		await process_frame
-		var hotbar_strip: HBoxContainer = quick_tools.get_node_or_null("Panel/Strip") as HBoxContainer
-		if hotbar_strip == null or hotbar_strip.find_children("*", "Label", false, false).size() < 8:
-			push_error("Quick tools hotbar did not build eight bottom quickslots")
+		var hotbar_strip: HBoxContainer = quick_tools.get_node_or_null("Wrap/Strip") as HBoxContainer
+		if hotbar_strip == null or hotbar_strip.find_children("*", "Panel", false, false).size() < 8 or hotbar_strip.get_parent() == null or (hotbar_strip.get_parent() as Control).anchor_top < 0.99:
+			push_error("Hotbar did not build a bottom-centered quickslot row")
 			quick_tools.queue_free()
 			quit(1)
 			return
@@ -2241,7 +2241,7 @@ func _initialize() -> void:
 		push_error("Inventory panel is missing a visible Close button")
 		quit(1)
 		return
-	if inventory_panel.find_children("InventorySlot_*", "PanelContainer", true, false).is_empty():
+	if inventory_panel.find_children("InventorySlot_*", "Panel", true, false).is_empty():
 		push_error("Inventory panel did not render cozy item slots")
 		quit(1)
 		return
@@ -3823,5 +3823,31 @@ func _initialize() -> void:
 			return
 	day_night.free()
 
+# --- Stardew-style LimeZu UI reconstruction asserts --------------------------------
+	var sw_res_w: int = int(ProjectSettings.get_setting("display/window/size/viewport_width", 0))
+	var sw_res_h: int = int(ProjectSettings.get_setting("display/window/size/viewport_height", 0))
+	if sw_res_w != 1280 or sw_res_h != 720:
+		push_error("Default resolution must be 1280x720 (got %dx%d)" % [sw_res_w, sw_res_h])
+		quit(1)
+		return
+	var sw_theme_src: String = FileAccess.get_file_as_string("res://ui/limezu_ui_theme.gd")
+	for sw_theme_method in ["hotbar_slot_style", "hotbar_slot_selected_style", "inventory_slot_style", "dialogue_panel_style", "tooltip_panel_style", "text_input_style", "button_disabled_style", "tab_selected_style", "close_texture_style", "warning_text_color", "is_textured"]:
+		if not sw_theme_src.contains("func %s(" % sw_theme_method):
+			push_error("LimeZuUITheme is missing explicit style method: %s" % sw_theme_method)
+			quit(1)
+			return
+	if LiveVisualPolicy.live_limezu_slice() and not LimeZuUITheme.is_textured():
+		push_error("LimeZuUITheme.is_textured() is false in live LimeZu mode (UI art not resolving)")
+		quit(1)
+		return
+	var sw_nameplate_src: String = FileAccess.get_file_as_string("res://ui/nameplate.gd")
+	if not sw_nameplate_src.contains("font_shadow_color") or sw_nameplate_src.contains("bg_color = Color(0.12"):
+		push_error("Nameplate must use the clean readable style (soft shadow, no heavy dark backing box)")
+		quit(1)
+		return
+	if load("res://scenes/avatar/player_avatar.tscn") == null:
+		push_error("Player avatar scene (collision body) failed to load")
+		quit(1)
+		return
 	print("Project smoke test passed.")
 	quit(0)

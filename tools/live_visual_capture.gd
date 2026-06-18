@@ -25,6 +25,11 @@ const PLAYABILITY_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_playabil
 const PLAYABILITY_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_playability_ui_alignment.png"
 const PLAYABILITY_BUILD_MENU_FILE := OUT_DIR + "/live_limezu_build_menu_after_playability_ui_alignment.png"
 const PLAYABILITY_FARM_PROMPT_FILE := OUT_DIR + "/live_limezu_farm_prompt_after_playability_ui_alignment.png"
+# This pass: Stardew/cozy-survival LimeZu UI reconstruction (asset-backed 9-patch UI).
+const STARDEW_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_stardew_ui.png"
+const STARDEW_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_stardew_ui.png"
+const STARDEW_BUILD_FILE := OUT_DIR + "/live_limezu_build_menu_after_stardew_ui.png"
+const STARDEW_PROMPT_FILE := OUT_DIR + "/live_limezu_prompt_after_stardew_ui.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -56,7 +61,7 @@ func _initialize() -> void:
 		opening_img.save_png(LAYERING_CLEANUP_FILE)
 		opening_img.save_png(UI_REWRITE_OPENING_FILE)
 		opening_img.save_png(AREA_EXPANSION_OPENING_FILE)
-		opening_img.save_png(PLAYABILITY_OPENING_FILE)
+		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE)
 		print("[live-capture] saved ", OUT_FILE)
 		print("[live-capture] saved ", UI_REWRITE_OPENING_FILE)
 		print("[live-capture] saved ", AREA_EXPANSION_OPENING_FILE)
@@ -81,7 +86,7 @@ func _initialize() -> void:
 		var inv_img: Image = _grab_image()
 		if inv_img != null and inv_img.save_png(UI_REWRITE_INVENTORY_FILE) == OK:
 			inv_img.save_png(AREA_EXPANSION_INVENTORY_FILE)
-			inv_img.save_png(PLAYABILITY_INVENTORY_FILE)
+			inv_img.save_png(PLAYABILITY_INVENTORY_FILE); inv_img.save_png(STARDEW_INVENTORY_FILE)
 			print("[live-capture] saved ", UI_REWRITE_INVENTORY_FILE)
 			print("[live-capture] saved ", AREA_EXPANSION_INVENTORY_FILE)
 			print("[live-capture] saved ", PLAYABILITY_INVENTORY_FILE)
@@ -97,7 +102,7 @@ func _initialize() -> void:
 			await process_frame
 		var build_img: Image = _grab_image()
 		if build_img != null and build_img.save_png(PLAYABILITY_BUILD_MENU_FILE) == OK:
-			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE)
+			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
 		else:
 			push_warning("[live-capture] failed to save build menu screenshot")
 	else:
@@ -112,7 +117,7 @@ func _initialize() -> void:
 				await process_frame
 			var farm_img: Image = _grab_image()
 			if farm_img != null and farm_img.save_png(PLAYABILITY_FARM_PROMPT_FILE) == OK:
-				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE)
+				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
 			else:
 				push_warning("[live-capture] failed to save farm prompt screenshot")
 	quit(0)

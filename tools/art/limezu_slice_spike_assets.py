@@ -95,21 +95,27 @@ SPIKE_ASSETS = [
     # side-facing cow; trim only removes transparent margin, never the head.
     ("animal.cow", "modern_farm", "slice", f"{ANIMALS}/Cows/Cow_16x16.png", (0, 0, 48, 48)),
     ("character.farmer_idle", "modern_farm", "slice_first", f"{CHARS}/Farmer_1_16x16.png", (16, 32)),
-    # Modern UI 9-patch frames (raw crop, NEVER alpha-trimmed — trimming breaks the
-    # nine-patch border). Rects were chosen by reviewing Modern_UI_Style_1.png cells
-    # (see licensed_assets/limezu/modern_ui/contact_sheets/_ui_candidates.png).
-    ("ui.panel", "modern_ui", "rawcrop", UI_STYLE_SHEET, (1, 8, 47, 31)),
-    ("ui.inventory_panel", "modern_ui", "rawcrop", UI_STYLE_SHEET, (1, 8, 47, 31)),
-    ("ui.slot", "modern_ui", "rawcrop", UI_STYLE_SHEET, (1, 300, 47, 24)),
-    ("ui.slot_selected", "modern_ui", "rawcrop", UI_STYLE_SHEET, (51, 129, 58, 29)),
-    # Reviewed from contact_sheets/_ui_candidates.png:
-    # 32/33 are neutral small button strips; 31 is a red close/danger strip;
-    # 34 is a compact tab frame. These stay local/gitignored like all LimeZu art.
-    ("ui.button", "modern_ui", "rawcrop", UI_STYLE_SHEET, (238, 466, 29, 11)),
-    ("ui.button_hover", "modern_ui", "rawcrop", UI_STYLE_SHEET, (238, 482, 29, 11)),
-    ("ui.close", "modern_ui", "rawcrop", UI_STYLE_SHEET, (238, 450, 29, 11)),
-    ("ui.close_hover", "modern_ui", "rawcrop", UI_STYLE_SHEET, (238, 482, 29, 11)),
-    ("ui.tab", "modern_ui", "rawcrop", UI_STYLE_SHEET, (268, 386, 34, 13)),
+    # Modern UI 9-patch frames — real LimeZu Style_1 cells, upscaled x2 (NEAREST) so they
+    # are crisp/chunky at 1280x720 and used as proper 9-patches (corners stay fixed, flat
+    # edges/centers stretch). Rects were measured from the actual sheet via connected-
+    # component + border scan (contact_sheets/_chosen_preview.png):
+    #   panel (8,8,32,31) ornate wood frame + corner brackets, tan interior;
+    #   slot (58,129,28,29) / slot_selected (58,169,28,29) rounded slots;
+    #   button (51,80,42,16) tan field bar; close (54,344,20,20) small slot;
+    #   text_input (1,209,45,18) bordered field. 9-slice margins live in limezu_ui_theme.gd.
+    ("ui.panel", "modern_ui", "ui9", UI_STYLE_SHEET, (8, 8, 32, 31)),
+    ("ui.inventory_panel", "modern_ui", "ui9", UI_STYLE_SHEET, (8, 8, 32, 31)),
+    ("ui.dialogue", "modern_ui", "ui9", UI_STYLE_SHEET, (8, 8, 32, 31)),
+    ("ui.tooltip", "modern_ui", "ui9", UI_STYLE_SHEET, (8, 8, 32, 31)),
+    ("ui.slot", "modern_ui", "ui9", UI_STYLE_SHEET, (58, 129, 28, 29)),
+    ("ui.slot_selected", "modern_ui", "ui9", UI_STYLE_SHEET, (58, 169, 28, 29)),
+    ("ui.button", "modern_ui", "ui9", UI_STYLE_SHEET, (51, 80, 42, 16)),
+    ("ui.button_hover", "modern_ui", "ui9", UI_STYLE_SHEET, (51, 80, 42, 16)),
+    ("ui.button_pressed", "modern_ui", "ui9", UI_STYLE_SHEET, (51, 80, 42, 16)),
+    ("ui.tab", "modern_ui", "ui9", UI_STYLE_SHEET, (51, 80, 42, 16)),
+    ("ui.close", "modern_ui", "ui9", UI_STYLE_SHEET, (54, 344, 20, 20)),
+    ("ui.close_hover", "modern_ui", "ui9", UI_STYLE_SHEET, (54, 344, 20, 20)),
+    ("ui.text_input", "modern_ui", "ui9", UI_STYLE_SHEET, (1, 209, 45, 18)),
 ]
 
 
@@ -164,6 +170,27 @@ def do_rawcrop(src: Path, dst: Path, box) -> bool:
     if x + w > img.width or y + h > img.height:
         return False
     img.crop((x, y, x + w, y + h)).save(dst)
+    return True
+
+
+UI_UPSCALE = 2  # 16px UI art -> 2x, matching the world's 2x pixel scale (crisp at 1280x720)
+
+
+def do_ui9(src: Path, dst: Path, box) -> bool:
+    """Raw-crop an exact Modern UI frame rect (no trim — trimming destroys the 9-slice
+    border) and upscale by an INTEGER factor with NEAREST so the frame is crisp/chunky at
+    1280x720. The 9-slice texture margins for each id live in ui/limezu_ui_theme.gd (they
+    are the measured border * UI_UPSCALE). Used for panel/slot/button/tab/close/text-input
+    frames so the live UI is real LimeZu Modern UI art, never a stretched tiny texture."""
+    if not src.is_file():
+        return False
+    img = Image.open(src).convert("RGBA")
+    x, y, w, h = box
+    if x + w > img.width or y + h > img.height:
+        return False
+    crop = img.crop((x, y, x + w, y + h))
+    crop = crop.resize((w * UI_UPSCALE, h * UI_UPSCALE), Image.NEAREST)
+    crop.save(dst)
     return True
 
 
@@ -329,6 +356,8 @@ def main() -> None:
             ok = do_slice_first(src, dst, extra)
         elif op == "rawcrop":
             ok = do_rawcrop(src, dst, extra)
+        elif op == "ui9":
+            ok = do_ui9(src, dst, extra)
         elif op == "terrain":
             ok = do_terrain(src, dst, extra[0], extra[1])
         if ok:

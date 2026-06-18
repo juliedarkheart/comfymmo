@@ -4,8 +4,10 @@ Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
 
 > **STATUS: PIVOTED.** `ArtProviderRegistry.LIVE_PROVIDER == "limezu"`. The live
 > overworld opens into a curated LimeZu slice (`OverworldMap._build_limezu_slice()`),
-> the UI uses LimeZu panels plus Modern UI compact controls (`CozyUITheme._ui_box`),
-> and live human actors use the
+> the UI is a Stardew/cozy-survival-INSPIRED layout built from real Modern UI 9-patch art
+> (bottom hotbar, grid inventory, framed panels/dialogue/tabs) via `CozyUITheme` ->
+> `LimeZuUITheme.*_texture_style()` with measured per-id margins (no stretching; flat tan
+> only as fallback), and live human actors use the
 > LimeZu farmer (`CharacterArtRegistry`). Validation + offline/server boot pass. Sprout
 > stays integrated as a secondary/comparison provider (not deleted). Gameplay
 > (movement/placement/farming/delete-twice/data/networking) is unchanged. The sections

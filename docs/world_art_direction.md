@@ -5,6 +5,17 @@ Sprout-compatible top-down / gentle 3/4 space. The older 64x32 isometric diamond
 view remains a legacy fallback. The player should be able to understand paths,
 plots, public areas, wilderness, and biome changes at a glance.
 
+## UI art direction (LimeZu Modern UI, cozy-survival inspired)
+
+The live UI uses the LimeZu **Modern UI** kit as real 9-patch frames — a Stardew /
+Minecraft / cozy-survival **inspired** layout (bottom hotbar, grid inventory, framed
+panels/dialogue/tooltips/tabs), never copied art or layouts. Panels are light-tan
+parchment with dark-ink text and wood frames; slots and buttons are the reviewed Modern
+UI frames at native-compatible scale (sliced x2 with measured margins, NEAREST, no
+stretching). Approved flat tan fills are interior fallbacks only. Default window is
+1280x720. The contract + slicing live in `ui/limezu_ui_theme.gd` and
+`tools/art/limezu_slice_spike_assets.py`; see `docs/ui_style_guide.md`.
+
 ## Sprout secondary-provider policy
 
 Sprout remains integrated as a secondary/comparison provider, and its local licensed

@@ -1,5 +1,21 @@
 # Playtest Readiness
 
+## UI: Stardew-style LimeZu reconstruction (2026-06-18)
+
+The live UI was rebuilt to use the real LimeZu **Modern UI** kit as proper 9-patch art —
+a **Stardew/Minecraft/cozy-survival INSPIRED layout, not copied**: a bottom **hotbar** of
+framed slots (number keys, tool icons, gold selected slot, held-item name), a **grid-first
+inventory** (square slot frames + count overlays + a hover detail line), and framed
+HUD / minimap / menus / build kit / dialogue / prompts, plus clean nameplates (soft shadow,
+no dark blob). Default window is **1280x720**. Frames are sliced **x2** with **measured
+per-id texture margins** so corners stay crisp and nothing stretches; flat fills are only
+interior fallbacks when a texture id is missing. See `docs/ui_style_guide.md`.
+
+Known gap: collision for the LimeZu props is still **decor-only** (barn/trees/fence rely on
+the base gameplay grid, gated in LimeZu mode) — a focused collision-alignment pass (notably
+making the barn solid without trapping the spawn) is the next playability item. Player
+collision (CharacterBody2D capsule, layer/mask 1) is correct.
+
 ## Sprout secondary-provider status
 
 Sprout remains present as a secondary/comparison provider and its licensed files
