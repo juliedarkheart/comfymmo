@@ -9,6 +9,7 @@ var _profile_manager: LocalProfileManager = null
 var _session: Node = null
 
 @onready var _rows: VBoxContainer = $Panel/Rows
+@onready var _panel: PanelContainer = $Panel
 var _status_label: Label = null
 var _profile_label: Label = null
 var _username_edit: LineEdit = null
@@ -24,6 +25,7 @@ func setup(profile_manager: LocalProfileManager) -> void:
 
 func _ready() -> void:
 	visible = false
+	CozyUITheme.apply_panel(_panel)
 	_build_rows()
 	# Runtime autoload lookup (direct identifier breaks --script validation).
 	_session = get_node_or_null("/root/NetworkSession")
@@ -42,19 +44,17 @@ func _input(event: InputEvent) -> void:
 
 func _build_rows() -> void:
 	var title: Label = Label.new()
-	title.text = "Multiplayer (prototype)  —  F8 to close"
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color("#f8de9a"))
+	title.text = "Multiplayer"
+	CozyUITheme.apply_heading_label(title, 18)
 	_rows.add_child(title)
 
 	_status_label = Label.new()
 	_status_label.text = "Offline"
-	_status_label.add_theme_color_override("font_color", Color("#cfe3c2"))
+	CozyUITheme.apply_body_label(_status_label, 12)
 	_rows.add_child(_status_label)
 
 	_profile_label = Label.new()
-	_profile_label.add_theme_font_size_override("font_size", 12)
-	_profile_label.add_theme_color_override("font_color", Color(0.87, 0.79, 0.68, 0.8))
+	CozyUITheme.apply_secondary_label(_profile_label, 11)
 	_rows.add_child(_profile_label)
 
 	_username_edit = _add_field("Username", "villager")
@@ -69,27 +69,29 @@ func _build_rows() -> void:
 	_connect_button = Button.new()
 	_connect_button.text = "Connect"
 	_connect_button.pressed.connect(_on_connect_pressed)
+	CozyUITheme.apply_button(_connect_button)
 	buttons.add_child(_connect_button)
 
 	_disconnect_button = Button.new()
 	_disconnect_button.text = "Disconnect"
 	_disconnect_button.disabled = true
 	_disconnect_button.pressed.connect(_on_disconnect_pressed)
+	CozyUITheme.apply_button(_disconnect_button)
 	buttons.add_child(_disconnect_button)
 
 	var close_button: Button = Button.new()
 	close_button.text = "Close"
 	close_button.pressed.connect(func() -> void: visible = false)
+	CozyUITheme.apply_close_button(close_button)
 	buttons.add_child(close_button)
 
 	var hint: Label = Label.new()
 	hint.text = (
 		"Run a server first (tools/run_server_local.ps1).\n"
-		+ "Same PC: 127.0.0.1 · LAN: host's LAN IP (ipconfig)\n"
+		+ "Same PC: 127.0.0.1 | LAN: host's LAN IP (ipconfig)\n"
 		+ "Internet: host's public IP, UDP port forwarded"
 	)
-	hint.add_theme_font_size_override("font_size", 12)
-	hint.add_theme_color_override("font_color", Color(0.87, 0.79, 0.68, 0.8))
+	CozyUITheme.apply_secondary_label(hint, 11)
 	_rows.add_child(hint)
 
 func _add_field(label_text: String, default_value: String) -> LineEdit:
@@ -98,11 +100,13 @@ func _add_field(label_text: String, default_value: String) -> LineEdit:
 	_rows.add_child(row)
 	var label: Label = Label.new()
 	label.text = label_text
-	label.custom_minimum_size = Vector2(110, 0)
+	label.custom_minimum_size = Vector2(96, 0)
+	CozyUITheme.apply_body_label(label, 12)
 	row.add_child(label)
 	var edit: LineEdit = LineEdit.new()
 	edit.text = default_value
-	edit.custom_minimum_size = Vector2(170, 0)
+	edit.custom_minimum_size = Vector2(190, 28)
+	CozyUITheme.apply_text_input(edit)
 	row.add_child(edit)
 	return edit
 

@@ -74,8 +74,8 @@ with a building/object footprint, hide the terrain cell rather than drawing it o
 the object.
 
 Source-purity rule (hard): in LimeZu live mode, every visible asset in the default
-opening view must be a resolved LimeZu asset, an intentionally styled clean flat
-LimeZu UI element, or hidden/deferred. **No Sprout, old generated, old procedural, old
+opening view must be a resolved LimeZu asset, a deliberate disabled/blocked UI fallback,
+or hidden/deferred. **No Sprout, old generated, old procedural, old
 placeholder, or legacy debug visuals are allowed in the opening.** Concretely, the
 LimeZu opening suppresses: the Sprout neighborhood plot grounds + per-plot biome
 grounds (`_build_neighborhood_ground`, `paint_plot_ground`), the generated
@@ -87,12 +87,19 @@ slab; if no good tile exists it is hidden. Trees/props resolve through `LimeZuAr
 or are hidden. `VisualSourceReport.live_opening_sources()` audits this and validation
 hard-fails on any `sprout`/`legacy` sprite in the LimeZu opening.
 
-UI scaling rule: the Modern UI source slices are useful as licensed reference art and
-small/native-size pieces, but they are too tiny and non-square to stretch across the
-HUD, minimap, toolbelt, or inventory as large nine-patches. Live LimeZu UI therefore
-uses `LimeZuUITheme` flat dark-wood panels, cream/gold text, and readable slot/button
-states. If scalable UI art is unavailable, use this clean flat style rather than a
-distorted texture frame.
+UI scaling rule: the Modern UI source slices are the live UI source. They are small
+and non-square, so panel and control layouts should be compact enough to fit the
+assets. Live LimeZu HUD cards, minimap, toolbelt, inventory, menus, slots, buttons,
+close buttons, and tabs use reviewed Modern UI texture slices. If a surface looks
+wrong, simplify or resize the surface first; a flat fallback is only for missing art
+or deliberately muted blocked/unavailable states.
+
+Collision/interaction rule: gameplay footprints must match the visible LimeZu art.
+The live barn uses an explicit LimeZu footprint collider and blocked-tile rect; trees
+and fences keep aligned blockers; decorative ground/flowers stay visual-only. The
+visible garden bed is wired to the existing farm plot interactions, and LimeZu mode
+uses a slightly wider interaction radius so prompts line up with 32px top-down art
+instead of the old hidden cottage/farm positions.
 
 Small playable-area expansion: the live LimeZu treatment now has a named bounded
 homestead area (`OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS`) around spawn, the barn,

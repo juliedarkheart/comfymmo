@@ -25,8 +25,8 @@ Menu controls:
 
 - click a category button to filter the catalog
 - click `Select` on a card to arm that piece immediately
-- click `Compact` to collapse the item text to a shorter summary
-- press `Esc` or click `Close (Esc)` to hide the panel
+- click `Cards` to collapse the item text to a shorter summary
+- press `Esc` or click `Close` to hide the panel
 - press `Tab` to cycle the active placeable even with the panel open
 - click in the world or press `Enter` to place the active piece
 - press `E` to switch to edit mode for move/remove work

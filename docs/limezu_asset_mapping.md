@@ -1,8 +1,8 @@
 # LimeZu Asset Mapping (logical ids)
 
-LimeZu is being **evaluated** as a possible future main visual ecosystem for
-Hearthvale. Sprout remains the live provider; LimeZu is wired only through a separate
-visual spike for now. All LimeZu media is **local-only** under gitignored
+LimeZu is the current live visual ecosystem for this branch, with Sprout kept as a
+secondary/comparison provider. LimeZu is also still available through the separate
+visual spike scene for focused review. All LimeZu media is **local-only** under gitignored
 `licensed_assets/limezu/` — nothing here is committed except this doc, the manifest
 *template*, the integration tool, and the provider/spike code.
 
@@ -50,8 +50,9 @@ Objects: `object.house`, `object.barn`, `object.fence`, `object.tree`,
 `object.workbench`.
 Animals: `animal.chicken`, `animal.cow`, `animal.dog`.
 Characters: `character.player_idle`.
-UI: `ui.panel`, `ui.button`, `ui.slot`, `ui.dialogue_box`, `ui.quest_box`,
-`ui.close`. (`ui.quest_box` is visual-only — no quest gameplay is added.)
+UI: `ui.panel`, `ui.inventory_panel`, `ui.button`, `ui.button_hover`, `ui.slot`,
+`ui.slot_selected`, `ui.tab`, `ui.dialogue_box`, `ui.quest_box`, `ui.close`,
+`ui.close_hover`. (`ui.quest_box` is visual-only — no quest gameplay is added.)
 Icons: `icon.seed`, `icon.carrot`, `icon.wood`, `icon.stone`, `icon.tool_hoe`,
 `icon.tool_axe`.
 Cave: `cave.floor`, `cave.wall`, `cave.fungus_creature`.
@@ -73,14 +74,16 @@ Cave: `cave.floor`, `cave.wall`, `cave.fungus_creature`.
   — `Icons_16x16_Singles` files.
 
 Re-generate any time with `python tools/art/limezu_slice_spike_assets.py --root licensed_assets/limezu --all`.
-UI (`ui.panel/ui.slot/ui.button/ui.close`) is **not yet mapped** — Modern UI ships as
-big style sheets; a 16px review grid (`modern_ui/contact_sheets/style1_16grid.png`) and
-candidate element boxes were generated for manual selection. `--analyze-ui` re-prints them.
+Modern UI review now maps compact runtime controls (`ui.slot`, `ui.slot_selected`,
+`ui.button`, `ui.button_hover`, `ui.close`, `ui.close_hover`, and `ui.tab`) plus panel
+runtime panel/control slices. Live panels, HUD cards, slots, buttons, close buttons,
+and tabs use the texture slices; layouts are kept compact so their small source size
+fits the UI.
 
 ## Rules
 
 - Never commit LimeZu zips, `.exe` generators, extracted PNGs/GIFs, normalized or
   modified derivatives, contact sheets, or the local activation manifest.
 - Never write LimeZu media into `art/`, `scenes/`, or any tracked path.
-- A clean checkout without LimeZu must not crash; the spike shows a missing-assets
-  message and the live Sprout game is unaffected.
+- A clean checkout without LimeZu must not crash; live boot shows the missing-assets
+  path instead of silently falling back to generated/procedural visuals.

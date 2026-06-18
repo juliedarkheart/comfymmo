@@ -43,6 +43,8 @@ func _ready() -> void:
 		for pair in [["wood", 20], ["stone", 20], ["fiber", 20], ["clay", 20]]:
 			_cmd("/give %s %d" % [pair[0], pair[1]])
 		_refresh())
+	_add_button("Clear Local Test Placements", func() -> void:
+		_call("admin_clear_local_test_placements", []))
 	_add_button("Toggle World Overlay", func() -> void:
 		if _controller != null and _controller.has_method("admin_toggle_world_overlay"):
 			_controller.call("admin_toggle_world_overlay"))
@@ -52,7 +54,7 @@ func _ready() -> void:
 	_biome_picker = OptionButton.new()
 	for biome in ["meadow", "orchard", "creekside", "hilltop", "grove", "brook", "forest", "farmland"]:
 		_biome_picker.add_item(String(biome).capitalize())
-	CozyUITheme.apply_button(_biome_picker)
+	CozyUITheme.apply_option_button(_biome_picker)
 	_rows.add_child(_biome_picker)
 	_add_button("Create Plot Here (24x24)", func() -> void:
 		_call("admin_create_plot", [_picked_biome(), 24]))
@@ -67,7 +69,7 @@ func _ready() -> void:
 	_terrain_picker = OptionButton.new()
 	for terrain_id in ["meadow", "forest", "orchard", "creekside", "hilltop", "grove", "town", "farmland", "dirt_path", "stone_path", "water"]:
 		_terrain_picker.add_item(String(terrain_id).replace("_", " ").capitalize())
-	CozyUITheme.apply_button(_terrain_picker)
+	CozyUITheme.apply_option_button(_terrain_picker)
 	_rows.add_child(_terrain_picker)
 	var terrain_row: HBoxContainer = _add_row()
 	_row_button(terrain_row, "Brush Here", func() -> void: _call("admin_paint_terrain_brush", [_picked_terrain()]))
@@ -77,7 +79,7 @@ func _ready() -> void:
 	# --- Visual parcel tool: stake two corners, see a preview, confirm ---------
 	_add_heading("Visual Parcel Tool")
 	var help: Label = Label.new()
-	help.text = "Stand at corner A → Start. Walk to the far corner (preview follows) → Confirm."
+	help.text = "Stand at corner A: Start. Walk to far corner: Confirm."
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	CozyUITheme.apply_secondary_label(help, 11)
 	_rows.add_child(help)
@@ -92,7 +94,7 @@ func _ready() -> void:
 	_marker_picker = OptionButton.new()
 	for marker_type in ["spawn", "resource", "npc", "sign", "landmark", "decor"]:
 		_marker_picker.add_item(String(marker_type).capitalize())
-	CozyUITheme.apply_button(_marker_picker)
+	CozyUITheme.apply_option_button(_marker_picker)
 	_rows.add_child(_marker_picker)
 	var marker_row: HBoxContainer = _add_row()
 	_row_button(marker_row, "Place Marker Here", func() -> void:
@@ -191,6 +193,7 @@ func _refresh_plot_teleports() -> void:
 		button.text = String(entry.get("display_name", plot_id))
 		button.tooltip_text = plot_id
 		button.pressed.connect(func() -> void: _call("admin_teleport_plot", [plot_id]))
+		CozyUITheme.apply_button(button)
 		row.add_child(button)
 
 func _refresh() -> void:

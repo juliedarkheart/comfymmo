@@ -54,6 +54,7 @@ const LIMEZU_APPROACH_PATH_TILES: Array[Vector2i] = [
 ]
 const LIMEZU_TILLED_SOIL_RECT := Rect2i(2, 12, 3, 3)
 const LIMEZU_BARN_VISUAL_FOOTPRINT := Rect2i(9, 4, 9, 10)
+const LIMEZU_BARN_COLLIDER_RECT := Rect2i(9, 4, 9, 10)
 const LIMEZU_CRATE_VISUAL_FOOTPRINT := Rect2i(10, 13, 1, 1)
 const LIMEZU_SIGN_VISUAL_FOOTPRINTS: Array[Rect2i] = [
 	Rect2i(9, 11, 1, 2),
@@ -177,6 +178,61 @@ func _build_overworld() -> void:
 	else:
 		_build_curated_slice()      # Sprout hand-composed cozy focal cluster
 	_build_overworld_bounds()
+
+func _build_homestead_colliders() -> void:
+	if not LiveVisualPolicy.live_limezu_slice():
+		super._build_homestead_colliders()
+		return
+	_add_limezu_rect_collider("LimeZuBarnCollision", LIMEZU_BARN_COLLIDER_RECT)
+	for tree_tile in TREE_TILES:
+		_add_tree(tree_tile as Vector2i)
+	_add_fence_line(FENCE_START_TILE, FENCE_LENGTH)
+
+func _add_limezu_rect_collider(label: String, rect: Rect2i) -> void:
+	var tile_size: Vector2i = WorldProjection.tile_size(visual_projection_mode())
+	var body := StaticBody2D.new()
+	body.name = label
+	body.position = grid_to_world(rect.position) + Vector2(rect.size.x * tile_size.x, rect.size.y * tile_size.y) * 0.5
+	body.set_meta("limezu_collider", true)
+	gameplay_layer.add_child(body)
+
+	var collision := CollisionShape2D.new()
+	collision.name = "CollisionShape2D"
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(rect.size.x * tile_size.x, rect.size.y * tile_size.y)
+	collision.shape = shape
+	body.add_child(collision)
+
+func get_static_blocked_tiles() -> Array[Vector2i]:
+	if not LiveVisualPolicy.live_limezu_slice():
+		return super.get_static_blocked_tiles()
+	var blocked: Array[Vector2i] = []
+	for ty in range(LIMEZU_BARN_COLLIDER_RECT.position.y, LIMEZU_BARN_COLLIDER_RECT.end.y):
+		for tx in range(LIMEZU_BARN_COLLIDER_RECT.position.x, LIMEZU_BARN_COLLIDER_RECT.end.x):
+			blocked.append(Vector2i(tx, ty))
+	for tree_tile in TREE_TILES:
+		blocked.append(tree_tile as Vector2i)
+	for offset in range(FENCE_LENGTH):
+		blocked.append(FENCE_START_TILE + Vector2i(offset, 0))
+	return blocked
+
+func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = []) -> Dictionary:
+	if not LiveVisualPolicy.live_limezu_slice():
+		return super.get_tile_block_result(tile, occupied_tiles)
+	if not is_tile_in_bounds(tile):
+		return {"valid": false, "reason": "Out of bounds"}
+	if tile == get_spawn_tile():
+		return {"valid": false, "reason": "Reserved spawn"}
+	if tile in occupied_tiles:
+		return {"valid": false, "reason": "Occupied"}
+	if LIMEZU_BARN_COLLIDER_RECT.has_point(tile):
+		return {"valid": false, "reason": "Blocked by barn"}
+	if tile in TREE_TILES:
+		return {"valid": false, "reason": "Blocked by tree"}
+	for offset in range(FENCE_LENGTH):
+		if tile == FENCE_START_TILE + Vector2i(offset, 0):
+			return {"valid": false, "reason": "Blocked by fence"}
+	return {"valid": true, "reason": ""}
 
 func _configure_visual_layers() -> void:
 	ground_layer.z_index = LIMEZU_GROUND_LAYER_Z

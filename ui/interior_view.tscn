@@ -32,10 +32,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -220.0
-offset_right = 320.0
-offset_bottom = 220.0
+offset_left = -292.0
+offset_top = -204.0
+offset_right = 292.0
+offset_bottom = 204.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_room")
@@ -51,18 +51,18 @@ theme_override_font_sizes/font_size = 22
 text = "Interior"
 
 [node name="Canvas" type="Control" parent="Dim/Room"]
-custom_minimum_size = Vector2(600, 320)
+custom_minimum_size = Vector2(540, 276)
 layout_mode = 2
 size_flags_vertical = 3
 
 [node name="TemplateLabel" type="Label" parent="Dim/Room/Canvas"]
 offset_left = 12.0
 offset_top = 12.0
-offset_right = 560.0
+offset_right = 512.0
 offset_bottom = 40.0
 theme_override_colors/font_color = Color(0.16, 0.12, 0.08, 1)
 theme_override_font_sizes/font_size = 13
 
 [node name="ExitButton" type="Button" parent="Dim/Room"]
 layout_mode = 2
-text = "Exit to Outside (F / Esc)"
+text = "Exit (F / Esc)"

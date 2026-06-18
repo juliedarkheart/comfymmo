@@ -17,6 +17,10 @@ var _template: String = "cottage"
 
 func _ready() -> void:
 	visible = false
+	CozyUITheme.apply_panel(_room)
+	CozyUITheme.apply_heading_label(_title_label, 20)
+	CozyUITheme.apply_body_label(_template_label, 12)
+	CozyUITheme.apply_close_button($Dim/Room/ExitButton)
 	$Dim/Room/Canvas.draw.connect(_draw_room)
 	$Dim/Room/ExitButton.pressed.connect(close_interior)
 

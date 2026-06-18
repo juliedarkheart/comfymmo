@@ -50,10 +50,10 @@ now opens in a curated demo slice**, not the broad procedural world:
   gameplay/data world (plots, NPCs, resources) is unchanged and still walkable.
 - Default UI panels (inventory, build, admin, land) are **closed at launch**; only
   the compact HUD, small minimap, and toolbelt show.
-- **Inventory redesigned:** a compact ~340x400 right-side window (was 364x520), one
+- **Inventory redesigned:** a compact ~336x420 right-side window (was 364x520), one
   short status line (no verbose profile id), owned-items-only grouped into sections
-  (empty sections are skipped, not "None yet" filler), tidy LimeZu-compatible 66x60
-  slots in wider cells with centered icons + counts and the name on a readable line
+  (empty sections are skipped, not "None yet" filler), tidy LimeZu-compatible 88x48
+  slots in 94px cells with centered icons + counts and the name on a readable line
   beneath. Closes with Esc and the Close button. Validation enforces: closed by
   default, size within a viewport fraction, Esc/close wired, and CozyUITheme styling
   (no hardcoded art).
@@ -65,7 +65,7 @@ now opens in a curated demo slice**, not the broad procedural world:
 The live game now opens into a curated **LimeZu** Modern Farm slice
 (`ArtProviderRegistry.LIVE_PROVIDER == "limezu"`, `OverworldMap._build_limezu_slice()`):
 LimeZu grass/barn/trees/fence/garden/crops/cow/chicken/props over the unchanged
-gameplay grid, LimeZu farmer actors, and Modern-UI-skinned panels/slots. **Sprout
+gameplay grid, LimeZu farmer actors, and Modern-UI-backed panels/controls. **Sprout
 stays integrated as a secondary/comparison provider** (the standalone spike scene
 `scenes/visual_spikes/limezu_homestead_slice.tscn` is also kept).
 
@@ -93,11 +93,11 @@ mode, village/forest generated decor + plot-skirt decor + wardrobe mirror are hi
 gather/resource nodes are re-skinned to LimeZu sprites. A boot-time audit
 (`VisualSourceReport.live_opening_sources`) reports the opening is now `sprout=0,
 legacy=0`, LimeZu-dominant (~949 LimeZu vs ~13 generated, all off-screen creatures /
-placed objects). The HUD/minimap/toolbelt now use a clean flat LimeZu-compatible UI:
-dark wood panels, cream/gold text, wide readable chips, and no stretched Modern UI
-nine-patches. Validation hard-fails on any Sprout/legacy sprite in the LimeZu opening
-and asserts the live HUD/panel/slot/button/blocked-tool styles are `LimeZuUITheme`
-`StyleBoxFlat`s rather than distorted `StyleBoxTexture`s.
+placed objects). The HUD/minimap/toolbelt now use LimeZu-compatible UI assets:
+Modern UI texture-backed panels, slots, buttons, close buttons, and tabs with dark
+ink on parchment panels and cream/gold on dark button strips. Validation hard-fails
+on any Sprout/legacy sprite in the LimeZu opening and asserts the live panel/HUD/
+slot/button/close paths resolve to Modern UI texture styleboxes.
 
 Old-visual cleanup update: `terrain.dirt_path` now maps to a reviewed transparent
 Modern Exteriors dirt patch rather than the old uniform opaque terrain cell. Optional
@@ -108,12 +108,14 @@ slots. The local capture helper writes
 `licensed_assets/limezu/review_screenshots/live_limezu_opening_after_old_visual_cleanup.png`
 for review; this screenshot remains gitignored/local-only.
 
-UI rewrite/bottom-board cleanup update: tiny Modern UI slices remain mapped for audits
-and future native-size use, but large live panels no longer stretch them. The opening
-HUD uses the compact controls line `Esc Menu | I Inv | B Build | M Map | H Help | F11`;
-missing tool chips use the dark LimeZu blocked slot style; inventory cells were widened
-so item names stop letter-wrapping. Save-restored generated board/deck visuals are
-hidden in the LimeZu opening while their records/collision/interactions remain intact;
+UI rewrite/bottom-board cleanup update: Modern UI slices now skin the live panels and
+controls through `CozyUITheme`; panel layouts stay compact so the assets remain legible.
+The opening
+HUD uses the compact controls line `Esc Menu | I Inv | B Build | E Edit` /
+`M Map | H Help | F11 Window`; missing tool chips use the dark LimeZu blocked
+slot style; inventory cells were resized around 88x48 slots in 94px cells so item
+names stop letter-wrapping. Save-restored
+generated board/deck visuals are hidden in the LimeZu opening while their records/collision/interactions remain intact;
 the small lower-right board visible in the screenshot is an intentional LimeZu sign prop.
 Capture `licensed_assets/limezu/review_screenshots/live_limezu_opening_after_ui_rewrite.png`
 and `licensed_assets/limezu/review_screenshots/live_limezu_inventory_after_ui_rewrite.png`
@@ -138,6 +140,21 @@ playable area and hard-blocks Sprout, legacy, or missing sprites inside it. Revi
 `licensed_assets/limezu/review_screenshots/live_limezu_walk_east_after_area_expansion.png`,
 `licensed_assets/limezu/review_screenshots/live_limezu_walk_south_after_area_expansion.png`,
 and `licensed_assets/limezu/review_screenshots/live_limezu_inventory_after_area_expansion.png`.
+
+Playability/UI asset alignment update: the live LimeZu pass now aligns interaction and
+collision with the visible art instead of the older cottage/plot positions. The barn
+uses an explicit LimeZu footprint collider, static blocked tiles match the visible
+barn/tree/fence art, and the visible garden bed is wired to the existing farm plot
+interactions. `InteractableSystem` uses a slightly wider LimeZu interaction radius so
+F prompts are not pixel-fussy against 32px top-down art. The quick tools moved to a
+bottom-center 8-slot hotbar sized around the smaller Modern UI slot language; inventory
+uses 3 columns of compact 88x48 slots; nameplates have a small readable backing; and
+the admin panel exposes **Clear Local Test Placements** for offline save cleanup after
+visual tests. Review captures added by this pass:
+`licensed_assets/limezu/review_screenshots/live_limezu_opening_after_playability_ui_alignment.png`,
+`licensed_assets/limezu/review_screenshots/live_limezu_inventory_after_playability_ui_alignment.png`,
+`licensed_assets/limezu/review_screenshots/live_limezu_build_menu_after_playability_ui_alignment.png`,
+and `licensed_assets/limezu/review_screenshots/live_limezu_farm_prompt_after_playability_ui_alignment.png`.
 
 ## Visual/UI foundation checks
 
@@ -164,9 +181,8 @@ Manual visual pass:
    world; debug/account/server detail should not be visible by default.
 2. Open the system menu, inventory, build menu, land panel, admin panel, edit
    toolbar, quick tools, and minimap.
-3. Confirm the panels use Sprout-normalized panel/button/slot art (the live build
-   is Sprout-required; with the pack absent you get the missing-assets screen, not
-   the world).
+3. Confirm LimeZu live UI visibly uses Modern UI texture-backed panels and controls
+   (HUD, minimap, inventory, build menu, hotbar slots, buttons, close/tabs).
 4. Confirm important panels have visible Close/Resume/Cancel paths.
 5. Confirm inventory categories read as item slots rather than a plain text dump.
 6. Confirm build-menu tabs, selected item info, costs, unavailable states, and
@@ -213,13 +229,23 @@ The project validator and boot checks cover the following for this branch:
 - terrain and object art registries load and safely resolve required ids
 - invalid terrain/object ids fall back to the missing-art placeholder
 - map renderer exposes terrain visual resolution helpers
+- LimeZu live UI uses reviewed Modern UI texture styleboxes for panels, HUD cards,
+  slots, buttons, close buttons, and tabs
+- the LimeZu barn collider and static blocked tiles match the visible barn footprint
+- LimeZu interaction radius and farm plot interaction nodes match the visible 32px
+  top-down garden bed
+- the bottom-center quick tools hotbar exposes 8 compact slots and the HUD hint lists
+  `E Edit`
+- offline admin cleanup can clear local test placements without changing network play
+- local playability capture paths exist for opening, inventory, build menu, and farm
+  prompt review screenshots
 - external asset folders, if any, include license/source metadata
 
 ## Window controls & quitting
 
 The game can now be closed without Alt+F4:
 
-- Default launch is a normal **bordered windowed** mode at `1600x900`, and
+- Default launch is a normal **bordered windowed** mode at `1280x720`, and
   `DisplaySettings` clamps/centers the window inside the usable screen so a
   1080p monitor does not hide the OS title bar/close button.
 - **Esc** (when no panel is open) opens the system/pause menu: Resume, Toggle
@@ -306,7 +332,7 @@ The live `sprout_topdown` world now renders from the top-down art stack only:
   pasted biome rectangles, with only small farmland/town terrain accents; broad
   procedural borders, old market/fountain slabs, and heavy wilderness dressing
   are hidden or reduced until proper sprite replacements exist.
-- **Compact HUD + more Sprout UI:** the normal HUD is a small top-left card.
+- **Compact HUD + Modern UI:** the normal HUD is a small top-left card.
   Local Sprout UI now activates panel, button, hover, slot, selected slot, close,
   and menu/dialog panel variants from gitignored normalized derivatives; clean
   checkout uses original generated Hearthvale UI fallbacks.
@@ -371,7 +397,7 @@ Run this list with a real player session after major building/UI changes:
 1. Offline boot into the overworld and confirm `B` opens placement with the
    build menu visible.
 2. Check every build-menu category button and confirm the list changes.
-3. Toggle `Compact`, select a piece, and confirm the active piece changes.
+3. Toggle `Cards`, select a piece, and confirm the active piece changes.
 4. Close the build menu with both the button and `Esc`.
 5. Place at least one modular piece, one terrain piece, and one prefab shell.
 6. Claim a large neighborhood plot and confirm building works inside it.

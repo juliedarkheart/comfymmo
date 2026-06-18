@@ -4,12 +4,10 @@ class_name LimeZuUITheme
 ## Clean, scalable LimeZu-flavoured UI styles for the live LimeZu visual mode.
 ##
 ## The LimeZu Modern UI art is small, non-square pixel art (e.g. the panel is 47x31,
-## the button 29x11). Stretched as a StyleBoxTexture/NinePatch across a large HUD/menu
-## it distorts badly (a ~3px button center blown up ~9x, warped borders, text spilling
-## past the frame). Per the art direction, when the asset cannot 9-slice cleanly we use
-## a clean StyleBoxFlat in LimeZu colours instead of distorted texture art. These
-## factories are that fallback theme: warm dark-wood panels, amber borders, gold
-## titles, cream text — readable over the bright LimeZu world, never stretched.
+## the button 29x11). The live UI now keeps panels/buttons compact and uses reviewed
+## nine-slice margins so those textures remain visible instead of falling back to
+## the old code-drawn prototype shell. Flat factories remain as safe fallbacks when
+## a licensed UI texture is absent.
 
 # Palette (warm wood + cream, distinct from the old Sprout parchment / old dark HUD).
 const PANEL_FILL: Color = Color("#33291e")          # warm dark wood panel
@@ -24,9 +22,12 @@ const BUTTON_FILL: Color = Color("#4a3826")
 const BUTTON_HOVER_FILL: Color = Color("#5e4731")
 const BUTTON_PRESSED_FILL: Color = Color("#382a1c")
 const BUTTON_BORDER: Color = Color("#9c7748")
-const TEXT_READABLE: Color = Color("#f3e7cf")        # body text (cream on dark wood)
-const TEXT_TITLE: Color = Color("#f2c75c")           # headings (gold)
-const TEXT_MUTED: Color = Color("#c9b896")           # secondary text
+const TEXT_READABLE: Color = Color("#3f2d22")        # body text (dark ink on UI parchment)
+const TEXT_TITLE: Color = Color("#6b3526")           # headings (warm ink)
+const TEXT_MUTED: Color = Color("#7a6652")           # secondary text
+const TEXT_BUTTON: Color = Color("#f3e7cf")          # button text (cream on dark button art)
+const TEXT_BUTTON_HOVER: Color = Color("#f2c75c")
+const TEXT_DISABLED: Color = Color("#b99a72")        # disabled text on dark unavailable slots
 const BAD: Color = Color("#c46a52")                  # blocked / unavailable
 
 static func readable_text_color() -> Color:
@@ -37,6 +38,15 @@ static func title_text_color() -> Color:
 
 static func muted_text_color() -> Color:
 	return TEXT_MUTED
+
+static func button_text_color() -> Color:
+	return TEXT_BUTTON
+
+static func button_hover_text_color() -> Color:
+	return TEXT_BUTTON_HOVER
+
+static func disabled_text_color() -> Color:
+	return TEXT_DISABLED
 
 ## Base panel: warm dark wood, amber border, rounded, soft shadow.
 static func panel_style(content_margin: int = 14, fill_alpha: float = 0.95) -> StyleBoxFlat:
@@ -113,3 +123,56 @@ static func tab_style(selected: bool = false) -> StyleBoxFlat:
 		style.bg_color = SLOT_SELECTED_FILL
 		style.border_color = SLOT_SELECTED_BORDER
 	return style
+
+static func texture_stylebox(logical_id: String, texture_margin: int, content_margin: int) -> StyleBoxTexture:
+	if not LiveVisualPolicy.live_limezu_slice() or not LimeZuArtRegistry.has_asset(logical_id):
+		return null
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(logical_id)
+	if tex == null:
+		return null
+	var box := StyleBoxTexture.new()
+	box.texture = tex
+	box.set_texture_margin_all(texture_margin)
+	box.set_content_margin_all(content_margin)
+	return box
+
+static func panel_texture_style(content_margin: int = 14, inventory: bool = false) -> StyleBox:
+	var logical_id := "ui.inventory_panel" if inventory else "ui.panel"
+	if not LiveVisualPolicy.live_limezu_slice() or not LimeZuArtRegistry.has_asset(logical_id):
+		return panel_style(content_margin)
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(logical_id)
+	if tex == null:
+		return panel_style(content_margin)
+	var box := StyleBoxTexture.new()
+	box.texture = tex
+	# The slice includes transparent padding before the visible posts. Capture the
+	# full side-post area in the border margins so it does not stretch through center.
+	box.texture_margin_left = 15
+	box.texture_margin_right = 15
+	box.texture_margin_top = 7
+	box.texture_margin_bottom = 6
+	box.set_content_margin_all(maxi(content_margin, 18))
+	return box
+
+static func hud_panel_texture_style() -> StyleBox:
+	return panel_texture_style(14)
+
+static func slot_texture_style(selected: bool = false) -> StyleBox:
+	var logical_id: String = "ui.slot_selected" if selected else "ui.slot"
+	var margin: int = 9 if selected else 8
+	var textured: StyleBoxTexture = texture_stylebox(logical_id, margin, 6)
+	return textured if textured != null else slot_style(selected)
+
+static func button_texture_style(hovered: bool = false) -> StyleBox:
+	var logical_id: String = "ui.button_hover" if hovered else "ui.button"
+	var textured: StyleBoxTexture = texture_stylebox(logical_id, 5, 7)
+	return textured if textured != null else (button_hover_style() if hovered else button_style())
+
+static func close_texture_style(hovered: bool = false) -> StyleBox:
+	var logical_id: String = "ui.close_hover" if hovered else "ui.close"
+	var textured: StyleBoxTexture = texture_stylebox(logical_id, 5, 7)
+	return textured if textured != null else (button_hover_style() if hovered else close_button_style())
+
+static func tab_texture_style(selected: bool = false) -> StyleBox:
+	var textured: StyleBoxTexture = texture_stylebox("ui.tab", 5, 7)
+	return textured if textured != null else tab_style(selected)

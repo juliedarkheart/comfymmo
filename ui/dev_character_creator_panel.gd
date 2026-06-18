@@ -7,8 +7,8 @@ extends CanvasLayer
 ## load defaults). This is a prototype tool, not the final character creator —
 ## no gameplay state, modes, or interactions are touched while it is open.
 
-const PANEL_TITLE := "Character (dev)  —  F9 to close"
-const WARDROBE_TITLE := "Wardrobe  —  F9 to close"
+const PANEL_TITLE := "Character (dev) | F9"
+const WARDROBE_TITLE := "Wardrobe | F9"
 
 ## Slot order and labels for the generated rows. Option ids come from the
 ## registry at build time so new options appear here automatically.
@@ -29,6 +29,7 @@ var _value_labels: Dictionary = {}
 var _title_label: Label = null
 
 @onready var _rows: VBoxContainer = $Panel/Rows
+@onready var _panel: PanelContainer = $Panel
 
 func setup(avatar_visual: Node, save_system: LocalSaveSystem, profile_manager: LocalProfileManager = null) -> void:
 	_avatar_visual = avatar_visual
@@ -47,6 +48,7 @@ func open_panel(as_wardrobe: bool = false) -> void:
 
 func _ready() -> void:
 	visible = false
+	CozyUITheme.apply_panel(_panel)
 	_build_rows()
 	_refresh_labels()
 
@@ -74,8 +76,7 @@ func _toggle_panel() -> void:
 func _build_rows() -> void:
 	_title_label = Label.new()
 	_title_label.text = PANEL_TITLE
-	_title_label.add_theme_font_size_override("font_size", 18)
-	_title_label.add_theme_color_override("font_color", Color("#f8de9a"))
+	CozyUITheme.apply_heading_label(_title_label, 18)
 	_rows.add_child(_title_label)
 
 	for slot in SLOTS:
@@ -86,25 +87,29 @@ func _build_rows() -> void:
 
 		var name_label: Label = Label.new()
 		name_label.text = String(slot["label"])
-		name_label.custom_minimum_size = Vector2(110, 0)
+		name_label.custom_minimum_size = Vector2(96, 0)
+		CozyUITheme.apply_body_label(name_label, 12)
 		row.add_child(name_label)
 
 		var prev_button: Button = Button.new()
 		prev_button.text = "<"
-		prev_button.custom_minimum_size = Vector2(34, 0)
+		prev_button.custom_minimum_size = Vector2(34, 28)
 		prev_button.pressed.connect(_cycle_slot.bind(key, -1))
+		CozyUITheme.apply_button(prev_button)
 		row.add_child(prev_button)
 
 		var value_label: Label = Label.new()
 		value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		value_label.custom_minimum_size = Vector2(140, 0)
+		value_label.custom_minimum_size = Vector2(122, 0)
+		CozyUITheme.apply_secondary_label(value_label, 12)
 		row.add_child(value_label)
 		_value_labels[key] = value_label
 
 		var next_button: Button = Button.new()
 		next_button.text = ">"
-		next_button.custom_minimum_size = Vector2(34, 0)
+		next_button.custom_minimum_size = Vector2(34, 28)
 		next_button.pressed.connect(_cycle_slot.bind(key, 1))
+		CozyUITheme.apply_button(next_button)
 		row.add_child(next_button)
 
 	var footer: HBoxContainer = HBoxContainer.new()
@@ -112,13 +117,15 @@ func _build_rows() -> void:
 	_rows.add_child(footer)
 
 	var reset_button: Button = Button.new()
-	reset_button.text = "Reset Default"
+	reset_button.text = "Reset"
 	reset_button.pressed.connect(_on_reset_pressed)
+	CozyUITheme.apply_button(reset_button)
 	footer.add_child(reset_button)
 
 	var close_button: Button = Button.new()
 	close_button.text = "Close"
 	close_button.pressed.connect(func() -> void: visible = false)
+	CozyUITheme.apply_close_button(close_button)
 	footer.add_child(close_button)
 
 func _slot_option_ids(key: String) -> Array:

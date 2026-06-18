@@ -30,6 +30,7 @@ func _ready() -> void:
 	_input.visible = false
 	_input.max_length = ChatMessage.MAX_LENGTH
 	CozyUITheme.apply_hud_panel(_panel)
+	CozyUITheme.apply_text_input(_input)
 	_input.text_submitted.connect(_on_text_submitted)
 	_input.focus_exited.connect(_close_input)
 	# Runtime autoload lookup (direct identifier breaks --script validation).
@@ -80,22 +81,25 @@ func _on_text_submitted(text: String) -> void:
 	_close_input()
 
 func _on_chat_received(display_name: String, text: String) -> void:
-	_add_line("%s: %s" % [display_name, text], Color("#f5f0e6"))
+	var color: Color = LimeZuUITheme.readable_text_color() if LiveVisualPolicy.live_limezu_slice() else Color("#f5f0e6")
+	_add_line("%s: %s" % [display_name, text], color)
 
 func add_system_line(text: String) -> void:
 	if text.is_empty():
 		return
-	_add_line(text, Color("#d9c89a"))
+	var color: Color = LimeZuUITheme.muted_text_color() if LiveVisualPolicy.live_limezu_slice() else Color("#d9c89a")
+	_add_line(text, color)
 
 func _add_line(text: String, color: Color) -> void:
 	_panel.visible = true
 	var line: Label = Label.new()
 	line.text = text
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	line.add_theme_font_size_override("font_size", 14)
+	line.add_theme_font_size_override("font_size", 12)
 	line.add_theme_color_override("font_color", color)
-	line.add_theme_color_override("font_outline_color", Color(0.13, 0.1, 0.07, 0.85))
-	line.add_theme_constant_override("outline_size", 4)
+	if not LiveVisualPolicy.live_limezu_slice():
+		line.add_theme_color_override("font_outline_color", Color(0.13, 0.1, 0.07, 0.85))
+		line.add_theme_constant_override("outline_size", 4)
 	_log_box.add_child(line)
 	while _log_box.get_child_count() > MAX_LINES:
 		var oldest: Node = _log_box.get_child(0)

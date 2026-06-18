@@ -20,6 +20,7 @@ var _header_label: Label = null
 
 @onready var _root_rows: VBoxContainer = $Panel/Rows
 @onready var _recipe_list: VBoxContainer = $Panel/Rows/Scroll/RecipeList
+@onready var _panel: PanelContainer = $Panel
 
 func setup(get_count: Callable, get_level: Callable, get_stations: Callable, do_craft: Callable, get_skills: Callable = Callable()) -> void:
 	_get_count = get_count
@@ -30,6 +31,7 @@ func setup(get_count: Callable, get_level: Callable, get_stations: Callable, do_
 
 func _ready() -> void:
 	visible = false
+	CozyUITheme.apply_panel(_panel)
 	_build_static_rows()
 	_build_recipe_rows()
 
@@ -60,23 +62,31 @@ func _input(event: InputEvent) -> void:
 			viewport.set_input_as_handled()
 
 func _build_static_rows() -> void:
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	_root_rows.add_child(header)
+	_root_rows.move_child(header, 0)
+
 	var title: Label = Label.new()
-	title.text = "Crafting  —  Esc to close"
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color("#f8de9a"))
-	_root_rows.add_child(title)
-	_root_rows.move_child(title, 0)
+	title.text = "Crafting"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	CozyUITheme.apply_heading_label(title, 18)
+	header.add_child(title)
+
+	var close_button := Button.new()
+	close_button.text = "Close"
+	close_button.pressed.connect(close_panel)
+	CozyUITheme.apply_close_button(close_button)
+	header.add_child(close_button)
 
 	_header_label = Label.new()
-	_header_label.add_theme_font_size_override("font_size", 13)
-	_header_label.add_theme_color_override("font_color", Color(0.87, 0.79, 0.68, 0.9))
+	CozyUITheme.apply_secondary_label(_header_label, 12)
 	_root_rows.add_child(_header_label)
 	_root_rows.move_child(_header_label, 1)
 
 	_status_label = Label.new()
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status_label.add_theme_font_size_override("font_size", 14)
-	_status_label.add_theme_color_override("font_color", Color("#d9c89a"))
+	CozyUITheme.apply_body_label(_status_label, 12)
 	_root_rows.add_child(_status_label)
 
 func _build_recipe_rows() -> void:
@@ -91,13 +101,14 @@ func _build_recipe_rows() -> void:
 		var info: Label = Label.new()
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		info.add_theme_font_size_override("font_size", 14)
+		CozyUITheme.apply_body_label(info, 12)
 		row.add_child(info)
 
 		var craft_button: Button = Button.new()
 		craft_button.text = "Craft"
-		craft_button.custom_minimum_size = Vector2(64, 0)
+		craft_button.custom_minimum_size = Vector2(70, 28)
 		craft_button.pressed.connect(_on_craft_pressed.bind(recipe_id))
+		CozyUITheme.apply_button(craft_button)
 		row.add_child(craft_button)
 
 		_rows[recipe_id] = {"info": info, "button": craft_button}
@@ -138,5 +149,5 @@ func refresh() -> void:
 		]
 		info.add_theme_color_override(
 			"font_color",
-			Color("#f5f0e6") if craftable else Color(0.96, 0.93, 0.85, 0.55)
+			CozyUITheme.INK if craftable else CozyUITheme.INK_SOFT
 		)

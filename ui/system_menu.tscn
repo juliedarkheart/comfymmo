@@ -38,10 +38,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -150.0
-offset_right = 150.0
-offset_bottom = 150.0
+offset_left = -180.0
+offset_top = -176.0
+offset_right = 180.0
+offset_bottom = 176.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_system")
@@ -62,7 +62,7 @@ layout_mode = 2
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(0.901961, 0.847059, 0.741176, 1)
 theme_override_font_sizes/font_size = 13
-text = "Window: Windowed (bordered)   (F11 also toggles)"
+text = "Window: Windowed (bordered) (F11)"
 
 [node name="ResumeButton" type="Button" parent="Dim/Panel/Rows"]
 layout_mode = 2
@@ -90,7 +90,7 @@ layout_mode = 2
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(0.85, 0.8, 0.7, 1)
 theme_override_font_sizes/font_size = 11
-text = "Esc = menu / close panels · F11 = fullscreen/windowed"
+text = "Esc = menu / close panels | F11 = fullscreen/windowed"
 
 [node name="QuitButton" type="Button" parent="Dim/Panel/Rows"]
 layout_mode = 2

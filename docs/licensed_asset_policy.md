@@ -5,18 +5,19 @@ Some Hearthvale art is **premium, paid, non-redistributable** and must stay
 CC0/CC-BY "external" pipeline (docs/asset_review_workflow.md), which *can* be
 committed.
 
-> **Sprout-required live build.** The playable visual prototype now *requires* the
-> Sprout pack. With `licensed_assets/` absent the live world refuses to mount and
+> **Licensed-assets-required live build.** The playable visual prototype on this
+> branch targets LimeZu, with Sprout kept as a secondary/comparison provider.
+> With required local licensed assets absent, the live world refuses to mount and
 > shows a missing-assets screen (`ui/missing_assets_screen.gd`) — the generated
 > fallback is no longer the shipped live look, only a diagnostic/dev and
-> non-visual-smoke-test prop. See `systems/visual/sprout_asset_requirement.gd`.
+> non-visual-smoke-test prop.
 
-## LimeZu (Modern ecosystem) — premium, local only, UNDER EVALUATION
+## LimeZu (Modern ecosystem) — premium, local only, live provider on this branch
 
 LimeZu's Modern packs (`modern_farm`, `modern_ui`, `modern_exteriors`,
 `modern_interiors`, `modern_office`, `fungus_cave`, and `rpg_arsenal` = the "Fantasy
-Battlers" pack) are being evaluated as a possible new main visual ecosystem. They
-follow the **same local-only rules as Sprout**:
+Battlers" pack) are the live visual ecosystem for this branch. They follow the
+**same local-only rules as Sprout**:
 
 - The entire `licensed_assets/limezu/` vault — original zips, the `.exe` generators,
   extracted packs, `normalized/`/`modified/` derivatives, contact sheets, per-pack
@@ -29,9 +30,9 @@ follow the **same local-only rules as Sprout**:
 - `.gdignore` in each pack's `original/`, `extracted/`, `contact_sheets/`, and
   `manifests/` stops Godot importing the raw licensed PNGs; only reviewed
   `normalized/` derivatives import.
-- Sprout remains the live provider; LimeZu is spike-only. `ArtProviderRegistry.LIVE_PROVIDER`
-  is the single intended pivot point if LimeZu is later chosen. See
-  docs/limezu_visual_spike.md and docs/limezu_asset_mapping.md.
+- `ArtProviderRegistry.LIVE_PROVIDER` is currently `limezu`. Sprout remains integrated
+  as a secondary/comparison provider, not deleted. See docs/limezu_visual_spike.md
+  and docs/limezu_asset_mapping.md.
 
 ## Sprout Lands (Cup Nooble) — premium, local only
 

@@ -21,6 +21,10 @@ const AREA_EXPANSION_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_area_
 const AREA_EXPANSION_WALK_EAST_FILE := OUT_DIR + "/live_limezu_walk_east_after_area_expansion.png"
 const AREA_EXPANSION_WALK_SOUTH_FILE := OUT_DIR + "/live_limezu_walk_south_after_area_expansion.png"
 const AREA_EXPANSION_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_area_expansion.png"
+const PLAYABILITY_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_playability_ui_alignment.png"
+const PLAYABILITY_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_playability_ui_alignment.png"
+const PLAYABILITY_BUILD_MENU_FILE := OUT_DIR + "/live_limezu_build_menu_after_playability_ui_alignment.png"
+const PLAYABILITY_FARM_PROMPT_FILE := OUT_DIR + "/live_limezu_farm_prompt_after_playability_ui_alignment.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -52,9 +56,11 @@ func _initialize() -> void:
 		opening_img.save_png(LAYERING_CLEANUP_FILE)
 		opening_img.save_png(UI_REWRITE_OPENING_FILE)
 		opening_img.save_png(AREA_EXPANSION_OPENING_FILE)
+		opening_img.save_png(PLAYABILITY_OPENING_FILE)
 		print("[live-capture] saved ", OUT_FILE)
 		print("[live-capture] saved ", UI_REWRITE_OPENING_FILE)
 		print("[live-capture] saved ", AREA_EXPANSION_OPENING_FILE)
+		print("[live-capture] saved ", PLAYABILITY_OPENING_FILE)
 	else:
 		push_warning("[live-capture] failed to save opening screenshot")
 	var player: Node2D = _find_player()
@@ -75,12 +81,40 @@ func _initialize() -> void:
 		var inv_img: Image = _grab_image()
 		if inv_img != null and inv_img.save_png(UI_REWRITE_INVENTORY_FILE) == OK:
 			inv_img.save_png(AREA_EXPANSION_INVENTORY_FILE)
+			inv_img.save_png(PLAYABILITY_INVENTORY_FILE)
 			print("[live-capture] saved ", UI_REWRITE_INVENTORY_FILE)
 			print("[live-capture] saved ", AREA_EXPANSION_INVENTORY_FILE)
+			print("[live-capture] saved ", PLAYABILITY_INVENTORY_FILE)
 		else:
 			push_warning("[live-capture] failed to save inventory screenshot")
 	else:
 		push_warning("[live-capture] inventory panel not found; skipped inventory capture")
+	_close_review_overlays()
+	for _i in range(5):
+		await process_frame
+	if _open_build_menu_panel():
+		for _i in range(8):
+			await process_frame
+		var build_img: Image = _grab_image()
+		if build_img != null and build_img.save_png(PLAYABILITY_BUILD_MENU_FILE) == OK:
+			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE)
+		else:
+			push_warning("[live-capture] failed to save build menu screenshot")
+	else:
+		push_warning("[live-capture] build menu panel not found; skipped build menu capture")
+	_close_review_overlays()
+	if player != null:
+		var farm_pos: Vector2 = _farm_prompt_position()
+		if farm_pos != Vector2.INF:
+			player.global_position = farm_pos
+			_reset_player_camera(player)
+			for _i in range(18):
+				await process_frame
+			var farm_img: Image = _grab_image()
+			if farm_img != null and farm_img.save_png(PLAYABILITY_FARM_PROMPT_FILE) == OK:
+				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE)
+			else:
+				push_warning("[live-capture] failed to save farm prompt screenshot")
 	quit(0)
 
 func _grab_image() -> Image:
@@ -133,6 +167,25 @@ func _open_inventory_panel() -> bool:
 			node.call("open_panel")
 			return true
 	return false
+
+func _open_build_menu_panel() -> bool:
+	var root := get_root()
+	if root == null:
+		return false
+	for node in root.find_children("BuildMenuPanel", "CanvasLayer", true, false):
+		if node.has_method("open_panel"):
+			node.call("open_panel")
+			return true
+	return false
+
+func _farm_prompt_position() -> Vector2:
+	var root := get_root()
+	if root == null:
+		return Vector2.INF
+	for node in root.find_children("Map", "Node2D", true, false):
+		if node.has_method("grid_to_world"):
+			return node.call("grid_to_world", Vector2i(2, 12)) as Vector2
+	return Vector2.INF
 
 func _close_review_overlays() -> void:
 	var root := get_root()

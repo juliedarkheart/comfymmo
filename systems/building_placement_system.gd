@@ -312,6 +312,35 @@ func set_admin_bypass(enabled: bool) -> void:
 	admin_bypass = enabled
 	_emit_mode_label_changed()
 
+func clear_local_test_placements() -> int:
+	if _is_network_client():
+		return -1
+	var removed_count: int = _placed_objects.size()
+	for record in _placed_objects:
+		var record_id: String = String((record as Dictionary).get("record_id", ""))
+		var object_id: String = String((record as Dictionary).get("object_id", ""))
+		_unregister_interactable_for_object(record_id, object_id)
+	for placed_node_variant in _placed_nodes.values():
+		var placed_node: Node = placed_node_variant as Node
+		if placed_node != null and is_instance_valid(placed_node):
+			placed_node.queue_free()
+	_placed_objects.clear()
+	_occupied_tiles.clear()
+	_placed_nodes.clear()
+	_selected_record_id = ""
+	_hovered_record_id = ""
+	_moving_record_id = ""
+	_disarm_delete()
+	_destroy_preview()
+	if save_system != null:
+		save_system.set_region_placed_objects(_region_id, _placed_objects)
+	_interaction_mode = InteractionMode.NONE
+	_set_edit_feedback("Cleared local test placements.", false)
+	_emit_decorating_mode_changed()
+	_emit_mode_label_changed()
+	_hide_world_space_hint()
+	return removed_count
+
 ## Runtime lookup instead of the autoload identifier: scripts referencing the
 ## autoload name directly fail to compile under `--script` (validation) where
 ## autoload globals are not registered. Null means "behave offline".

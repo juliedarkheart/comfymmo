@@ -325,8 +325,9 @@ its assets resolve (`LiveVisualPolicy.live_limezu_slice()`):
 - `OverworldMap._build_limezu_slice()` composes the curated opening homestead from
   LimeZu art (16px drawn at x2 = 32px cells) over the unchanged gameplay grid; the
   Sprout core ground/cottage/tree/fence VISUALS are suppressed (colliders kept).
-- `CozyUITheme._ui_box()` returns LimeZu Modern UI nine-patches for panels/slots/buttons
-  (HUD/minimap/toolbelt included; body text switches to dark ink on the parchment).
+- `CozyUITheme._ui_box()` uses reviewed LimeZu Modern UI texture styleboxes for
+  panels, HUD cards, slots, buttons, close buttons, and tabs. Layouts stay compact
+  so the small source slices read as intentional UI instead of custom flat boxes.
 - `CharacterArtRegistry.make_sprite()` returns the LimeZu farmer for live human actors.
 - Source purity is enforced: `_build_neighborhood_ground`/`paint_plot_ground` (Sprout
   meadow + generated roads), village/forest decor, plot-skirt decor, and the wardrobe
@@ -340,6 +341,10 @@ its assets resolve (`LiveVisualPolicy.live_limezu_slice()`):
   the gameplay layer, and uses `VisualSourceReport.live_area_sources()` to audit the
   immediate walkable area. This is a source-purity guard for the homestead perimeter,
   not permission to render the whole unfinished overworld.
+- Playability alignment keeps collision/interactions anchored to the visible art:
+  the LimeZu barn has its own footprint collider and blocked-tile rect, visible crop
+  beds align to farm plot interactables, and LimeZu prompts use the live visual
+  interaction radius.
 
 **Sprout stays fully integrated as a secondary/comparison provider** (registries, the
 Sprout-required helper, the Sprout spike, and docs are NOT removed). Extraction is

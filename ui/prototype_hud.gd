@@ -11,7 +11,7 @@ extends CanvasLayer
 @onready var _mode_label: Label = $Panel/Rows/ModeLabel
 @onready var _controls_label: Label = $Panel/Rows/ControlsLabel
 
-var _controls_text: String = "Esc Menu | I Inv | B Build | M Map | H Help | F11"
+var _controls_text: String = "Esc Menu | I Inv | B Build | E Edit\nM Map | H Help | F11 Window"
 var _mood_display: String = "Morning"
 var _day_number: int = 1
 var _current_mode_name: String = "Explore"
@@ -47,8 +47,8 @@ func _apply_style() -> void:
 		$InteractionPrompt/Label, $MailboxPanel/Margin/MailboxLabel,
 		$InventoryPanel/Margin/InventoryLabel,
 	]:
-		CozyUITheme.apply_body_label(label as Label, 12, true)
-	CozyUITheme.apply_heading_label($Panel/Rows/TitleLabel, 15)
+		CozyUITheme.apply_body_label(label as Label, 11, true)
+	CozyUITheme.apply_heading_label($Panel/Rows/TitleLabel, 14)
 	# The area + controls lines are the longest; wrap them inside the panel so they never
 	# clip past the border on the fixed-width compact card (300px) regardless of skin.
 	for wrap_label in [_area_label, _controls_label, _mode_label]:
@@ -56,7 +56,7 @@ func _apply_style() -> void:
 			wrap_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func _apply_compact_normal_layout() -> void:
-	$Panel.custom_minimum_size = Vector2(330, 0)
+	$Panel.custom_minimum_size = Vector2(304, 0)
 	$Panel.set_meta("normal_hud_role", "compact_status_card")
 	_identity_label.visible = false
 	# The bare-number crop row reads as a meaningless "0  0  0" once its old prototype
@@ -129,7 +129,7 @@ func _compact_help_text(help_text: String) -> String:
 		return "Explore"
 	text = text.replace("Press ", "")
 	text = text.replace("Use ", "")
-	return text.substr(0, 38) + ("..." if text.length() > 38 else "")
+	return text.substr(0, 34) + ("..." if text.length() > 34 else "")
 
 func set_interaction_prompt(prompt_text: String) -> void:
 	_interaction_prompt_text = prompt_text

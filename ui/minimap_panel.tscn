@@ -26,10 +26,10 @@ script = ExtResource("1_minimap")
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -212.0
-offset_top = 16.0
-offset_right = -16.0
-offset_bottom = 168.0
+offset_left = -244.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = 190.0
 grow_horizontal = 0
 clip_contents = true
 theme_override_styles/panel = SubResource("StyleBoxFlat_minimap")
@@ -45,6 +45,6 @@ theme_override_font_sizes/font_size = 12
 text = "Map  (M)"
 
 [node name="MapRect" type="Control" parent="Panel/Margin"]
-custom_minimum_size = Vector2(184, 120)
+custom_minimum_size = Vector2(196, 124)
 layout_mode = 2
 clip_contents = true

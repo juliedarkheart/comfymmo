@@ -88,6 +88,7 @@ static func slot_box(selected: bool = false, blocked: bool = false) -> StyleBox:
 ## LimeZu Modern UI ids for each cozy ui_id, used when LimeZu is the live provider.
 const LIMEZU_UI_MAP := {
 	"panel": "ui.panel",
+	"inventory_panel": "ui.inventory_panel",
 	"slot": "ui.slot",
 	"slot_selected": "ui.slot_selected",
 	"button": "ui.button",
@@ -97,31 +98,33 @@ const LIMEZU_UI_MAP := {
 	"tab": "ui.tab",
 }
 
-## In LimeZu live mode every UI surface uses a clean LimeZuUITheme StyleBoxFlat instead
-## of the small Modern UI pixel art. The Modern UI slices are tiny + non-square (panel
-## 47x31, button 29x11) and distort badly when stretched as a 9-patch, so the live UI
-## uses scalable flat styles in LimeZu colours. Returns null when LimeZu is not live, so
-## the Sprout nine-patch / code-drawn path is used instead.
+## In LimeZu live mode, panels and compact controls use reviewed Modern UI textures.
+## Layouts stay compact so the UI fits the small asset kit instead of hiding behind
+## custom flat boxes.
 static func _limezu_box(ui_id: String, content_margin: int) -> StyleBox:
 	if not LiveVisualPolicy.live_limezu_slice():
 		return null
 	match ui_id:
 		"panel":
-			return LimeZuUITheme.panel_style(content_margin)
+			return LimeZuUITheme.panel_texture_style(content_margin)
+		"inventory_panel":
+			return LimeZuUITheme.panel_texture_style(content_margin, true)
 		"slot":
-			return LimeZuUITheme.slot_style(false)
+			return LimeZuUITheme.slot_texture_style(false)
 		"slot_selected":
-			return LimeZuUITheme.slot_style(true)
+			return LimeZuUITheme.slot_texture_style(true)
 		"button":
-			return LimeZuUITheme.button_style()
-		"button_hover", "close_hover":
-			return LimeZuUITheme.button_hover_style()
+			return LimeZuUITheme.button_texture_style(false)
+		"button_hover":
+			return LimeZuUITheme.button_texture_style(true)
 		"button_pressed":
-			return LimeZuUITheme.button_pressed_style()
+			return LimeZuUITheme.button_texture_style(true)
 		"close":
-			return LimeZuUITheme.close_button_style()
+			return LimeZuUITheme.close_texture_style(false)
+		"close_hover":
+			return LimeZuUITheme.close_texture_style(true)
 		"tab":
-			return LimeZuUITheme.tab_style(true)
+			return LimeZuUITheme.tab_texture_style(true)
 		_:
 			return null
 
@@ -147,17 +150,22 @@ static func apply_panel(panel: Control, fill: Color = PARCHMENT) -> void:
 	_maybe_pixel_filter(panel)
 	panel.add_theme_stylebox_override("panel", _ui_box("panel", panel_style(fill), 14))
 
+static func apply_inventory_panel(panel: Control) -> void:
+	if panel == null:
+		return
+	_tag_ui_source(panel)
+	_maybe_pixel_filter(panel)
+	panel.add_theme_stylebox_override("panel", _ui_box("inventory_panel", panel_style(PARCHMENT), 14))
+
 static func apply_hud_panel(panel: Control) -> void:
 	if panel == null:
 		return
 	_tag_ui_source(panel)
 	_maybe_pixel_filter(panel)
-	# In LimeZu live mode the HUD/minimap/prompt cards use the clean LimeZu dark-wood
-	# panel so the whole UI is one coherent style; their cream text (apply_body_label /
-	# apply_secondary_label) reads well on it. Otherwise (Sprout) they keep the solid
-	# dark cozy backing, since cream text would be unreadable on Sprout parchment.
+	# In LimeZu live mode the HUD/minimap/prompt cards use the Modern UI panel asset
+	# and dark ink labels; in Sprout mode they keep the solid dark cozy backing.
 	if LiveVisualPolicy.live_limezu_slice():
-		panel.add_theme_stylebox_override("panel", LimeZuUITheme.hud_panel_style())
+		panel.add_theme_stylebox_override("panel", LimeZuUITheme.hud_panel_texture_style())
 	else:
 		panel.add_theme_stylebox_override("panel", _ui_box("panel", hud_panel_style(), 12))
 
@@ -179,7 +187,7 @@ static func apply_heading_label(label: Label, size: int = 18) -> void:
 	if label == null:
 		return
 	label.add_theme_font_size_override("font_size", size)
-	# LimeZu panels are dark wood -> gold title; otherwise the honey accent.
+	# LimeZu panels are parchment-like Modern UI frames -> dark warm ink title.
 	var color: Color = LimeZuUITheme.title_text_color() if LiveVisualPolicy.live_limezu_slice() else HONEY
 	label.add_theme_color_override("font_color", color)
 
@@ -187,8 +195,8 @@ static func apply_body_label(label: Label, size: int = 14, on_dark: bool = false
 	if label == null:
 		return
 	label.add_theme_font_size_override("font_size", size)
-	# LimeZu live mode uses dark-wood panels everywhere -> cream body text. Otherwise
-	# cream on the dark Sprout HUD, dark ink on Sprout parchment menus.
+	# LimeZu live mode uses parchment-like Modern UI panels -> dark ink body text.
+	# Sprout still uses cream on the dark HUD and dark ink on parchment menus.
 	var color: Color
 	if LiveVisualPolicy.live_limezu_slice():
 		color = LimeZuUITheme.readable_text_color()
@@ -212,15 +220,23 @@ static func apply_button(button: Button) -> void:
 	if button == null:
 		return
 	_tag_ui_source(button)
+	_maybe_pixel_filter(button)
 	var live_limezu: bool = LiveVisualPolicy.live_limezu_slice()
-	# LimeZu buttons are dark wood -> cream label, gold on hover. Sprout uses dark ink.
-	button.add_theme_color_override("font_color", LimeZuUITheme.readable_text_color() if live_limezu else INK)
-	button.add_theme_color_override("font_hover_color", LimeZuUITheme.title_text_color() if live_limezu else BORDER)
+	# LimeZu buttons are dark strips -> cream label, gold on hover. Sprout uses dark ink.
+	var min_size: Vector2 = button.custom_minimum_size
+	min_size.x = maxf(min_size.x, 54.0)
+	min_size.y = maxf(min_size.y, 28.0)
+	button.custom_minimum_size = min_size
+	button.clip_text = true
+	button.add_theme_font_size_override("font_size", 12)
+	button.add_theme_color_override("font_color", LimeZuUITheme.button_text_color() if live_limezu else INK)
+	button.add_theme_color_override("font_hover_color", LimeZuUITheme.button_hover_text_color() if live_limezu else BORDER)
+	button.add_theme_color_override("font_disabled_color", LimeZuUITheme.disabled_text_color() if live_limezu else INK_SOFT)
 	button.add_theme_stylebox_override("normal", _ui_box("button", slot_style(false), 8))
 	button.add_theme_stylebox_override("hover", _ui_box("button_hover", slot_style(true), 8))
 	button.add_theme_stylebox_override("pressed", _ui_box("button_pressed", slot_style(true), 8))
 	# Disabled stays code-drawn so unavailable actions read clearly on any skin.
-	button.add_theme_stylebox_override("disabled", slot_style(false, true))
+	button.add_theme_stylebox_override("disabled", LimeZuUITheme.slot_style(false, true) if live_limezu else slot_style(false, true))
 
 static func apply_tab_button(button: Button, selected: bool) -> void:
 	if button == null:
@@ -230,7 +246,7 @@ static func apply_tab_button(button: Button, selected: bool) -> void:
 	var ui_id: String = "slot_selected" if selected else "tab"
 	button.add_theme_stylebox_override("normal", _ui_box(ui_id, slot_style(selected), 8))
 	if live_limezu:
-		button.add_theme_color_override("font_color", LimeZuUITheme.title_text_color() if selected else LimeZuUITheme.readable_text_color())
+		button.add_theme_color_override("font_color", LimeZuUITheme.button_hover_text_color() if selected else LimeZuUITheme.button_text_color())
 	else:
 		button.add_theme_color_override("font_color", BORDER if selected else INK)
 
@@ -253,10 +269,32 @@ static func apply_danger_button(button: Button) -> void:
 	danger.border_color = LimeZuUITheme.BAD if live_limezu else BAD
 	# LimeZu: warm red label that stays readable on dark wood, cream on hover.
 	button.add_theme_color_override("font_color", LimeZuUITheme.BAD if live_limezu else BAD)
-	button.add_theme_color_override("font_hover_color", LimeZuUITheme.readable_text_color() if live_limezu else INK)
+	button.add_theme_color_override("font_hover_color", LimeZuUITheme.button_text_color() if live_limezu else INK)
 	button.add_theme_stylebox_override("normal", _ui_box("close", danger, 8))
 	button.add_theme_stylebox_override("hover", _ui_box("close_hover", slot_style(false, true), 8))
 	button.add_theme_stylebox_override("pressed", _ui_box("close_hover", slot_style(false, true), 8))
+
+static func apply_option_button(button: OptionButton) -> void:
+	if button == null:
+		return
+	apply_button(button)
+
+static func apply_text_input(edit: LineEdit) -> void:
+	if edit == null:
+		return
+	_tag_ui_source(edit)
+	_maybe_pixel_filter(edit)
+	var live_limezu: bool = LiveVisualPolicy.live_limezu_slice()
+	var min_size: Vector2 = edit.custom_minimum_size
+	min_size.y = maxf(min_size.y, 28.0)
+	edit.custom_minimum_size = min_size
+	edit.add_theme_font_size_override("font_size", 12)
+	edit.add_theme_color_override("font_color", LimeZuUITheme.readable_text_color() if live_limezu else INK)
+	edit.add_theme_color_override("font_placeholder_color", LimeZuUITheme.muted_text_color() if live_limezu else INK_SOFT)
+	edit.add_theme_color_override("caret_color", LimeZuUITheme.title_text_color() if live_limezu else BORDER)
+	edit.add_theme_stylebox_override("normal", _ui_box("slot", inset_style(SLOT), 8))
+	edit.add_theme_stylebox_override("focus", _ui_box("slot_selected", slot_style(true), 8))
+	edit.add_theme_stylebox_override("read_only", slot_style(false, true))
 
 static func apply_all_buttons(root: Node) -> void:
 	if root == null:

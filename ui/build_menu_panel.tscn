@@ -30,17 +30,17 @@ anchor_left = 1.0
 anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
-offset_left = -440.0
-offset_top = -280.0
-offset_right = -16.0
-offset_bottom = 280.0
+offset_left = -404.0
+offset_top = -260.0
+offset_right = -12.0
+offset_bottom = 260.0
 grow_horizontal = 0
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_build")
 
 [node name="Rows" type="VBoxContainer" parent="Panel"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 7
 
 [node name="Categories" type="HFlowContainer" parent="Panel/Rows"]
 layout_mode = 2

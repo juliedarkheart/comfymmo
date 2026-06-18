@@ -92,6 +92,6 @@ func _on_quit() -> void:
 
 func _refresh_mode_label() -> void:
 	if _mode_label != null:
-		_mode_label.text = "Window: %s   (F11 also toggles)" % (
+		_mode_label.text = "Window: %s (F11)" % (
 			"Fullscreen" if DisplaySettings.is_fullscreen() else "Windowed (bordered)"
 		)

@@ -21,7 +21,7 @@ func setup(get_count: Callable, get_identity: Callable) -> void:
 func _ready() -> void:
 	visible = false
 	_body = _scroll_body
-	CozyUITheme.apply_panel(_panel)
+	CozyUITheme.apply_inventory_panel(_panel)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
@@ -91,7 +91,7 @@ func refresh() -> void:
 	shown += _add_category("Wearables", ItemIds.ALL_WEARABLES)
 	if shown == 0:
 		var empty := Label.new()
-		empty.text = "Nothing yet — gather materials (F) and craft tools (K)."
+		empty.text = "Nothing yet - gather materials (F) and craft tools (K)."
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		CozyUITheme.apply_secondary_label(empty, 13)
 		_body.add_child(empty)
@@ -100,7 +100,7 @@ func _refresh_identity() -> void:
 	if _identity_label == null:
 		return
 	var identity: Dictionary = _get_identity.call() if _get_identity.is_valid() else {}
-	_identity_label.text = "@%s · %s · %s" % [
+	_identity_label.text = "@%s | %s | %s" % [
 		String(identity.get("username", "villager")),
 		String(identity.get("mode", "Offline")),
 		String(identity.get("plot_status", "-")),
@@ -125,9 +125,9 @@ func _add_category(title: String, ids: Array) -> int:
 	_body.add_child(header)
 
 	var grid := GridContainer.new()
-	grid.columns = 4
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 5)
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 5)
+	grid.add_theme_constant_override("v_separation", 4)
 	_body.add_child(grid)
 	for entry_variant in entries:
 		var entry: Dictionary = entry_variant as Dictionary
@@ -138,12 +138,12 @@ func _add_category(title: String, ids: Array) -> int:
 ## item name on a tidy line beneath, so icons stay aligned and labels never overlap.
 func _build_inventory_slot(item_id: String, count: int) -> Control:
 	var cell := VBoxContainer.new()
-	cell.custom_minimum_size = Vector2(72, 0)
+	cell.custom_minimum_size = Vector2(94, 0)
 	cell.add_theme_constant_override("separation", 1)
 
 	var slot := PanelContainer.new()
 	slot.name = "InventorySlot_%s" % item_id
-	slot.custom_minimum_size = Vector2(66, 60)
+	slot.custom_minimum_size = Vector2(88, 48)
 	CozyUITheme.apply_slot(slot, false, false)
 
 	var stack := VBoxContainer.new()
@@ -156,7 +156,7 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 	if limezu_icon != null:
 		var icon := TextureRect.new()
 		icon.texture = limezu_icon
-		icon.custom_minimum_size = Vector2(34, 34)
+		icon.custom_minimum_size = Vector2(32, 32)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		stack.add_child(icon)
@@ -165,7 +165,7 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 		if ObjectArtRegistry.source_of(icon_path) != "missing":
 			var icon := TextureRect.new()
 			icon.texture = load(icon_path) as Texture2D
-			icon.custom_minimum_size = Vector2(34, 34)
+			icon.custom_minimum_size = Vector2(32, 32)
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			stack.add_child(icon)
@@ -179,7 +179,7 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 
 	var name_label := Label.new()
 	name_label.text = _item_label(item_id)
-	name_label.custom_minimum_size = Vector2(72, 24)
+	name_label.custom_minimum_size = Vector2(94, 24)
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.clip_text = false

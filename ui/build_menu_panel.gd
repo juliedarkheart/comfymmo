@@ -14,6 +14,21 @@ var _compact: bool = false
 var _category_buttons: Dictionary = {}
 var _selected_info: Label = null
 
+const CATEGORY_LABELS := {
+	BuildCategories.FOUNDATIONS: "Found",
+	BuildCategories.WALLS: "Walls",
+	BuildCategories.DOORS_WINDOWS: "Doors",
+	BuildCategories.ROOFS: "Roofs",
+	BuildCategories.FENCES_GATES: "Fence",
+	BuildCategories.STRUCTURES: "Homes",
+	BuildCategories.CRAFTING: "Craft",
+	BuildCategories.STORAGE: "Store",
+	BuildCategories.FARMING: "Farm",
+	BuildCategories.PATHS: "Paths",
+	BuildCategories.FURNITURE: "Furn",
+	BuildCategories.DECOR: "Decor",
+}
+
 @onready var _panel: PanelContainer = $Panel
 @onready var _category_row: HFlowContainer = $Panel/Rows/Categories
 @onready var _item_list: VBoxContainer = $Panel/Rows/Scroll/Items
@@ -31,8 +46,8 @@ func _ready() -> void:
 	_build_header()
 	_build_selected_info()
 	_build_category_buttons()
-	_help_label.text = "Place: click world or Enter/A | Edit: E | Move: toolbar Move | Rotate: Q/RB | Delete: Del/Y | Cancel: Esc/B"
-	CozyUITheme.apply_secondary_label(_help_label, 12)
+	_help_label.text = "Place: click/Enter/A | Edit: E | Rotate: Q/RB\nDelete: Del/Y | Cancel: Esc/B"
+	CozyUITheme.apply_secondary_label(_help_label, 11)
 
 func open_panel() -> void:
 	visible = true
@@ -68,13 +83,13 @@ func _build_header() -> void:
 	$Panel/Rows.move_child(header, 0)
 
 	var title := Label.new()
-	title.text = "Build"
+	title.text = "Build Kit"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	CozyUITheme.apply_heading_label(title, 20)
+	CozyUITheme.apply_heading_label(title, 18)
 	header.add_child(title)
 
 	var compact_button := Button.new()
-	compact_button.text = "Compact"
+	compact_button.text = "Cards"
 	compact_button.toggle_mode = true
 	compact_button.toggled.connect(func(on: bool) -> void:
 		_compact = on
@@ -83,7 +98,7 @@ func _build_header() -> void:
 	header.add_child(compact_button)
 
 	var close_button := Button.new()
-	close_button.text = "Close (Esc)"
+	close_button.text = "Close"
 	close_button.pressed.connect(close_panel)
 	CozyUITheme.apply_close_button(close_button)
 	header.add_child(close_button)
@@ -92,14 +107,17 @@ func _build_selected_info() -> void:
 	_selected_info = Label.new()
 	_selected_info.name = "SelectedInfo"
 	_selected_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	CozyUITheme.apply_body_label(_selected_info, 13)
+	CozyUITheme.apply_body_label(_selected_info, 12)
 	$Panel/Rows.add_child(_selected_info)
 	$Panel/Rows.move_child(_selected_info, 1)
 
 func _build_category_buttons() -> void:
 	for category in BuildCategories.ORDER:
 		var button := Button.new()
-		button.text = category
+		button.text = _category_label(category)
+		button.tooltip_text = category
+		button.set_meta("category_id", category)
+		button.custom_minimum_size = Vector2(70, 28)
 		button.toggle_mode = true
 		button.pressed.connect(func() -> void:
 			_active_category = category
@@ -135,11 +153,18 @@ func _refresh_selected_info(active_id: String) -> void:
 	if _selected_info == null:
 		return
 	if active_id.is_empty() or not ContentRegistry.placeables().has(active_id):
-		_selected_info.text = "Selected: none. Choose a card to arm a building piece."
+		_selected_info.text = "Selected: none. Choose a piece below."
 		return
 	var entry: Dictionary = ContentRegistry.placeables().get(active_id, {}) as Dictionary
 	var name_text: String = String(entry.get("display_name", active_id.capitalize()))
-	_selected_info.text = "Selected: %s | %s" % [name_text, _full_meta(active_id, {"ok": true, "reason": ""}, true)]
+	var footprint: Vector2i = ContentRegistry.placeable_footprint(active_id)
+	var cost: String = BuildCosts.cost_text(active_id)
+	_selected_info.text = "Selected: %s | Cost: %s | Size: %dx%d" % [
+		name_text,
+		cost if not cost.is_empty() else "free",
+		footprint.x,
+		footprint.y,
+	]
 
 func _build_card(placeable_id: String, active_id: String) -> Control:
 	var status: Dictionary = _get_status.call(placeable_id) if _get_status.is_valid() else {"ok": true, "reason": ""}
@@ -153,25 +178,29 @@ func _build_card(placeable_id: String, active_id: String) -> Control:
 	CozyUITheme.apply_slot(card, is_active, not can_build)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 6)
 	card.add_child(row)
 
 	var info := Label.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	CozyUITheme.apply_body_label(info, 14)
+	CozyUITheme.apply_body_label(info, 12)
 	if _compact:
 		info.text = "%s%s - %s" % ["> " if is_active else "", name_text, _short_meta(placeable_id, status, can_build)]
 	else:
 		info.text = "%s%s\n%s" % ["> " if is_active else "", name_text, _full_meta(placeable_id, status, can_build)]
 	if not can_build:
-		info.add_theme_color_override("font_color", CozyUITheme.INK_SOFT)
+		info.add_theme_color_override(
+			"font_color",
+			LimeZuUITheme.disabled_text_color() if LiveVisualPolicy.live_limezu_slice() else CozyUITheme.INK_SOFT
+		)
 	row.add_child(info)
 
 	var select := Button.new()
-	select.text = "Selected" if is_active else ("Unavailable" if not can_build else "Select")
+	select.text = "On" if is_active else ("Locked" if not can_build else "Select")
+	select.tooltip_text = String(status.get("reason", "")) if not can_build else name_text
 	select.disabled = is_active or not can_build
-	select.custom_minimum_size = Vector2(92, 0)
+	select.custom_minimum_size = Vector2(76, 28)
 	select.pressed.connect(func() -> void:
 		if _do_select.is_valid():
 			_do_select.call(placeable_id)
@@ -179,6 +208,9 @@ func _build_card(placeable_id: String, active_id: String) -> Control:
 	CozyUITheme.apply_button(select)
 	row.add_child(select)
 	return card
+
+func _category_label(category: String) -> String:
+	return String(CATEGORY_LABELS.get(category, category))
 
 func _short_meta(placeable_id: String, status: Dictionary, can_build: bool) -> String:
 	var cost: String = BuildCosts.cost_text(placeable_id)

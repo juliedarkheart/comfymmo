@@ -31,6 +31,10 @@ const OVERWORLD_WIDE_ZOOM := 1.3
 ## and live human actors use the LimeZu farmer sprite. Sprout stays integrated as a
 ## comparison/fallback provider. LimeZu art is 16px, drawn at x2 to fill the 32px grid.
 const LIMEZU_DISPLAY_SCALE := 2.0
+## Interaction reach calibrated for the 32px top-down grid and x2 LimeZu sprites.
+## The old 54px reach was precise enough for legacy markers but too fussy around
+## visible LimeZu crops, signs, and tall/bottom-anchored props.
+const INTERACTION_RADIUS := 78.0
 
 ## True when the live game should render the LimeZu curated slice: provider is LimeZu
 ## AND the local LimeZu assets actually resolve. If LimeZu is selected but absent, the

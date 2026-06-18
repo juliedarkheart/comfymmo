@@ -616,11 +616,11 @@ func _setup_landing_area() -> void:
 func _read_welcome_board() -> void:
 	_open_observe_panel(
 		"Welcome to Hearthvale Landing",
-		"You're on Farmer Rowan's training farm — learn here, then make a place of your own.\n\n"
-		+ "GATHER branches/pebbles/fiber/clay: F   ·   INVENTORY: I   ·   CRAFT: K\n"
-		+ "BUILD: B (needs your hammer)   ·   MAP: M   ·   SKILLS: P   ·   FULL HELP: H\n"
-		+ "MENU: Esc / Start   ·   CHAT: Enter   ·   MULTIPLAYER/PROFILE: F8   ·   WARDROBE: F9   ·   FULLSCREEN: F11\n\n"
-		+ "Plot signs east and north mark claimable lots — talk to Farmer Rowan for a Land Token, "
+		"Farmer Rowan's training farm is your safe place to learn before claiming a plot.\n\n"
+		+ "Move: WASD/arrows | Interact/gather/claim: F\n"
+		+ "Inventory I | Craft K | Build B | Edit E | Map M | Help H\n"
+		+ "Menu Esc/Start | Chat Enter | Profile F8 | Wardrobe F9 | Fullscreen F11\n\n"
+		+ "Plot signs east and north mark claimable lots - talk to Farmer Rowan for a Land Token, "
 		+ "then press F at a sign to Claim it. The village square (east) has the town stalls and notice board."
 	)
 
@@ -1893,6 +1893,18 @@ func admin_toggle_plot_debug() -> void:
 		_minimap.call("set_admin_debug", true)
 	admin_toggle_world_overlay()
 
+func admin_clear_local_test_placements() -> void:
+	if _admin_commands_blocked():
+		return
+	if building_placement_system == null or not building_placement_system.has_method("clear_local_test_placements"):
+		_chat_toast("(admin) Local placement reset is unavailable.")
+		return
+	var removed: int = int(building_placement_system.call("clear_local_test_placements"))
+	if removed < 0:
+		_chat_toast("(admin) Local placement reset is offline-only.")
+		return
+	_chat_toast("(admin) Cleared %d local test placement%s." % [removed, "" if removed == 1 else "s"])
+
 func _on_network_place_denied(reason: String) -> void:
 	# Non-modal: a chat-log line instead of a panel, so building flow continues.
 	_chat_toast("Server: placement denied — %s." % reason.to_lower())
@@ -1915,7 +1927,7 @@ func _show_welcome_if_first_boot() -> void:
 	_open_observe_panel(
 		"Welcome to Hearthvale",
 		"Gather wood, stone, fiber, and clay from the piles around your homestead (walk up, press F). "
-		+ "Build with B — Tab switches items and shows their cost — and edit with E. "
+		+ "Build with B - Tab switches items and shows their cost - and edit with E. "
 		+ "Tend the farm plots, check the mailbox, and rest at the cottage door at dusk. "
 		+ "Inventory is I, the minimap is M, help is H, Esc/Start opens the menu, and F11 switches fullscreen/windowed. "
 		+ "The mirror by the cottage opens your wardrobe (F9 works too). "

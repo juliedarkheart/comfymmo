@@ -9,12 +9,14 @@ var _player_label: Label = null
 var _skill_labels: Dictionary = {}
 
 @onready var _rows: VBoxContainer = $Panel/Rows
+@onready var _panel: PanelContainer = $Panel
 
 func setup(get_snapshot: Callable) -> void:
 	_get_snapshot = get_snapshot
 
 func _ready() -> void:
 	visible = false
+	CozyUITheme.apply_panel(_panel)
 	_build_rows()
 
 func toggle_panel() -> void:
@@ -24,6 +26,9 @@ func toggle_panel() -> void:
 
 func is_open() -> bool:
 	return visible
+
+func close_panel() -> void:
+	visible = false
 
 func _input(event: InputEvent) -> void:
 	if not visible:
@@ -37,28 +42,35 @@ func _input(event: InputEvent) -> void:
 			viewport.set_input_as_handled()
 
 func _build_rows() -> void:
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	_rows.add_child(header)
+
 	var title: Label = Label.new()
-	title.text = "Progression  —  P / Esc to close"
-	title.add_theme_font_size_override("font_size", 18)
-	title.add_theme_color_override("font_color", Color("#f8de9a"))
-	_rows.add_child(title)
+	title.text = "Progress"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	CozyUITheme.apply_heading_label(title, 18)
+	header.add_child(title)
+
+	var close_button := Button.new()
+	close_button.text = "Close"
+	close_button.pressed.connect(close_panel)
+	CozyUITheme.apply_close_button(close_button)
+	header.add_child(close_button)
 
 	_player_label = Label.new()
-	_player_label.add_theme_font_size_override("font_size", 16)
-	_player_label.add_theme_color_override("font_color", Color("#f5f0e6"))
+	CozyUITheme.apply_body_label(_player_label, 13)
 	_rows.add_child(_player_label)
 
 	for skill_id in ProgressionRegistry.SKILL_IDS:
 		var row: Label = Label.new()
-		row.add_theme_font_size_override("font_size", 14)
-		row.add_theme_color_override("font_color", Color(0.93, 0.89, 0.81, 0.95))
+		CozyUITheme.apply_body_label(row, 12)
 		_rows.add_child(row)
 		_skill_labels[skill_id] = row
 
 	var hint: Label = Label.new()
-	hint.text = "XP: gather, mine, farm, craft, build, chat with villagers,\nwatch creatures, finish mailbox tasks."
-	hint.add_theme_font_size_override("font_size", 12)
-	hint.add_theme_color_override("font_color", Color(0.87, 0.79, 0.68, 0.75))
+	hint.text = "XP: gather, mine, farm, craft, build,\nchat, watch creatures, finish tasks."
+	CozyUITheme.apply_secondary_label(hint, 11)
 	_rows.add_child(hint)
 
 func refresh() -> void:

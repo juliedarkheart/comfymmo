@@ -104,6 +104,7 @@ const RESOURCE_PATHS: Array[String] = [
 	"res://ui/minimap_panel.tscn",
 	"res://ui/quick_tools_bar.tscn",
 	"res://ui/admin_panel.tscn",
+	"res://ui/world_space_hint.tscn",
 	# Build-UI / interiors / map pass.
 	"res://systems/building/build_categories.gd",
 	"res://systems/building/prefab_interiors.gd",
@@ -279,23 +280,17 @@ func _folder_has_any_file(folder_path: String, file_names: Array[String]) -> boo
 			return true
 	return false
 
-## The live LimeZu UI panel/HUD must be the clean LimeZuUITheme flat box: a StyleBoxFlat
-## (never a stretched StyleBoxTexture, never the pale code-drawn fallback) with the dark
-## wood fill + a visible amber border that keeps cream text readable.
-func _is_limezu_flat_panel(box: StyleBox) -> bool:
-	if box == null or box is StyleBoxTexture or not (box is StyleBoxFlat):
-		return false
-	var flat := box as StyleBoxFlat
-	var luma: float = 0.299 * flat.bg_color.r + 0.587 * flat.bg_color.g + 0.114 * flat.bg_color.b
-	var has_border: bool = flat.border_width_left > 0 or flat.border_width_top > 0
-	return flat.bg_color.a >= 0.85 and luma < 0.45 and has_border
-
-## A live LimeZu button/slot must be the LimeZuUITheme flat box with the expected fill
-## colour (proving the clean flat theme is wired, not a stretched texture or stray box).
+## Blocked/unavailable slots deliberately stay flat so muted labels remain readable.
 func _is_limezu_flat_with_fill(box: StyleBox, expected_fill: Color) -> bool:
 	if box == null or box is StyleBoxTexture or not (box is StyleBoxFlat):
 		return false
 	return (box as StyleBoxFlat).bg_color.is_equal_approx(expected_fill)
+
+func _is_limezu_texture_box(box: StyleBox) -> bool:
+	if box == null or not (box is StyleBoxTexture):
+		return false
+	var textured := box as StyleBoxTexture
+	return textured.texture != null
 
 func _external_metadata_error(folder_path: String) -> String:
 	var license_names: Array[String] = ["LICENSE", "LICENSE.txt", "LICENSE.md", "COPYING", "COPYING.txt"]
@@ -975,12 +970,12 @@ func _initialize() -> void:
 		return
 	var compact_hud_source: String = FileAccess.get_file_as_string("res://ui/prototype_hud.gd")
 	var compact_hud_scene_source: String = FileAccess.get_file_as_string("res://ui/prototype_hud.tscn")
-	var compact_controls: String = "Esc Menu | I Inv | B Build | M Map | H Help | F11"
-	if not compact_hud_source.contains(compact_controls) or not compact_hud_scene_source.contains(compact_controls):
-		push_error("Normal HUD controls line is not the compact no-overflow LimeZu copy")
-		compact_hud_probe.free()
-		quit(1)
-		return
+	for compact_hint in ["Esc Menu", "I Inv", "B Build", "E Edit", "M Map", "H Help", "F11 Window"]:
+		if not compact_hud_source.contains(compact_hint) or not compact_hud_scene_source.contains(compact_hint):
+			push_error("Normal HUD controls line is missing compact LimeZu hint '%s'" % compact_hint)
+			compact_hud_probe.free()
+			quit(1)
+			return
 	if compact_hud_source.contains("F11 Full") or compact_hud_scene_source.contains("Fullscreen F11"):
 		push_error("Normal HUD controls line still uses the long fullscreen copy that wraps/clips")
 		compact_hud_probe.free()
@@ -1004,8 +999,8 @@ func _initialize() -> void:
 	# HUD readability: the HUD/minimap/prompt card must keep a solid, dark, mostly
 	# opaque backing so its cream text stays readable over the bright world. (The
 	# regression was the HUD swapping to the pale Sprout parchment panel.)
-	# In SPROUT mode the HUD keeps a solid dark StyleBoxFlat (cream text readability). In
-	# LimeZu live mode the HUD is the clean LimeZu flat panel (checked separately below).
+	# In SPROUT mode the HUD keeps a solid dark StyleBoxFlat (cream text readability).
+	# In LimeZu live mode the HUD must use the Modern UI texture (checked below).
 	if not LiveVisualPolicy.live_limezu_slice():
 		var hud_style_probe: PanelContainer = PanelContainer.new()
 		CozyUITheme.apply_hud_panel(hud_style_probe)
@@ -1131,19 +1126,20 @@ func _initialize() -> void:
 		inventory_probe.queue_free()
 		quit(1)
 		return
-	# Esc/close-button behavior + Sprout-compatible styling, not hardcoded panel art.
+	# Esc/close-button behavior + LimeZu/Sprout styling, not hardcoded panel art.
 	var inventory_src: String = FileAccess.get_file_as_string("res://ui/inventory_panel.gd")
-	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_panel", "CozyUITheme.apply_slot", "apply_close_button", "_limezu_icon_for_item"]:
+	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_inventory_panel", "CozyUITheme.apply_slot", "apply_close_button", "_limezu_icon_for_item"]:
 		if not inventory_src.contains(inventory_snippet):
 			push_error("Inventory panel is missing required behavior/styling: %s" % inventory_snippet)
 			inventory_probe.queue_free()
 			quit(1)
 			return
 	for inventory_readability_snippet in [
-		"grid.add_theme_constant_override(\"h_separation\", 6)",
-		"cell.custom_minimum_size = Vector2(72, 0)",
-		"slot.custom_minimum_size = Vector2(66, 60)",
-		"name_label.custom_minimum_size = Vector2(72, 24)",
+		"grid.add_theme_constant_override(\"h_separation\", 5)",
+		"grid.columns = 3",
+		"cell.custom_minimum_size = Vector2(94, 0)",
+		"slot.custom_minimum_size = Vector2(88, 48)",
+		"name_label.custom_minimum_size = Vector2(94, 24)",
 		"name_label.clip_text = false",
 	]:
 		if not inventory_src.contains(inventory_readability_snippet):
@@ -1152,8 +1148,8 @@ func _initialize() -> void:
 			quit(1)
 			return
 	var inventory_scene_src: String = FileAccess.get_file_as_string("res://ui/inventory_panel.tscn")
-	if not inventory_scene_src.contains("offset_left = -356.0"):
-		push_error("Inventory panel width is too narrow for readable LimeZu item labels")
+	if not inventory_scene_src.contains("offset_left = -348.0"):
+		push_error("Inventory panel width is not using the asset-sized 1280px layout")
 		inventory_probe.queue_free()
 		quit(1)
 		return
@@ -1225,27 +1221,41 @@ func _initialize() -> void:
 		if area_limezu_count < 900 or area_generated_count > 40 or area_procedural_count > 2:
 			push_error("LimeZu playable area is not clean enough (limezu=%d generated=%d procedural=%d)" % [area_limezu_count, area_generated_count, area_procedural_count])
 			ow.queue_free(); quit(1); return
+		for collider_snippet in ["LIMEZU_BARN_COLLIDER_RECT", "_add_limezu_rect_collider", "Blocked by barn"]:
+			if not overworld_map_src_live.contains(collider_snippet):
+				push_error("OverworldMap is missing LimeZu collider/placement guard '%s'" % collider_snippet)
+				ow.queue_free(); quit(1); return
+		var limezu_barn_body: StaticBody2D = ow_map.find_child("LimeZuBarnCollision", true, false) as StaticBody2D
+		if limezu_barn_body == null or limezu_barn_body.get_node_or_null("CollisionShape2D") == null:
+			push_error("Live LimeZu map did not instantiate the barn collider")
+			ow.queue_free(); quit(1); return
 		ow.queue_free()
 		await process_frame
-		# UI source-tier: the tiny non-square Modern UI pixel art distorts when stretched as a
-		# 9-patch, so live LimeZu UI uses the clean scalable LimeZuUITheme StyleBoxFlat (dark
+		# UI source-tier: live LimeZu UI must use reviewed Modern UI assets, not the
+		# old code-drawn flat fallback.
 		var ui_panel_probe := PanelContainer.new()
 		CozyUITheme.apply_panel(ui_panel_probe)
-		if not _is_limezu_flat_panel(ui_panel_probe.get_theme_stylebox("panel")):
-			push_error("Live LimeZu UI panel is not the clean LimeZu flat theme")
+		if not _is_limezu_texture_box(ui_panel_probe.get_theme_stylebox("panel")):
+			push_error("Live LimeZu UI panel is not using the reviewed Modern UI panel texture")
 			ui_panel_probe.free(); quit(1); return
 		ui_panel_probe.free()
+		var ui_inventory_panel_probe := PanelContainer.new()
+		CozyUITheme.apply_inventory_panel(ui_inventory_panel_probe)
+		if not _is_limezu_texture_box(ui_inventory_panel_probe.get_theme_stylebox("panel")):
+			push_error("Live LimeZu inventory panel is not using the reviewed Modern UI inventory texture")
+			ui_inventory_panel_probe.free(); quit(1); return
+		ui_inventory_panel_probe.free()
 		var ui_slot_probe := PanelContainer.new()
 		CozyUITheme.apply_slot(ui_slot_probe)
-		if not (ui_slot_probe.get_theme_stylebox("panel") is StyleBoxFlat):
-			push_error("Live LimeZu UI slot is not the clean LimeZu flat theme")
+		if not _is_limezu_texture_box(ui_slot_probe.get_theme_stylebox("panel")):
+			push_error("Live LimeZu UI slot is not using the reviewed Modern UI texture frame")
 			ui_slot_probe.free(); quit(1); return
 		ui_slot_probe.free()
-		# HUD card must also be the clean LimeZu flat panel in live mode (full UI conversion).
+		# HUD card must also be Modern UI in live mode.
 		var ui_hud_probe := PanelContainer.new()
 		CozyUITheme.apply_hud_panel(ui_hud_probe)
-		if not _is_limezu_flat_panel(ui_hud_probe.get_theme_stylebox("panel")):
-			push_error("Live LimeZu HUD panel is not the clean LimeZu flat theme")
+		if not _is_limezu_texture_box(ui_hud_probe.get_theme_stylebox("panel")):
+			push_error("Live LimeZu HUD panel is not using the reviewed Modern UI panel texture")
 			ui_hud_probe.free(); quit(1); return
 		ui_hud_probe.free()
 	# Provider must resolve safely whether or not LimeZu is installed.
@@ -1408,7 +1418,13 @@ func _initialize() -> void:
 			"live_limezu_walk_east_after_area_expansion.png",
 			"live_limezu_walk_south_after_area_expansion.png",
 			"live_limezu_inventory_after_area_expansion.png",
+			"live_limezu_opening_after_playability_ui_alignment.png",
+			"live_limezu_inventory_after_playability_ui_alignment.png",
+			"live_limezu_build_menu_after_playability_ui_alignment.png",
+			"live_limezu_farm_prompt_after_playability_ui_alignment.png",
 			"_capture_player_offset",
+			"_open_build_menu_panel",
+			"_farm_prompt_position",
 		]:
 			if not capture_src.contains(area_capture_snippet):
 				push_error("Live visual capture is missing area-expansion screenshot support: %s" % area_capture_snippet)
@@ -1450,17 +1466,15 @@ func _initialize() -> void:
 			push_error("LimeZu cow texture looks cropped too small (%dx%d) — head likely cut" % [cow_tex.get_width(), cow_tex.get_height()])
 			quit(1)
 			return
-		# Modern UI: if a panel was sliced, the slot should be too (consistency check).
-		if LimeZuArtRegistry.has_asset("ui.panel") and not LimeZuArtRegistry.has_asset("ui.slot"):
-			push_error("Modern UI panel mapped but ui.slot is missing — map both or neither")
-			quit(1)
-			return
-		for limezu_ui_id in ["ui.button", "ui.button_hover", "ui.close", "ui.close_hover"]:
+		for limezu_ui_id in [
+			"ui.panel", "ui.inventory_panel", "ui.slot", "ui.slot_selected",
+			"ui.button", "ui.button_hover", "ui.close", "ui.close_hover", "ui.tab",
+		]:
 			if not LimeZuArtRegistry.has_asset(limezu_ui_id):
-				push_error("Modern UI live polish id did not resolve to real art: %s" % limezu_ui_id)
+				push_error("Modern UI live id did not resolve to real art: %s" % limezu_ui_id)
 				quit(1)
 				return
-		for limezu_ui_key in ["button", "button_hover", "close", "close_hover"]:
+		for limezu_ui_key in ["panel", "inventory_panel", "slot", "slot_selected", "button", "button_hover", "close", "close_hover", "tab"]:
 			if not CozyUITheme.LIMEZU_UI_MAP.has(limezu_ui_key):
 				push_error("CozyUITheme is missing LimeZu UI map key '%s'" % limezu_ui_key)
 				quit(1)
@@ -1471,21 +1485,21 @@ func _initialize() -> void:
 			return
 		var limezu_button_probe := Button.new()
 		CozyUITheme.apply_button(limezu_button_probe)
-		if not _is_limezu_flat_with_fill(limezu_button_probe.get_theme_stylebox("normal"), LimeZuUITheme.BUTTON_FILL):
-			push_error("CozyUITheme.apply_button did not use the clean LimeZu flat button frame")
+		if not _is_limezu_texture_box(limezu_button_probe.get_theme_stylebox("normal")):
+			push_error("CozyUITheme.apply_button did not use the reviewed Modern UI button texture")
 			limezu_button_probe.free()
 			quit(1)
 			return
 		CozyUITheme.apply_close_button(limezu_button_probe)
-		if not _is_limezu_flat_with_fill(limezu_button_probe.get_theme_stylebox("normal"), LimeZuUITheme.BUTTON_FILL):
-			push_error("CozyUITheme.apply_close_button did not use the clean LimeZu flat close frame")
+		if not _is_limezu_texture_box(limezu_button_probe.get_theme_stylebox("normal")):
+			push_error("CozyUITheme.apply_close_button did not use the reviewed Modern UI close texture")
 			limezu_button_probe.free()
 			quit(1)
 			return
 		limezu_button_probe.free()
 		var limezu_slot_box: StyleBox = CozyUITheme.slot_box(true, false)
-		if not _is_limezu_flat_with_fill(limezu_slot_box, LimeZuUITheme.SLOT_SELECTED_FILL):
-			push_error("CozyUITheme.slot_box did not use the clean LimeZu flat slot frame")
+		if not _is_limezu_texture_box(limezu_slot_box):
+			push_error("CozyUITheme.slot_box did not use the reviewed Modern UI slot texture")
 			quit(1)
 			return
 		var limezu_blocked_slot_box: StyleBox = CozyUITheme.slot_box(false, true)
@@ -1498,11 +1512,33 @@ func _initialize() -> void:
 			push_error("Quick tools still bypass Modern UI slot_box styling")
 			quit(1)
 			return
-		if not quick_tools_source.contains("chip.custom_minimum_size = Vector2(96, 28)") or not quick_tools_source.contains("chip.clip_text = false"):
-			push_error("Quick tools are missing readable LimeZu chip sizing")
+		if not quick_tools_source.contains("chip.custom_minimum_size = Vector2(70, 46)") or not quick_tools_source.contains("chip.autowrap_mode"):
+			push_error("Quick tools are missing asset-compatible hotbar slot sizing")
 			quit(1)
 			return
+		var quick_tools_scene: PackedScene = load("res://ui/quick_tools_bar.tscn") as PackedScene
+		if quick_tools_scene == null:
+			push_error("Quick tools/hotbar scene failed explicit load")
+			quit(1)
+			return
+		var quick_tools: CanvasLayer = quick_tools_scene.instantiate() as CanvasLayer
+		get_root().add_child(quick_tools)
+		await process_frame
+		quick_tools.call("setup", Callable(self, "_validation_get_inventory_count"))
+		await process_frame
+		var hotbar_strip: HBoxContainer = quick_tools.get_node_or_null("Panel/Strip") as HBoxContainer
+		if hotbar_strip == null or hotbar_strip.find_children("*", "Label", false, false).size() < 8:
+			push_error("Quick tools hotbar did not build eight bottom quickslots")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		quick_tools.queue_free()
+		await process_frame
 		var overworld_controller_src_live: String = FileAccess.get_file_as_string("res://world/overworld_controller.gd")
+		if not overworld_controller_src_live.contains("admin_clear_local_test_placements"):
+			push_error("OverworldController is missing the admin local test-placement reset hook")
+			quit(1)
+			return
 		for limezu_sign_snippet in ["func _add_limezu_sign_sprite", "LimeZuArtRegistry.has_asset(\"object.sign\")", "sign_visual_hidden_limezu"]:
 			if not overworld_controller_src_live.contains(limezu_sign_snippet):
 				push_error("OverworldController is missing LimeZu sign fallback guard: %s" % limezu_sign_snippet)
@@ -1560,6 +1596,16 @@ func _initialize() -> void:
 		farm_plot_probe.queue_free()
 		await process_frame
 		var homestead_live_source: String = FileAccess.get_file_as_string("res://world/homestead_controller.gd")
+		for farm_alignment_snippet in [
+			"_align_limezu_farm_interaction_nodes",
+			"FARM_PLOT_CARROT_ID: Vector2i(2, 12)",
+			"FARM_PLOT_TURNIP_ID: Vector2i(3, 13)",
+			"FARM_PLOT_BERRY_ID: Vector2i(4, 12)",
+		]:
+			if not homestead_live_source.contains(farm_alignment_snippet):
+				push_error("HomesteadController is missing LimeZu farm interaction alignment: %s" % farm_alignment_snippet)
+				quit(1)
+				return
 		var spawn_guard_index: int = homestead_live_source.find("LiveVisualPolicy.live_limezu_slice()")
 		var homestead_rabbit_index: int = homestead_live_source.find("homestead_rabbit_0")
 		if spawn_guard_index == -1 or homestead_rabbit_index == -1 or spawn_guard_index > homestead_rabbit_index:
@@ -1603,6 +1649,28 @@ func _initialize() -> void:
 		push_error("Player avatar scene still contains a procedural Polygon2D body/shadow")
 		quit(1)
 		return
+	var player_avatar_scene: PackedScene = load("res://scenes/avatar/player_avatar.tscn") as PackedScene
+	if player_avatar_scene == null:
+		push_error("Player avatar scene failed explicit load")
+		quit(1)
+		return
+	var player_avatar: CharacterBody2D = player_avatar_scene.instantiate() as CharacterBody2D
+	if player_avatar == null:
+		push_error("Player avatar is not a CharacterBody2D")
+		quit(1)
+		return
+	var player_collision: CollisionShape2D = player_avatar.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if player_collision == null or player_collision.disabled or player_collision.shape == null:
+		push_error("Player avatar is missing an enabled CollisionShape2D")
+		player_avatar.queue_free()
+		quit(1)
+		return
+	if player_avatar.collision_layer <= 0 or player_avatar.collision_mask <= 0:
+		push_error("Player avatar collision layer/mask are not sane")
+		player_avatar.queue_free()
+		quit(1)
+		return
+	player_avatar.queue_free()
 	var live_actor_summary: Dictionary = VisualSourceReport.registry_summary(WorldProjection.MODE_SPROUT_TOPDOWN)
 	if (live_actor_summary["actors"] as Dictionary).has("missing"):
 		push_error("Live actor registry has missing generated actor art: %s" % [live_actor_summary["actors"]])
@@ -1655,6 +1723,16 @@ func _initialize() -> void:
 		push_error("AvatarController legacy iso movement lost its isometric skew")
 		quit(1)
 		return
+	if LiveVisualPolicy.INTERACTION_RADIUS < 70.0 or LiveVisualPolicy.INTERACTION_RADIUS > 96.0:
+		push_error("LiveVisualPolicy.INTERACTION_RADIUS is outside the LimeZu-scale target range")
+		quit(1)
+		return
+	var interactable_src: String = FileAccess.get_file_as_string("res://systems/interactable_system.gd")
+	for interaction_snippet in ["func interaction_radius", "_interaction_point", "LiveVisualPolicy.INTERACTION_RADIUS"]:
+		if not interactable_src.contains(interaction_snippet):
+			push_error("InteractableSystem is missing LimeZu-scale targeting snippet '%s'" % interaction_snippet)
+			quit(1)
+			return
 	# Build/edit delete safety: the two-step confirmation must be present.
 	var placement_src: String = FileAccess.get_file_as_string("res://systems/building_placement_system.gd")
 	if not placement_src.contains("DELETE_CONFIRM_WINDOW_MS") or not placement_src.contains("_disarm_delete"):
@@ -1716,6 +1794,38 @@ func _initialize() -> void:
 		quit(1)
 		return
 	style_probe_button.free()
+	var style_probe_input := LineEdit.new()
+	CozyUITheme.apply_text_input(style_probe_input)
+	if style_probe_input.get_theme_stylebox("normal") == null or style_probe_input.get_theme_stylebox("focus") == null:
+		push_error("CozyUITheme.apply_text_input did not attach text input styles")
+		style_probe_input.free()
+		quit(1)
+		return
+	style_probe_input.free()
+	var style_probe_option := OptionButton.new()
+	CozyUITheme.apply_option_button(style_probe_option)
+	if style_probe_option.get_theme_stylebox("normal") == null:
+		push_error("CozyUITheme.apply_option_button did not attach option button styles")
+		style_probe_option.free()
+		quit(1)
+		return
+	style_probe_option.free()
+	var ui_rewrite_contracts := {
+		"res://ui/crafting_panel.gd": ["CozyUITheme.apply_panel", "CozyUITheme.apply_close_button", "CozyUITheme.apply_button"],
+		"res://ui/progression_panel.gd": ["CozyUITheme.apply_panel", "CozyUITheme.apply_close_button"],
+		"res://ui/network_connect_panel.gd": ["CozyUITheme.apply_panel", "CozyUITheme.apply_text_input"],
+		"res://ui/dev_character_creator_panel.gd": ["CozyUITheme.apply_panel", "CozyUITheme.apply_close_button"],
+		"res://ui/interior_view.gd": ["CozyUITheme.apply_panel", "CozyUITheme.apply_close_button"],
+		"res://ui/chat_panel.gd": ["CozyUITheme.apply_hud_panel", "CozyUITheme.apply_text_input"],
+		"res://ui/world_space_hint.gd": ["CozyUITheme.apply_slot", "CozyUITheme.slot_box"],
+	}
+	for ui_contract_path in ui_rewrite_contracts.keys():
+		var ui_contract_source: String = FileAccess.get_file_as_string(String(ui_contract_path))
+		for ui_contract_snippet in ui_rewrite_contracts[ui_contract_path]:
+			if not ui_contract_source.contains(String(ui_contract_snippet)):
+				push_error("UI rewrite contract missing '%s' in %s" % [String(ui_contract_snippet), String(ui_contract_path)])
+				quit(1)
+				return
 
 	# Build-menu / interiors pass: the menu must build its runtime controls when
 	# mounted in-tree, the close affordances must work, every menu item source id
@@ -1756,18 +1866,23 @@ func _initialize() -> void:
 		push_error("Build menu is missing Panel/Rows/Categories")
 		quit(1)
 		return
-	var category_texts: Array[String] = []
+	var category_ids: Array[String] = []
 	for child in categories_node.get_children():
 		if child is Button:
-			category_texts.append(String((child as Button).text))
-	if category_texts.size() != BuildCategories.ORDER.size():
-		push_error("Build menu built %d categories, expected %d" % [category_texts.size(), BuildCategories.ORDER.size()])
+			var category_button: Button = child as Button
+			category_ids.append(String(category_button.get_meta("category_id", category_button.tooltip_text)))
+			if String(category_button.text).length() > 8:
+				push_error("Build menu category tab '%s' is too long for the Modern UI button asset" % String(category_button.text))
+				quit(1)
+				return
+	if category_ids.size() != BuildCategories.ORDER.size():
+		push_error("Build menu built %d categories, expected %d" % [category_ids.size(), BuildCategories.ORDER.size()])
 		quit(1)
 		return
 	for category_index in range(BuildCategories.ORDER.size()):
-		if category_texts[category_index] != BuildCategories.ORDER[category_index]:
-			push_error("Build menu category mismatch at index %d: got '%s', expected '%s'" % [
-				category_index, category_texts[category_index], BuildCategories.ORDER[category_index],
+		if category_ids[category_index] != BuildCategories.ORDER[category_index]:
+			push_error("Build menu category metadata mismatch at index %d: got '%s', expected '%s'" % [
+				category_index, category_ids[category_index], BuildCategories.ORDER[category_index],
 			])
 			quit(1)
 			return
@@ -1999,6 +2114,10 @@ func _initialize() -> void:
 		push_error("Edit click flow still deletes an already-selected object on a second click")
 		quit(1)
 		return
+	if not building_placement_source.contains("func clear_local_test_placements") or not building_placement_source.contains("save_system.set_region_placed_objects(_region_id, _placed_objects)"):
+		push_error("BuildingPlacementSystem is missing the safe local test-placement cleanup helper")
+		quit(1)
+		return
 	build_menu.queue_free()
 	object_registry.queue_free()
 	await process_frame
@@ -2202,7 +2321,7 @@ func _initialize() -> void:
 		push_error("Prototype HUD is missing ControlsLabel")
 		quit(1)
 		return
-	for required_hint in ["Esc Menu", "I Inv", "B Build", "M Map", "H Help", "F11"]:
+	for required_hint in ["Esc Menu", "I Inv", "B Build", "E Edit", "M Map", "H Help", "F11"]:
 		if not controls_label.text.contains(required_hint):
 			push_error("Prototype HUD controls line is missing '%s'" % required_hint)
 			quit(1)
@@ -2236,6 +2355,7 @@ func _initialize() -> void:
 			return
 	var terrain_picker: OptionButton = null
 	var terrain_buttons_found: Dictionary = {"Brush Here": false, "Fill Area": false, "Reset Here": false}
+	var clear_placements_button_found: bool = false
 	var admin_close_button: Button = null
 	for child_variant in admin_panel.find_children("*", "OptionButton", true, false):
 		var option_button: OptionButton = child_variant as OptionButton
@@ -2245,6 +2365,8 @@ func _initialize() -> void:
 		var button: Button = button_variant as Button
 		if button != null and terrain_buttons_found.has(button.text):
 			terrain_buttons_found[button.text] = true
+		if button != null and button.text == "Clear Local Test Placements":
+			clear_placements_button_found = true
 		if button != null and button.text == "Close":
 			admin_close_button = button
 	if terrain_picker == null:
@@ -2270,6 +2392,10 @@ func _initialize() -> void:
 			push_error("Admin terrain paint control '%s' is missing" % button_text)
 			quit(1)
 			return
+	if not clear_placements_button_found:
+		push_error("Admin panel is missing the Clear Local Test Placements button")
+		quit(1)
+		return
 	if admin_close_button == null:
 		push_error("Admin panel is missing a visible Close button")
 		quit(1)
@@ -2685,7 +2811,8 @@ func _initialize() -> void:
 		"WINDOW_MODE_WINDOWED",
 		"WINDOW_MODE_FULLSCREEN",
 		"config.get_value(\"display\", \"fullscreen\", false)",
-		"MAX_WINDOWED_SIZE := Vector2i(1600, 900)",
+		"MAX_WINDOWED_SIZE := Vector2i(1280, 720)",
+		"MIN_WINDOWED_SIZE := Vector2i(960, 540)",
 		"WINDOWED_SCREEN_MARGIN := Vector2i(120, 140)",
 		# Windowed mode must clear borderless AND size/center the window so the OS
 		# title bar/borders are visible (the 1080p screen-sized regression).
@@ -2700,8 +2827,12 @@ func _initialize() -> void:
 			quit(1)
 			return
 	var project_settings_source: String = FileAccess.get_file_as_string("res://project.godot")
-	if not project_settings_source.contains("window/size/viewport_width=1600") or not project_settings_source.contains("window/size/viewport_height=900"):
-		push_error("project.godot default window must be 1600x900 so bordered windowed launch fits 1080p screens")
+	if not project_settings_source.contains("window/size/viewport_width=1280") or not project_settings_source.contains("window/size/viewport_height=720"):
+		push_error("project.godot default window must be 1280x720 so UI/layout match the LimeZu asset scale")
+		quit(1)
+		return
+	if project_settings_source.contains("window/size/viewport_width=1600") or project_settings_source.contains("window/size/viewport_height=900"):
+		push_error("project.godot still contains the oversized 1600x900 prototype window size")
 		quit(1)
 		return
 	if project_settings_source.contains("window/size/viewport_width=1920") or project_settings_source.contains("window/size/viewport_height=1080"):
@@ -3281,6 +3412,12 @@ func _initialize() -> void:
 	var nameplate_holder: Node2D = Nameplate.attach(nameplate_host, "Tester", "Player")
 	if nameplate_holder == null or nameplate_holder.get_child_count() < 1:
 		push_error("Nameplate.attach did not build a label")
+		nameplate_host.free()
+		quit(1)
+		return
+	var nameplate_label: Label = nameplate_holder.get_child(0) as Label
+	if nameplate_label == null or nameplate_label.get_theme_stylebox("normal") == null:
+		push_error("Nameplate label is missing its readable backing")
 		nameplate_host.free()
 		quit(1)
 		return

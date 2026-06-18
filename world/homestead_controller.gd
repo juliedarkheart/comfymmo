@@ -699,6 +699,7 @@ func _configure_farm_plots() -> void:
 		FARM_PLOT_TURNIP_ID: farm_plot_turnip,
 		FARM_PLOT_BERRY_ID: farm_plot_berry,
 	}
+	_align_limezu_farm_interaction_nodes()
 
 	if farming_system.has_plot(LEGACY_FARM_PLOT_ID) and not farming_system.has_plot(FARM_PLOT_CARROT_ID):
 		farming_system.set_plot_state(FARM_PLOT_CARROT_ID, farming_system.get_plot_state(LEGACY_FARM_PLOT_ID))
@@ -712,6 +713,21 @@ func _configure_farm_plots() -> void:
 	farm_plot_carrot.plot_id = FARM_PLOT_CARROT_ID
 	farm_plot_turnip.plot_id = FARM_PLOT_TURNIP_ID
 	farm_plot_berry.plot_id = FARM_PLOT_BERRY_ID
+
+func _align_limezu_farm_interaction_nodes() -> void:
+	if not LiveVisualPolicy.live_limezu_slice() or map == null:
+		return
+	var farm_tiles := {
+		FARM_PLOT_CARROT_ID: Vector2i(2, 12),
+		FARM_PLOT_TURNIP_ID: Vector2i(3, 13),
+		FARM_PLOT_BERRY_ID: Vector2i(4, 12),
+	}
+	for plot_id in farm_tiles.keys():
+		var plot: FarmPlot = _farm_plots.get(plot_id, null) as FarmPlot
+		if plot == null:
+			continue
+		plot.position = map.grid_to_world(farm_tiles[plot_id] as Vector2i)
+		plot.set_meta("interaction_point_offset", Vector2.ZERO)
 
 func _register_farm_plot_interactions() -> void:
 	for plot_id_variant in _farm_plots.keys():
@@ -914,14 +930,12 @@ func _open_help_panel() -> void:
 	_open_observe_panel(
 		"Hearthvale Controls",
 		"Move: WASD / Arrow keys\n"
-		+ "Interact / talk / gather / claim: F (when a prompt shows)\n"
-		+ "Inventory: I    Craft: K    Skills: P    Help: H    Minimap: M\n"
-		+ "Build: B (Tab switches item)    Edit: E (Move M; Delete twice to confirm)\n"
-		+ "Controller: left stick move    A interact/confirm    B cancel    Start menu\n"
-		+ "Eat carrot: C    Cycle time: T    Zoom: PgUp/PgDn (R reset)\n"
-		+ "Chat: Enter    Multiplayer/profile: F8    Wardrobe: F9\n"
-		+ "Dev: F10    Admin/world-builder: F7    Fullscreen/windowed: F11\n"
-		+ "System menu (Resume / Quit to Desktop): Esc (when no panel is open)\n\n"
+		+ "Interact / talk / gather / claim: F\n"
+		+ "Inventory I | Craft K | Skills P | Help H | Minimap M\n"
+		+ "Build B | Edit E | Move M | Rotate Q/RB | Delete Del/Y\n"
+		+ "Controller: left stick move | A confirm | B cancel | Start menu\n"
+		+ "Chat Enter | Profile F8 | Wardrobe F9 | Admin F7 | Fullscreen F11\n"
+		+ "System menu: Esc when no other panel is open\n\n"
 		+ "Esc closes any open panel first; with nothing open it opens the system menu.\n\n"
 		+ "Getting started: gather branches/pebbles/fiber/clay (F), craft tools (K), "
 		+ "claim a plot at a plot sign, then build (B). Talk to Farmer Rowan for help."

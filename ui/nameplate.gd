@@ -37,8 +37,18 @@ static func _make_label(text: String, font_size: int, color: Color) -> Label:
 	label.position = Vector2(-70, 0)
 	label.custom_minimum_size = Vector2(140, 0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_font_size_override("font_size", maxi(font_size, 12))
 	label.add_theme_color_override("font_color", color)
 	label.add_theme_color_override("font_outline_color", Color(0.14, 0.1, 0.07, 0.92))
-	label.add_theme_constant_override("outline_size", 4)
+	label.add_theme_constant_override("outline_size", 5)
+	var backing := StyleBoxFlat.new()
+	backing.bg_color = Color(0.12, 0.09, 0.06, 0.72)
+	backing.border_color = Color(0.58, 0.43, 0.25, 0.72)
+	backing.set_border_width_all(1)
+	backing.set_corner_radius_all(5)
+	backing.content_margin_left = 5
+	backing.content_margin_right = 5
+	backing.content_margin_top = 2
+	backing.content_margin_bottom = 2
+	label.add_theme_stylebox_override("normal", backing)
 	return label

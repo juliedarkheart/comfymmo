@@ -10,8 +10,9 @@ The shared HUD still carries the core status lines:
 - comfort line
 - mode/help line for explore, placement, edit, or move state
 
-The minimap and quick tools continue to live as lightweight side panels rather
-than full-screen systems.
+The minimap stays a lightweight side panel. Quick tools live in a compact
+bottom-center hotbar sized around the smaller LimeZu Modern UI slot language
+rather than as a full-screen system.
 
 ## System / pause menu (Esc)
 
@@ -38,8 +39,8 @@ How it behaves:
 - pressing `B` enters placement mode and shows the build menu
 - the panel stays non-modal so walking can continue while it is open
 - `Esc` hides the panel
-- the `Close (Esc)` button hides the panel
-- `Compact` toggles a shorter item summary view
+- the `Close` button hides the panel
+- `Cards` toggles a shorter item summary view
 
 The build menu categories are:
 
@@ -95,7 +96,8 @@ Current exit paths:
 
 Quick tools:
 
-- shows ownership/readiness for the starter tools
+- shows ownership/readiness for 8 starter tool/item slots in a bottom-center hotbar
+- uses compact slot sizing so the UI fits the smaller LimeZu Modern UI assets
 - does not yet act as an active-tool hotbar
 
 Minimap:
@@ -113,8 +115,9 @@ Minimap:
 helpers, **Toggle World Overlay**, and grouped world-builder controls — a biome
 picker + Create/Grow/Shrink/Remove for plots, a marker-type picker +
 Place/Remove for world markers, a terrain picker with **Brush Here / Fill Area /
-Reset Here**, and teleport buttons for Landing/Neighborhood/Town plus every
-plot. The overlay (also `/overlay`) draws plot bounds, names, sizes, corners,
+Reset Here**, **Clear Local Test Placements** for offline visual-test cleanup, and
+teleport buttons for Landing/Neighborhood/Town plus every plot. The overlay
+(also `/overlay`) draws plot bounds, names, sizes, corners,
 the training-core grid, and authored markers in-world. Full reference in
 docs/world_builder_tools.md.
 
@@ -135,7 +138,7 @@ reports "coming later" for prototype placed pieces instead of rotating them.
 
 - confirm the HUD mode text changes for Explore, Placement, Edit, and Move
 - confirm the build menu opens on `B` and closes on `Esc`
-- confirm category buttons, `Compact`, and `Select` all work
+- confirm category buttons, `Cards`, and `Select` all work
 - confirm blocked pieces explain why they are unavailable
 - confirm minimap updates after a claim change
 - confirm quick tools update after gathering/crafting/inventory changes

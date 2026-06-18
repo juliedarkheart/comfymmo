@@ -21,6 +21,7 @@ func _ready() -> void:
 	CozyUITheme.apply_panel($Panel)
 	CozyUITheme.apply_heading_label(_mode_label, 16)
 	CozyUITheme.apply_body_label(_selection_label, 13)
+	CozyUITheme.apply_secondary_label(_feedback_label, 12)
 	CozyUITheme.apply_secondary_label(_controls_label, 12)
 	for button in [_select_button, _move_button, _rotate_button, _delete_button, _cancel_button]:
 		CozyUITheme.apply_button(button)
@@ -51,7 +52,7 @@ func set_feedback_text(text: String, is_error: bool = false) -> void:
 	if _feedback_label == null:
 		return
 	_feedback_label.text = text
-	_feedback_label.modulate = Color("#f7d38a") if not is_error else Color("#f4a69b")
+	_feedback_label.add_theme_color_override("font_color", CozyUITheme.INK_SOFT if not is_error else CozyUITheme.BAD)
 
 func set_button_states(can_select: bool, can_move: bool, can_rotate: bool, can_delete: bool, can_cancel: bool) -> void:
 	_select_button.disabled = not can_select

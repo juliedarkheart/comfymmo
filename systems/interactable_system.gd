@@ -69,6 +69,9 @@ func has_interactable(interactable_id: String) -> bool:
 func get_nearest_interactable_id() -> String:
 	return _nearest_interactable_id
 
+func interaction_radius() -> float:
+	return _interaction_radius()
+
 func get_interaction_type(interactable_id: String) -> String:
 	if not _interactables.has(interactable_id):
 		return ""
@@ -123,8 +126,10 @@ func _refresh_nearest_interactable() -> void:
 			stale_ids.append(interactable_id)
 			continue
 
-		var distance_sq: float = _player.global_position.distance_squared_to(interactable_node.global_position)
-		if distance_sq > DEFAULT_INTERACTION_RADIUS * DEFAULT_INTERACTION_RADIUS:
+		var radius: float = _interaction_radius()
+		var target_point: Vector2 = _interaction_point(interactable_node)
+		var distance_sq: float = _player.global_position.distance_squared_to(target_point)
+		if distance_sq > radius * radius:
 			continue
 
 		if distance_sq < nearest_distance_sq:
@@ -179,3 +184,14 @@ func _mark_input_handled() -> void:
 	var viewport: Viewport = get_viewport()
 	if viewport != null:
 		viewport.set_input_as_handled()
+
+func _interaction_radius() -> float:
+	return LiveVisualPolicy.INTERACTION_RADIUS if LiveVisualPolicy.live_limezu_slice() else DEFAULT_INTERACTION_RADIUS
+
+func _interaction_point(interactable_node: Node2D) -> Vector2:
+	var point: Vector2 = interactable_node.global_position
+	if interactable_node.has_meta("interaction_point_offset"):
+		var offset_variant: Variant = interactable_node.get_meta("interaction_point_offset")
+		if offset_variant is Vector2:
+			point += offset_variant as Vector2
+	return point

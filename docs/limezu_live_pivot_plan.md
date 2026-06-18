@@ -4,7 +4,8 @@ Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
 
 > **STATUS: PIVOTED.** `ArtProviderRegistry.LIVE_PROVIDER == "limezu"`. The live
 > overworld opens into a curated LimeZu slice (`OverworldMap._build_limezu_slice()`),
-> the UI re-skins to Modern UI (`CozyUITheme._ui_box`), and live human actors use the
+> the UI uses LimeZu panels plus Modern UI compact controls (`CozyUITheme._ui_box`),
+> and live human actors use the
 > LimeZu farmer (`CharacterArtRegistry`). Validation + offline/server boot pass. Sprout
 > stays integrated as a secondary/comparison provider (not deleted). Gameplay
 > (movement/placement/farming/delete-twice/data/networking) is unchanged. The sections
@@ -17,7 +18,8 @@ Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
 > the Sprout neighborhood/plot grounds + generated dirt/stone roads, village/forest
 > decor, plot-skirt decor, and the wardrobe mirror are suppressed in LimeZu mode;
 > resource nodes are re-skinned to LimeZu; and the HUD/minimap/toolbelt joined the
-> inventory/menus on a clean flat LimeZu-compatible UI. A boot audit + validation
+> inventory/menus on a LimeZu-compatible UI that uses Modern UI texture-backed
+> panels and controls. A boot audit + validation
 > enforce `sprout=0`/`legacy=0` and LimeZu-dominant UI/world tiers in the opening.
 > Forbidden in the live opening: any
 > Sprout/old-generated/old-procedural/legacy visual — it must resolve to LimeZu, be a
@@ -58,11 +60,10 @@ opening also hides old farm-plot soil marks, the old rest-marker doormat diamond
 and generated homestead woodland creatures; broader creature-family coverage remains
 a custom-art gap.
 
-UI rewrite update: those Modern UI slices are no longer stretched over large live
-panels. The live HUD, minimap, toolbelt, inventory, and menus use `LimeZuUITheme`
-`StyleBoxFlat` frames in dark wood/gold/cream so text stays readable and frames do
-not warp. The slices remain mapped for audits, references, and possible small native
-uses.
+UI rewrite update: the live HUD, minimap, inventory backs, menus, slots, buttons,
+close buttons, and tabs use the reviewed Modern UI texture slices through
+`LimeZuUITheme`/`CozyUITheme`. Panel labels use dark ink on the parchment-like frame,
+while button labels stay cream/gold on the dark button strips.
 
 Layering update: the live LimeZu opening now treats grass/path/tilled soil as a true
 ground layer below the y-sorted gameplay layer. The curated slice uses explicit visual
@@ -77,6 +78,13 @@ nearby LimeZu grass coverage, sparse edge clusters, and short approach path tile
 walking a few steps from spawn remains coherent. It is not a village/forest/full-map
 conversion; broader overworld, tameable creature, dungeon, and player-created
 adventure-plot art remain future work.
+
+Playability alignment update: the live barn collision now matches the visible LimeZu
+barn footprint instead of the older hidden cottage collider, visible crop beds align
+with the existing farm plot interactions, and LimeZu prompts use a 32px-top-down
+interaction radius. The bottom-center quick tools and compact inventory are sized
+around the smaller Modern UI control assets instead of forcing the art to fit the
+old oversized prototype UI.
 
 ## Must remain unchanged (no gameplay churn)
 
