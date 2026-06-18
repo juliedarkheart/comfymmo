@@ -95,12 +95,18 @@ func _build_header() -> void:
 		_compact = on
 		refresh())
 	CozyUITheme.apply_button(compact_button)
+	# Header buttons must fit their full label (the framed button adds ~32px of side
+	# padding, which clipped "Cards"/"Close" to "Car"/"Clos" at the default min width).
+	compact_button.clip_text = false
+	compact_button.custom_minimum_size = Vector2(96, 32)
 	header.add_child(compact_button)
 
 	var close_button := Button.new()
 	close_button.text = "Close"
 	close_button.pressed.connect(close_panel)
 	CozyUITheme.apply_close_button(close_button)
+	close_button.clip_text = false
+	close_button.custom_minimum_size = Vector2(96, 32)
 	header.add_child(close_button)
 
 func _build_selected_info() -> void:

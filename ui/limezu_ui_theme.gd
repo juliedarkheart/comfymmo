@@ -199,6 +199,45 @@ static func slot_style(selected: bool = false, blocked: bool = false) -> StyleBo
 	var border: Color = BAD if blocked else (SLOT_SELECTED_BORDER if selected else SLOT_BORDER)
 	return _flat(fill, border, 3 if selected else 2, 5, [6, 8, 6, 6])
 
+# ---------------------------------------------------------------------------
+# Slot icon layout — center an item/tool icon inside the slot frame's USABLE INNER
+# CAVITY (not the full texture rect). The slot frame's border is uneven (top is thicker:
+# TEX_MARGIN[ui.slot] = [10,12,10,10]), so a full-rect-centered icon reads as off-centre
+# and large icons overflow the wood. These helpers inset to the cavity and scale-to-fit.
+# ---------------------------------------------------------------------------
+## The usable inner rect of a slot of the given square size, inset by the frame's measured
+## per-side border so an icon sits inside the cavity (honours the uneven top border).
+static func slot_inner_rect(slot_size: float) -> Rect2:
+	var m: Array = TEX_MARGIN.get(ID_SLOT, [10, 12, 10, 10])
+	return Rect2(float(m[0]), float(m[1]), maxf(slot_size - float(m[0]) - float(m[2]), 1.0), maxf(slot_size - float(m[1]) - float(m[3]), 1.0))
+
+## Lay out an item icon inside a slot Panel: fill the inner cavity, scale-to-fit preserving
+## aspect, centred, NEAREST. EXPAND_IGNORE_SIZE makes every icon (16/32/48px native) render
+## at a consistent centred size instead of native-size top-left (the off-centre bug).
+static func apply_slot_icon_layout(icon: TextureRect, slot_size: float = 56.0) -> void:
+	var m: Array = TEX_MARGIN.get(ID_SLOT, [10, 12, 10, 10])
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon.offset_left = float(m[0])
+	icon.offset_top = float(m[1])
+	icon.offset_right = -float(m[2])
+	icon.offset_bottom = -float(m[3])
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+## Lay out a count/qty label in the slot's bottom-right corner, inside the cavity, with a
+## soft shadow so it stays readable over any icon.
+static func apply_slot_count_layout(label: Label, slot_size: float = 56.0) -> void:
+	var m: Array = TEX_MARGIN.get(ID_SLOT, [10, 12, 10, 10])
+	label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, int(m[2]) + 1)
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", TEXT_READABLE)
+	label.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.55))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 static func button_style() -> StyleBoxFlat:
 	return _flat(BUTTON_FILL, BUTTON_BORDER, 2, 6, [16, 8, 16, 10])
 
@@ -274,6 +313,19 @@ static func hotbar_panel_style() -> StyleBox:
 	# Slots carry their own frames; the strip backing is empty so the hotbar floats
 	# (Stardew-style) rather than sitting in a second box.
 	return StyleBoxEmpty.new()
+
+## A framed rail behind the hotbar slot row so the slots read as one cohesive bottom HUD
+## element instead of a line of loose buttons. Uses the real Modern UI panel 9-patch with
+## tight margins so the slots sit snugly inside the frame.
+static func hotbar_rail_style() -> StyleBox:
+	var sb := _nine(ID_PANEL, [10, 8, 10, 8])
+	return sb if sb != null else _flat(PANEL_FILL, PANEL_BORDER, 3, 8, [10, 8, 10, 8])
+
+## A framed square portrait holder for dialogue/nameplate (real slot frame, tight margins).
+## The portrait texture itself comes from GeneratorCharacterRegistry; this is just the frame.
+static func portrait_frame_style() -> StyleBox:
+	var sb := _nine(ID_SLOT, [4, 4, 4, 4])
+	return sb if sb != null else _flat(SLOT_FILL, SLOT_BORDER, 2, 5, [4, 4, 4, 4])
 
 static func button_texture_style(hovered: bool = false) -> StyleBox:
 	if hovered:

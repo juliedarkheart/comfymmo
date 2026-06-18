@@ -30,6 +30,16 @@ const STARDEW_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_stardew_ui.p
 const STARDEW_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_stardew_ui.png"
 const STARDEW_BUILD_FILE := OUT_DIR + "/live_limezu_build_menu_after_stardew_ui.png"
 const STARDEW_PROMPT_FILE := OUT_DIR + "/live_limezu_prompt_after_stardew_ui.png"
+# This pass: UI polish + generator pipeline + collision/interaction alignment.
+const POLISH_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_ui_generator_polish.png"
+const POLISH_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_ui_generator_polish.png"
+const POLISH_BUILD_FILE := OUT_DIR + "/live_limezu_build_after_ui_generator_polish.png"
+const POLISH_PROMPT_FILE := OUT_DIR + "/live_limezu_prompt_after_ui_generator_polish.png"
+const POLISH_FARM_FILE := OUT_DIR + "/live_limezu_farm_interact_after_ui_generator_polish.png"
+# This pass: inventory/hotbar icon-centering + scaffold left-menu polish.
+const ICON_ALIGN_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_icon_alignment.png"
+const ICON_ALIGN_HOTBAR_FILE := OUT_DIR + "/live_limezu_hotbar_after_icon_alignment.png"
+const LEFT_MENU_FILE := OUT_DIR + "/live_limezu_left_menu_after_polish.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -61,7 +71,7 @@ func _initialize() -> void:
 		opening_img.save_png(LAYERING_CLEANUP_FILE)
 		opening_img.save_png(UI_REWRITE_OPENING_FILE)
 		opening_img.save_png(AREA_EXPANSION_OPENING_FILE)
-		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE)
+		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE); opening_img.save_png(POLISH_OPENING_FILE); opening_img.save_png(ICON_ALIGN_HOTBAR_FILE)
 		print("[live-capture] saved ", OUT_FILE)
 		print("[live-capture] saved ", UI_REWRITE_OPENING_FILE)
 		print("[live-capture] saved ", AREA_EXPANSION_OPENING_FILE)
@@ -86,7 +96,7 @@ func _initialize() -> void:
 		var inv_img: Image = _grab_image()
 		if inv_img != null and inv_img.save_png(UI_REWRITE_INVENTORY_FILE) == OK:
 			inv_img.save_png(AREA_EXPANSION_INVENTORY_FILE)
-			inv_img.save_png(PLAYABILITY_INVENTORY_FILE); inv_img.save_png(STARDEW_INVENTORY_FILE)
+			inv_img.save_png(PLAYABILITY_INVENTORY_FILE); inv_img.save_png(STARDEW_INVENTORY_FILE); inv_img.save_png(POLISH_INVENTORY_FILE); inv_img.save_png(ICON_ALIGN_INVENTORY_FILE)
 			print("[live-capture] saved ", UI_REWRITE_INVENTORY_FILE)
 			print("[live-capture] saved ", AREA_EXPANSION_INVENTORY_FILE)
 			print("[live-capture] saved ", PLAYABILITY_INVENTORY_FILE)
@@ -102,12 +112,23 @@ func _initialize() -> void:
 			await process_frame
 		var build_img: Image = _grab_image()
 		if build_img != null and build_img.save_png(PLAYABILITY_BUILD_MENU_FILE) == OK:
-			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
+			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); build_img.save_png(POLISH_BUILD_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
 		else:
 			push_warning("[live-capture] failed to save build menu screenshot")
 	else:
 		push_warning("[live-capture] build menu panel not found; skipped build menu capture")
 	_close_review_overlays()
+	for _i in range(5):
+		await process_frame
+	if _open_admin_panel():
+		for _i in range(8):
+			await process_frame
+		var admin_img: Image = _grab_image()
+		if admin_img != null and admin_img.save_png(LEFT_MENU_FILE) == OK:
+			print("[live-capture] saved ", LEFT_MENU_FILE)
+		else:
+			push_warning("[live-capture] failed to save left-menu screenshot")
+		_close_review_overlays()
 	if player != null:
 		var farm_pos: Vector2 = _farm_prompt_position()
 		if farm_pos != Vector2.INF:
@@ -117,7 +138,7 @@ func _initialize() -> void:
 				await process_frame
 			var farm_img: Image = _grab_image()
 			if farm_img != null and farm_img.save_png(PLAYABILITY_FARM_PROMPT_FILE) == OK:
-				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
+				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); farm_img.save_png(POLISH_PROMPT_FILE); farm_img.save_png(POLISH_FARM_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
 			else:
 				push_warning("[live-capture] failed to save farm prompt screenshot")
 	quit(0)
@@ -170,6 +191,17 @@ func _open_inventory_panel() -> bool:
 	for node in root.find_children("InventoryPanel", "CanvasLayer", true, false):
 		if node.has_method("open_panel"):
 			node.call("open_panel")
+			return true
+	return false
+
+func _open_admin_panel() -> bool:
+	var root := get_root()
+	if root == null:
+		return false
+	for node in root.find_children("AdminPanel", "CanvasLayer", true, false):
+		if node.has_method("toggle_panel"):
+			node.set("visible", false)
+			node.call("toggle_panel")
 			return true
 	return false
 

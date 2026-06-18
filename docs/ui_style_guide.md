@@ -133,11 +133,51 @@ texture id is missing — an **approved flat fallback in LimeZu tan** (so dark i
 readable). `is_textured()` reports which is live. **Flat fills are interiors/fallbacks
 only, never the primary look.**
 
-**Hotbar** (`ui/quick_tools_bar.gd`): a bottom-centre row of 9 LimeZu slot frames with
-number keys (1-9), tool icons (LimeZu icon where mapped, else a short text glyph), a dim
-state for tools not yet owned, a gold **selected** slot, and the held tool's name on a
-framed label above the row. Selection is presentational only (the game checks ownership,
-not an active slot) — no gameplay/selection system was added.
+**Hotbar** (`ui/quick_tools_bar.gd`): a bottom-centre row of 9 LimeZu slot frames sitting
+inside a **framed wood rail** (`LimeZuUITheme.hotbar_rail_style`) so the slots read as one
+cohesive HUD element, not loose buttons. Number keys (1-9), tool icons (LimeZu icon where
+mapped, else a short text glyph), a dim state for tools not yet owned, a gold **selected**
+slot, and the held tool's name on a framed label above the row. Selection is presentational
+only (the game checks ownership, not an active slot) — no gameplay/selection system added.
+
+### UI polish standard (typography, spacing, composition)
+
+The UI must feel designed, not "text dumped in a box":
+- **No text touches a border** — panels/buttons carry generous content margins from the
+  theme; header buttons set `clip_text = false` + a min width so labels like "Cards"/"Close"
+  never truncate.
+- **Hierarchy:** gold/brown title, a thin wood **divider** under a panel header, then the
+  grid/body, then a framed **detail/description** area. Item names live on the hover/detail
+  line, never wrapped inside every slot.
+- **Default HUD stays a clean status card** — the long control list lives in Help (H) / the
+  system menu, not the HUD (the HUD controls line is hidden in normal play; it still flashes
+  briefly on F11).
+- **Dark ink on tan**, cream/gold only on genuinely dark backings; avoid heavy black
+  outlines (nameplates use a thin outline + soft shadow, no backing blob).
+- Flat fills are readable interiors/fallbacks only — never the primary identity.
+
+### Slot icon centering (inventory + hotbar)
+
+Item/tool icons must sit centred inside the slot frame's **usable inner cavity**, not the
+full texture rect (the slot border is uneven — the top is thicker). Both the inventory and
+hotbar use the **shared** `LimeZuUITheme` helpers so they stay consistent:
+- `slot_inner_rect(slot_size)` — the cavity, inset by the slot's measured per-side texture
+  margins (`TEX_MARGIN[ui.slot] = [10,12,10,10]`).
+- `apply_slot_icon_layout(icon, slot_size)` — fills the cavity, `EXPAND_IGNORE_SIZE` +
+  `STRETCH_KEEP_ASPECT_CENTERED` + NEAREST, so **every** icon (16/32/48px native) renders at
+  a consistent centred size instead of native-size top-left (the old off-centre bug).
+- `apply_slot_count_layout(label, slot_size)` — count pinned bottom-right inside the cavity
+  with a soft shadow. Empty slots show a clean frame with no icon.
+
+### Left-side menu composition standard (admin / world-builder)
+
+A left-side panel must read as a composed game menu, not a dev scaffold:
+- A **header row** (title + framed Close), then a thin wood **divider**.
+- Status in its own **framed sub-panel** (tooltip frame), not floating debug text.
+- Controls grouped into **sections**, each introduced by a heading with a divider above it.
+- **Row buttons** use `SIZE_EXPAND_FILL` + `clip_text = false` + short labels (details in
+  tooltips) so 3-per-row controls never truncate to "Gro/Shr/Re".
+The F7 world-builder panel (`ui/admin_panel.gd`) is the reference implementation.
 
 **Inventory** (`ui/inventory_panel.gd`): grid-first — square `56x56` LimeZu slot frames
 (4 per row) with a centred icon and a bottom-right count overlay, grouped under section

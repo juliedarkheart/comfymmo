@@ -31,10 +31,14 @@ var _get_count: Callable = Callable()
 var _slots: Array = []          # [{panel, icon, glyph, count, tool_id}]
 var _selected: int = 0
 
-@onready var _strip: HBoxContainer = $Wrap/Strip
+@onready var _rail: PanelContainer = $Wrap/Rail
+@onready var _strip: HBoxContainer = $Wrap/Rail/Strip
 @onready var _selected_name: Label = $Wrap/SelectedName
 
 func _ready() -> void:
+	# Framed rail backing so the slots read as one cohesive bottom HUD element.
+	_rail.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_rail.add_theme_stylebox_override("panel", LimeZuUITheme.hotbar_rail_style())
 	_selected_name.add_theme_stylebox_override("normal", LimeZuUITheme.tooltip_panel_style())
 	_selected_name.add_theme_color_override("font_color", LimeZuUITheme.title_text_color())
 	_selected_name.add_theme_font_size_override("font_size", 13)
@@ -55,21 +59,19 @@ func _build_slots() -> void:
 		panel.mouse_filter = Control.MOUSE_FILTER_PASS
 		panel.gui_input.connect(_on_slot_input.bind(i))
 
-		# Centered icon (LimeZu icon where mapped).
+		# Icon centred in the slot cavity (shared layout helper -> same rules as inventory).
 		var icon := TextureRect.new()
-		icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		icon.offset_left = 9
-		icon.offset_top = 9
-		icon.offset_right = -9
-		icon.offset_bottom = -9
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		LimeZuUITheme.apply_slot_icon_layout(icon, SLOT_SIZE.y)
 		panel.add_child(icon)
 
 		# Centered short text glyph (used only when no icon is available).
 		var glyph := Label.new()
+		var inner: Rect2 = LimeZuUITheme.slot_inner_rect(SLOT_SIZE.y)
 		glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		glyph.offset_left = inner.position.x
+		glyph.offset_top = inner.position.y
+		glyph.offset_right = -(SLOT_SIZE.x - inner.end.x)
+		glyph.offset_bottom = -(SLOT_SIZE.y - inner.end.y)
 		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		glyph.add_theme_font_size_override("font_size", 12)
@@ -88,10 +90,7 @@ func _build_slots() -> void:
 
 		# Count (bottom-right) — hidden for single tools, shown for stackable items.
 		var count := Label.new()
-		count.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 4)
-		count.add_theme_font_size_override("font_size", 11)
-		count.add_theme_color_override("font_color", LimeZuUITheme.readable_text_color())
-		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		LimeZuUITheme.apply_slot_count_layout(count, SLOT_SIZE.y)
 		panel.add_child(count)
 
 		_strip.add_child(panel)

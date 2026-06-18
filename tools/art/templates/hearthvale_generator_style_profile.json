@@ -1,0 +1,91 @@
+{
+  "_schema": "hearthvale.generator_style_profile.v1",
+  "_comment": [
+    "COMMIT-SAFE, ORIGINAL Hearthvale style constraints for generating our OWN assets that",
+    "sit comfortably next to the LimeZu-led look WITHOUT copying LimeZu art. These are",
+    "abstract production rules (sizes, outline px, padding, shadow/highlight direction,",
+    "palette intent) learned from the production CONSTRAINTS of cozy pixel art — not pixels",
+    "lifted from any pack. The palette below is a Hearthvale-original cozy set, not a copy of",
+    "LimeZu's palette. tools/art/hearthvale_palette_analyzer.py writes measured stats to a",
+    "LOCAL gitignored report; this committed profile is what the generators actually read."
+  ],
+  "pixel_scale": {
+    "base_cell_px": 16,
+    "supported_cell_px": [16, 32, 48, 64],
+    "display_upscale": 2,
+    "upscale_filter": "nearest",
+    "rule": "Author at base_cell_px, upscale by an INTEGER factor with NEAREST. Never non-integer scale pixel art."
+  },
+  "icons": {
+    "item_icon_px": 16,
+    "icon_inner_padding_px": 1,
+    "max_icon_fill_ratio": 0.82,
+    "rule": "Item/resource icons are a centred silhouette inside a 16px cell with >=1px transparent padding so they never touch a slot frame."
+  },
+  "outline": {
+    "thickness_px": 1,
+    "style": "selective",
+    "color_mode": "darker_shade_of_local_fill",
+    "rule": "1px outline, darker than the local fill (not pure black); outlines may be omitted on internal seams."
+  },
+  "shadow": {
+    "direction": "down",
+    "offset_px": 1,
+    "opacity": 0.35,
+    "contact_shadow": "ellipse under bottom-anchored props",
+    "rule": "Light comes from top; cast a soft 1px-down shadow. Bottom-anchored props get a small contact ellipse."
+  },
+  "highlight": {
+    "direction": "top_left",
+    "strength": 0.2,
+    "rule": "Highlights on top/top-left facing surfaces; shading on bottom/bottom-right."
+  },
+  "value_saturation": {
+    "value_range": [0.25, 0.9],
+    "saturation_range": [0.2, 0.7],
+    "rule": "Avoid pure black/white and fully saturated primaries; keep a warm, slightly desaturated cozy range."
+  },
+  "palette": {
+    "_note": "Hearthvale-ORIGINAL cozy palette (hand-authored, not copied). Hues chosen to be compatible with a warm farm/village look.",
+    "wood_dark": "#5a3a22",
+    "wood_mid": "#86592f",
+    "wood_light": "#b98a52",
+    "parchment": "#cdb78d",
+    "parchment_deep": "#b09a6e",
+    "leaf_dark": "#3f6b3a",
+    "leaf_mid": "#5d9a4f",
+    "leaf_light": "#8fc46a",
+    "soil": "#6b4a2e",
+    "stone": "#8d8a82",
+    "water": "#4f86b8",
+    "berry": "#b8434f",
+    "gold": "#f0c75c",
+    "ink": "#2a1d12",
+    "shadow": "#1c130a"
+  },
+  "ui_spacing": {
+    "panel_content_margin_px": [16, 14, 14, 10],
+    "slot_inner_margin_px": [10, 12, 10, 10],
+    "button_label_padding_px": [16, 8, 16, 10],
+    "min_text_gap_from_border_px": 6,
+    "rule": "Match the live LimezuUITheme margins so generated UI bits drop into the same frames cleanly."
+  },
+  "categories": {
+    "item_icon": {"cell_px": 16, "template": "centered_silhouette", "out_dir": "hearthvale_generated/item_icons"},
+    "crop_resource_icon": {"cell_px": 16, "template": "stacked_or_clustered", "out_dir": "hearthvale_generated/resource_icons"},
+    "furniture_prop": {"cell_px": 32, "template": "bottom_anchored_prop", "out_dir": "hearthvale_generated/props"},
+    "ui_badge": {"cell_px": 16, "template": "framed_glyph", "out_dir": "hearthvale_generated/ui_badges"},
+    "portrait_placeholder": {"cell_px": 48, "template": "bust_silhouette", "out_dir": "hearthvale_generated/portraits"},
+    "color_variant": {"cell_px": 16, "template": "palette_swap_of_original_source", "out_dir": "hearthvale_generated/variants"}
+  },
+  "naming": {
+    "pattern": "<category>_<name>_<cell>px.png",
+    "example": "item_icon_acorn_16px.png",
+    "rule": "lowercase snake_case; cell size suffix; no spaces."
+  },
+  "export": {
+    "local_root": "licensed_assets/limezu/generator_outputs/hearthvale_generated/",
+    "gitignored": true,
+    "policy": "Generated originals stay local/gitignored until docs/hearthvale_asset_generator_plan.md declares a commit policy. Never co-mingle with LimeZu licensed art."
+  }
+}

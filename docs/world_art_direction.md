@@ -16,6 +16,13 @@ stretching). Approved flat tan fills are interior fallbacks only. Default window
 1280x720. The contract + slicing live in `ui/limezu_ui_theme.gd` and
 `tools/art/limezu_slice_spike_assets.py`; see `docs/ui_style_guide.md`.
 
+**Characters/portraits** come from the LimeZu **Farmer/Character generators** (GUI tools).
+Generated sheets/portraits are local licensed/derived art (gitignored
+`licensed_assets/limezu/generator_outputs/`) cataloged by `tools/art/limezu_generator_catalog.py`
+into a local manifest and resolved by `GeneratorCharacterRegistry` with a clean null
+fallback. Never commit generator executables, outputs, or manifests. See
+`docs/limezu_generator_workflow.md`.
+
 ## Sprout secondary-provider policy
 
 Sprout remains integrated as a secondary/comparison provider, and its local licensed

@@ -9,12 +9,33 @@ class_name Nameplate
 ## Floating name above a character. The role SUBTITLE is hidden by default to keep
 ## the scene uncluttered (every NPC stacking a "Villager"/"Mentor" line read as
 ## noise); pass show_subtitle=true only where a role line is genuinely useful.
-static func attach(parent: Node2D, character_name: String, subtitle: String = "", name_color: Color = Color("#f5f0e6"), show_subtitle: bool = false) -> Node2D:
+static func attach(parent: Node2D, character_name: String, subtitle: String = "", name_color: Color = Color("#f5f0e6"), show_subtitle: bool = false, portrait_id: String = "") -> Node2D:
 	var holder: Node2D = Node2D.new()
 	holder.name = "Nameplate"
 	holder.position = Vector2(0, -52)
 	holder.z_index = 50
 	parent.add_child(holder)
+
+	# Generator-aware: when a character has a LimeZu-generator portrait cataloged locally,
+	# show a small framed portrait chip above the name. Opt-in (portrait_id set) and
+	# fallback-safe — no entry/output -> no chip, never a broken/placeholder image.
+	if not portrait_id.is_empty():
+		var portrait: Texture2D = GeneratorCharacterRegistry.portrait_texture(portrait_id)
+		if portrait != null:
+			var frame := Panel.new()
+			frame.custom_minimum_size = Vector2(30, 30)
+			frame.size = Vector2(30, 30)
+			frame.position = Vector2(-15, -34)
+			frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			frame.add_theme_stylebox_override("panel", LimeZuUITheme.portrait_frame_style())
+			var pic := TextureRect.new()
+			pic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			pic.offset_left = 4; pic.offset_top = 4; pic.offset_right = -4; pic.offset_bottom = -4
+			pic.texture = portrait
+			pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			pic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			frame.add_child(pic)
+			holder.add_child(frame)
 
 	var name_label: Label = _make_label(character_name, 11, name_color)
 	holder.add_child(name_label)

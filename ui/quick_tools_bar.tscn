@@ -11,11 +11,11 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_top = -92.0
-offset_bottom = -10.0
+offset_top = -96.0
+offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 0
-theme_override_constants/separation = 5
+theme_override_constants/separation = 4
 alignment = 1
 
 [node name="SelectedName" type="Label" parent="Wrap"]
@@ -26,8 +26,11 @@ horizontal_alignment = 1
 vertical_alignment = 1
 text = ""
 
-[node name="Strip" type="HBoxContainer" parent="Wrap"]
+[node name="Rail" type="PanelContainer" parent="Wrap"]
 layout_mode = 2
 size_flags_horizontal = 4
-theme_override_constants/separation = 5
+
+[node name="Strip" type="HBoxContainer" parent="Wrap/Rail"]
+layout_mode = 2
+theme_override_constants/separation = 6
 alignment = 1

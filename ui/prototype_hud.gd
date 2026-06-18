@@ -59,6 +59,11 @@ func _apply_compact_normal_layout() -> void:
 	$Panel.custom_minimum_size = Vector2(304, 0)
 	$Panel.set_meta("normal_hud_role", "compact_status_card")
 	_identity_label.visible = false
+	# Keep the default HUD a clean status card: the full control list lives in Help (H) /
+	# the system menu, so the long controls hint is hidden here (its text is preserved for
+	# the F11 flash + validation). This is the "no long control hints in the HUD" rule.
+	if _controls_label != null:
+		_controls_label.visible = false
 	# The bare-number crop row reads as a meaningless "0  0  0" once its old prototype
 	# icons are hidden, so the whole row is hidden in normal play. Crop counts stay in
 	# the inventory panel (I); the HUD keeps the compact build-materials line.
@@ -92,10 +97,12 @@ func _input(event: InputEvent) -> void:
 func _flash_controls(text: String) -> void:
 	if _controls_label != null:
 		_controls_label.text = text
+		_controls_label.visible = true
 		var timer: SceneTreeTimer = get_tree().create_timer(2.5)
 		timer.timeout.connect(func() -> void:
 			if _controls_label != null:
 				_controls_label.text = _controls_text
+				_controls_label.visible = false
 		)
 
 func set_identity_line(text: String) -> void:

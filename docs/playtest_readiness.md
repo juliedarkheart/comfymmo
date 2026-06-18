@@ -11,10 +11,47 @@ no dark blob). Default window is **1280x720**. Frames are sliced **x2** with **m
 per-id texture margins** so corners stay crisp and nothing stretches; flat fills are only
 interior fallbacks when a texture id is missing. See `docs/ui_style_guide.md`.
 
-Known gap: collision for the LimeZu props is still **decor-only** (barn/trees/fence rely on
-the base gameplay grid, gated in LimeZu mode) — a focused collision-alignment pass (notably
-making the barn solid without trapping the spawn) is the next playability item. Player
-collision (CharacterBody2D capsule, layer/mask 1) is correct.
+Player collision (CharacterBody2D capsule, layer/mask 1) is correct.
+
+## UI polish + generators + collision/interaction (2026-06-18 follow-up)
+
+- **UI polish:** the hotbar now sits in a framed wood **rail** (cohesive, not loose
+  buttons); the HUD dropped its long controls line (now a clean status card; controls live
+  in Help/H); the inventory gained a header **divider** + a sized framed **detail** area +
+  fitting Close button; the build menu's truncated **"Cards"/"Close"** buttons are fixed.
+  Validation enforces the rail, bottom-centred hotbar, and grid inventory.
+- **Generators:** the GUI installers (`Farmer Generator`, `Character Generator 2.0`) cannot
+  be automated. A real code pipeline is in place — `GeneratorCharacterRegistry` + the
+  `limezu_generator_catalog.py` tool + a commit-safe manifest schema + portrait-aware
+  nameplate with null fallback. **Outputs do not exist yet**, so portraits resolve to
+  nothing and the UI falls back cleanly. To activate: run the generators (GUI), drop PNGs
+  into `generator_outputs/{player,npcs,portraits,characters}/`, run the catalog. See
+  `docs/limezu_generator_workflow.md`.
+- **Collision:** the LimeZu **barn/tree/fence colliders already exist and align** with their
+  visual footprints (`_build_homestead_colliders` + `get_static_blocked_tiles`); validation
+  now also asserts the **player spawn tile is not inside any blocking collider**.
+- **Interaction:** reach is calibrated for the 2x LimeZu scale (`INTERACTION_RADIUS = 78`,
+  with `interaction_point_offset` for tall sprites + nearest-target selection); validation
+  asserts the radius stays >= 70 in LimeZu mode.
+- **Farm patch:** a tilled-soil test bed with crops sits at tiles (2-4, 12-14), inside the
+  playable area near spawn; validation asserts it stays within the playable bounds.
+
+## UI alignment + asset-generator planning (2026-06-18 follow-up 2)
+
+- **Inventory/hotbar icon centering fixed:** icons were drawn native-size top-left (default
+  `EXPAND_KEEP_SIZE`), so a big icon overflowed and sizes were inconsistent. Both now use the
+  shared `LimeZuUITheme.slot_inner_rect` / `apply_slot_icon_layout` / `apply_slot_count_layout`
+  helpers — centred in the slot cavity, consistent size, count bottom-right. Validation checks
+  both panels use the shared helper.
+- **Scaffold left menu fixed:** the F7 world-builder panel was a raw button wall. It is now a
+  composed menu — header + framed Close, framed status sub-panel, section dividers, and
+  evenly-sized non-truncating row buttons (was "Gro/Shr/Re").
+- **Original-asset generators:** added `tools/art/hearthvale_palette_analyzer.py` (measures
+  LimeZu style constraints → local report), the committed `hearthvale_generator_style_profile.json`
+  (original rules/palette), `tools/art/hearthvale_icon_generator.py --preview` (procedural
+  ORIGINAL icons), and `docs/hearthvale_asset_generator_plan.md`. Generated PNGs stay local/
+  gitignored under `generator_outputs/hearthvale_generated/`; `GeneratorCharacterRegistry`
+  detects them (fail-safe 0 when absent). We are no longer blocked only on manual slicing.
 
 ## Sprout secondary-provider status
 

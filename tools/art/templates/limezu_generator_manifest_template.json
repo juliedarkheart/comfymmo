@@ -1,0 +1,34 @@
+{
+  "_schema": "hearthvale.limezu_generator_manifest.v1",
+  "_comment": [
+    "COMMIT-SAFE TEMPLATE. The LIVE manifest is local + gitignored at",
+    "licensed_assets/limezu/generator_manifests/limezu_generator_manifest.json and is",
+    "written by tools/art/limezu_generator_catalog.py after the user runs the LimeZu",
+    "Farmer Generator / Character Generator 2.0 (GUI installers under */original/) and",
+    "drops exported PNGs into licensed_assets/limezu/generator_outputs/{player,npcs,portraits,characters}/.",
+    "Never commit the live manifest or any generated PNG — they are licensed/derived art.",
+    "GeneratorCharacterRegistry (systems/art/generator_character_registry.gd) reads the",
+    "live manifest and resolves sprites/portraits by character id, falling back cleanly",
+    "to a framed placeholder when an entry or file is missing."
+  ],
+  "provider": "limezu_generators",
+  "characters": {
+    "<character_id>": {
+      "display_name": "Example Farmer",
+      "kind": "player | npc",
+      "sprite_sheet": "generator_outputs/characters/<file>.png",
+      "sheet_cell": [16, 16],
+      "sheet_scale": 2,
+      "idle_frame_rect": [0, 0, 16, 16],
+      "walk_frame_rects": {
+        "down": [[0, 0, 16, 16]],
+        "up": [[0, 16, 16, 16]],
+        "left": [[0, 32, 16, 16]],
+        "right": [[0, 48, 16, 16]]
+      },
+      "portrait_sheet": "generator_outputs/portraits/<file>.png",
+      "portrait_rect": [0, 0, 48, 48],
+      "notes": "Paths are relative to licensed_assets/limezu/. Rects are [x, y, w, h] in source pixels."
+    }
+  }
+}

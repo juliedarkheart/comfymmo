@@ -23,15 +23,35 @@ func setup(controller: Node) -> void:
 func _ready() -> void:
 	visible = false
 	CozyUITheme.apply_panel(_panel)
-	var title: Label = Label.new()
-	title.text = "World Builder (F7)"
-	CozyUITheme.apply_heading_label(title, 18)
-	_rows.add_child(title)
+	_rows.add_theme_constant_override("separation", 5)
 
+	# Header row: title plaque + Close, so it reads as a composed menu, not a button wall.
+	var header: HBoxContainer = HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	_rows.add_child(header)
+	var title: Label = Label.new()
+	title.text = "World Builder"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	CozyUITheme.apply_heading_label(title, 18)
+	header.add_child(title)
+	var header_close: Button = Button.new()
+	header_close.text = "Close"
+	header_close.pressed.connect(close_panel)
+	CozyUITheme.apply_close_button(header_close)
+	header_close.clip_text = false
+	header_close.custom_minimum_size = Vector2(92, 32)
+	header.add_child(header_close)
+	_add_divider()
+
+	# Status in its own framed sub-panel (not floating debug text).
+	var info_frame: PanelContainer = PanelContainer.new()
+	info_frame.add_theme_stylebox_override("panel", LimeZuUITheme.tooltip_panel_style())
+	info_frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_rows.add_child(info_frame)
 	_info_label = Label.new()
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	CozyUITheme.apply_body_label(_info_label, 13)
-	_rows.add_child(_info_label)
+	info_frame.add_child(_info_label)
 
 	_build_button = _add_button("Toggle Admin Build", func() -> void:
 		_cmd("/adminbuild"); _refresh())
@@ -59,9 +79,9 @@ func _ready() -> void:
 	_add_button("Create Plot Here (24x24)", func() -> void:
 		_call("admin_create_plot", [_picked_biome(), 24]))
 	var plot_edit_row: HBoxContainer = _add_row()
-	_row_button(plot_edit_row, "Grow +2", func() -> void: _call("admin_resize_plot_here", [2]))
-	_row_button(plot_edit_row, "Shrink -2", func() -> void: _call("admin_resize_plot_here", [-2]))
-	_row_button(plot_edit_row, "Remove Here", func() -> void: _call("admin_remove_plot_here", []))
+	_row_button(plot_edit_row, "Grow", func() -> void: _call("admin_resize_plot_here", [2]), "Grow plot +2")
+	_row_button(plot_edit_row, "Shrink", func() -> void: _call("admin_resize_plot_here", [-2]), "Shrink plot -2")
+	_row_button(plot_edit_row, "Remove", func() -> void: _call("admin_remove_plot_here", []), "Remove plot here")
 	_add_button("Recolor Plot Here (biome)", func() -> void: _call("admin_set_plot_biome_here", [_picked_biome()]))
 
 	# --- World-builder: terrain paint ------------------------------------------
@@ -72,9 +92,9 @@ func _ready() -> void:
 	CozyUITheme.apply_option_button(_terrain_picker)
 	_rows.add_child(_terrain_picker)
 	var terrain_row: HBoxContainer = _add_row()
-	_row_button(terrain_row, "Brush Here", func() -> void: _call("admin_paint_terrain_brush", [_picked_terrain()]))
-	_row_button(terrain_row, "Fill Area", func() -> void: _call("admin_paint_terrain_fill", [_picked_terrain()]))
-	_row_button(terrain_row, "Reset Here", func() -> void: _call("admin_reset_terrain_here", []))
+	_row_button(terrain_row, "Brush", func() -> void: _call("admin_paint_terrain_brush", [_picked_terrain()]), "Paint one tile")
+	_row_button(terrain_row, "Fill", func() -> void: _call("admin_paint_terrain_fill", [_picked_terrain()]), "Fill area")
+	_row_button(terrain_row, "Reset", func() -> void: _call("admin_reset_terrain_here", []), "Reset terrain here")
 
 	# --- Visual parcel tool: stake two corners, see a preview, confirm ---------
 	_add_heading("Visual Parcel Tool")
@@ -109,7 +129,7 @@ func _ready() -> void:
 	_plot_teleport_box = VBoxContainer.new()
 	_rows.add_child(_plot_teleport_box)
 
-	_add_button("Close", close_panel)
+	# Close lives in the header now (composed menu); no trailing debug Close button.
 
 func toggle_panel() -> void:
 	visible = not visible
@@ -132,10 +152,20 @@ func _add_button(text: String, on_press: Callable) -> Button:
 	return button
 
 func _add_heading(text: String) -> void:
+	# A wood divider before each section so the panel reads as grouped sections, not a
+	# single button wall.
+	_add_divider()
 	var heading: Label = Label.new()
 	heading.text = text
 	CozyUITheme.apply_heading_label(heading, 14)
 	_rows.add_child(heading)
+
+func _add_divider() -> void:
+	var divider: ColorRect = ColorRect.new()
+	divider.color = Color(LimeZuUITheme.PANEL_BORDER.r, LimeZuUITheme.PANEL_BORDER.g, LimeZuUITheme.PANEL_BORDER.b, 0.55)
+	divider.custom_minimum_size = Vector2(0, 2)
+	divider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_rows.add_child(divider)
 
 ## The biome currently chosen in the picker (lowercased id).
 func _picked_biome() -> String:
@@ -154,11 +184,18 @@ func _add_row() -> HBoxContainer:
 	_rows.add_child(row)
 	return row
 
-func _row_button(row: HBoxContainer, text: String, on_press: Callable) -> void:
+func _row_button(row: HBoxContainer, text: String, on_press: Callable, tip: String = "") -> void:
 	var button: Button = Button.new()
 	button.text = text
+	if not tip.is_empty():
+		button.tooltip_text = tip
 	button.pressed.connect(on_press)
 	CozyUITheme.apply_button(button)
+	# Row buttons share the row width evenly and never clip their (short) labels.
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.clip_text = false
+	button.custom_minimum_size = Vector2(0, 30)
+	button.add_theme_font_size_override("font_size", 11)
 	row.add_child(button)
 
 ## Call a controller method by name with an argument array (no-op if absent).

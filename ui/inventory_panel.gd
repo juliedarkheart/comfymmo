@@ -11,6 +11,7 @@ var _identity_label: Label = null
 var _detail_label: Label = null
 var _body: VBoxContainer = null
 const DEFAULT_DETAIL := "Hover an item for details."
+const SLOT_PX := 56.0
 
 @onready var _panel: PanelContainer = $Panel
 @onready var _root_rows: VBoxContainer = $Panel/Rows
@@ -40,6 +41,8 @@ func _ready() -> void:
 	close_button.text = "Close"
 	close_button.pressed.connect(close_panel)
 	CozyUITheme.apply_close_button(close_button)
+	close_button.clip_text = false
+	close_button.custom_minimum_size = Vector2(92, 32)
 	header.add_child(close_button)
 
 	# One compact status line (no verbose profile id / duplicated name).
@@ -49,6 +52,14 @@ func _ready() -> void:
 	_root_rows.add_child(_identity_label)
 	_root_rows.move_child(_identity_label, 1)
 
+	# A thin wood divider separates the header/status from the item grid for hierarchy.
+	var divider := ColorRect.new()
+	divider.color = Color(LimeZuUITheme.PANEL_BORDER.r, LimeZuUITheme.PANEL_BORDER.g, LimeZuUITheme.PANEL_BORDER.b, 0.55)
+	divider.custom_minimum_size = Vector2(0, 2)
+	divider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_root_rows.add_child(divider)
+	_root_rows.move_child(divider, 2)
+
 	# Grid-first inventory: item names live on this hover/selection detail line at the
 	# bottom (Stardew-style) instead of wrapping under every slot.
 	_detail_label = Label.new()
@@ -56,6 +67,8 @@ func _ready() -> void:
 	_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail_label.add_theme_stylebox_override("normal", LimeZuUITheme.tooltip_panel_style())
 	_detail_label.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_detail_label.custom_minimum_size = Vector2(0, 42)
+	_detail_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	CozyUITheme.apply_body_label(_detail_label, 12)
 	_root_rows.add_child(_detail_label)
 
@@ -154,7 +167,7 @@ func _add_category(title: String, ids: Array) -> int:
 func _build_inventory_slot(item_id: String, count: int) -> Control:
 	var slot := Panel.new()
 	slot.name = "InventorySlot_%s" % item_id
-	slot.custom_minimum_size = Vector2(56, 56)
+	slot.custom_minimum_size = Vector2(SLOT_PX, SLOT_PX)
 	slot.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	slot.mouse_filter = Control.MOUSE_FILTER_PASS
 	slot.add_theme_stylebox_override("panel", LimeZuUITheme.slot_texture_style(false))
@@ -162,19 +175,17 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 	var tex: Texture2D = _icon_texture_for_item(item_id)
 	if tex != null:
 		var icon := TextureRect.new()
-		icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		icon.offset_left = 8
-		icon.offset_top = 8
-		icon.offset_right = -8
-		icon.offset_bottom = -8
 		icon.texture = tex
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		LimeZuUITheme.apply_slot_icon_layout(icon, SLOT_PX)
 		slot.add_child(icon)
 	else:
 		var glyph := Label.new()
+		var inner: Rect2 = LimeZuUITheme.slot_inner_rect(SLOT_PX)
 		glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		glyph.offset_left = inner.position.x
+		glyph.offset_top = inner.position.y
+		glyph.offset_right = -(SLOT_PX - inner.end.x)
+		glyph.offset_bottom = -(SLOT_PX - inner.end.y)
 		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		glyph.text = _item_label(item_id).substr(0, 3)
@@ -183,11 +194,8 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 		slot.add_child(glyph)
 
 	var count_label := Label.new()
-	count_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 4)
 	count_label.text = "%d" % count
-	count_label.add_theme_font_size_override("font_size", 11)
-	count_label.add_theme_color_override("font_color", LimeZuUITheme.readable_text_color())
-	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	LimeZuUITheme.apply_slot_count_layout(count_label, SLOT_PX)
 	slot.add_child(count_label)
 
 	var detail: String = "%s   x%d" % [_item_label(item_id), count]

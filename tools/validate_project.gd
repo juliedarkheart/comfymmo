@@ -1138,7 +1138,7 @@ func _initialize() -> void:
 		"grid.add_theme_constant_override(\"h_separation\", 5)",
 		"grid.columns = 4",
 		"LimeZuUITheme.slot_texture_style(false)",
-		"slot.custom_minimum_size = Vector2(56, 56)",
+		"apply_slot_icon_layout",
 		"Hover an item for details.",
 		"_detail_label",
 	]:
@@ -1225,6 +1225,16 @@ func _initialize() -> void:
 			if not overworld_map_src_live.contains(collider_snippet):
 				push_error("OverworldMap is missing LimeZu collider/placement guard '%s'" % collider_snippet)
 				ow.queue_free(); quit(1); return
+		var sw_spawn_tile: Vector2i = ow_map.call("get_spawn_tile")
+		var sw_blocked: Array = ow_map.call("get_static_blocked_tiles")
+		var sw_spawn_blocked: bool = sw_spawn_tile in sw_blocked
+		var sw_farm_ok: bool = OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS.has_point(OverworldMap.LIMEZU_TILLED_SOIL_RECT.position)
+		if sw_spawn_blocked:
+			push_error("Player spawn tile %s is inside blocking LimeZu collision" % str(sw_spawn_tile))
+			ow.queue_free(); quit(1); return
+		if not sw_farm_ok:
+			push_error("Farm test patch (tilled soil) is not inside the playable area near spawn")
+			ow.queue_free(); quit(1); return
 		var limezu_barn_body: StaticBody2D = ow_map.find_child("LimeZuBarnCollision", true, false) as StaticBody2D
 		if limezu_barn_body == null or limezu_barn_body.get_node_or_null("CollisionShape2D") == null:
 			push_error("Live LimeZu map did not instantiate the barn collider")
@@ -1512,8 +1522,8 @@ func _initialize() -> void:
 			push_error("Hotbar slots must use the asset-backed LimeZuUITheme.slot_texture_style")
 			quit(1)
 			return
-		if not quick_tools_source.contains("const SLOT_COUNT := 9") or not quick_tools_source.contains("slot_texture_style(selected)"):
-			push_error("Hotbar is missing the 9-slot count or selected-slot styling")
+		if not quick_tools_source.contains("const SLOT_COUNT := 9") or not quick_tools_source.contains("hotbar_rail_style"):
+			push_error("Hotbar is missing the 9-slot count or the cohesive rail backing (hotbar_rail_style)")
 			quit(1)
 			return
 		var quick_tools_scene: PackedScene = load("res://ui/quick_tools_bar.tscn") as PackedScene
@@ -1526,9 +1536,10 @@ func _initialize() -> void:
 		await process_frame
 		quick_tools.call("setup", Callable(self, "_validation_get_inventory_count"))
 		await process_frame
-		var hotbar_strip: HBoxContainer = quick_tools.get_node_or_null("Wrap/Strip") as HBoxContainer
-		if hotbar_strip == null or hotbar_strip.find_children("*", "Panel", false, false).size() < 8 or hotbar_strip.get_parent() == null or (hotbar_strip.get_parent() as Control).anchor_top < 0.99:
-			push_error("Hotbar did not build a bottom-centered quickslot row")
+		var hotbar_strip: HBoxContainer = quick_tools.get_node_or_null("Wrap/Rail/Strip") as HBoxContainer
+		var hotbar_wrap: Control = quick_tools.get_node_or_null("Wrap") as Control
+		if hotbar_strip == null or hotbar_strip.find_children("*", "Panel", false, false).size() < 8 or hotbar_wrap == null or hotbar_wrap.anchor_top < 0.99:
+			push_error("Hotbar did not build a bottom-centered quickslot row in a framed rail")
 			quick_tools.queue_free()
 			quit(1)
 			return
@@ -2354,7 +2365,7 @@ func _initialize() -> void:
 			quit(1)
 			return
 	var terrain_picker: OptionButton = null
-	var terrain_buttons_found: Dictionary = {"Brush Here": false, "Fill Area": false, "Reset Here": false}
+	var terrain_buttons_found: Dictionary = {"Brush": false, "Fill": false, "Reset": false}
 	var clear_placements_button_found: bool = false
 	var admin_close_button: Button = null
 	for child_variant in admin_panel.find_children("*", "OptionButton", true, false):
@@ -3845,8 +3856,70 @@ func _initialize() -> void:
 		push_error("Nameplate must use the clean readable style (soft shadow, no heavy dark backing box)")
 		quit(1)
 		return
-	if load("res://scenes/avatar/player_avatar.tscn") == null:
+	var sw_player_scene: PackedScene = load("res://scenes/avatar/player_avatar.tscn") as PackedScene
+	if sw_player_scene == null:
 		push_error("Player avatar scene (collision body) failed to load")
+		quit(1)
+		return
+	var sw_player: Node = sw_player_scene.instantiate()
+	var sw_player_shape: CollisionShape2D = sw_player.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if sw_player_shape == null or sw_player_shape.shape == null:
+		push_error("Player avatar is missing an enabled CollisionShape2D")
+		sw_player.free(); quit(1); return
+	sw_player.free()
+	# Interaction reach must be calibrated for the 2x LimeZu scale (was 54px; too fussy).
+	if LiveVisualPolicy.live_limezu_slice() and LiveVisualPolicy.INTERACTION_RADIUS < 70.0:
+		push_error("INTERACTION_RADIUS (%.0f) is too small for the LimeZu visual scale" % LiveVisualPolicy.INTERACTION_RADIUS)
+		quit(1)
+		return
+	# Generator pipeline: commit-safe schema template exists, and the registry resolves
+	# safely (no outputs/manifest -> null, never a crash) so dialogue/nameplate fall back.
+	if not FileAccess.file_exists("res://tools/art/templates/limezu_generator_manifest_template.json"):
+		push_error("Generator manifest schema template is missing (commit-safe pipeline)")
+		quit(1)
+		return
+	var sw_gen_src: String = FileAccess.get_file_as_string("res://systems/art/generator_character_registry.gd")
+	if not sw_gen_src.contains("res://licensed_assets/limezu/generator_manifests/"):
+		push_error("GeneratorCharacterRegistry must read its manifest from the gitignored licensed_assets path")
+		quit(1)
+		return
+	GeneratorCharacterRegistry.reload()
+	if GeneratorCharacterRegistry.portrait_texture("__nonexistent__") != null:
+		push_error("GeneratorCharacterRegistry must return null for an unknown portrait (fallback path)")
+		quit(1)
+		return
+	# Generated-output absence must not crash boot: the scan is fail-safe (>= 0).
+	if GeneratorCharacterRegistry.generated_local_count() < 0:
+		push_error("GeneratorCharacterRegistry.generated_local_count() must fail safe (>= 0)")
+		quit(1)
+		return
+	# Slot icon-centering helpers exist and are shared by inventory + hotbar.
+	var sw_theme_src2: String = FileAccess.get_file_as_string("res://ui/limezu_ui_theme.gd")
+	for sw_slot_helper in ["func slot_inner_rect(", "func apply_slot_icon_layout(", "func apply_slot_count_layout("]:
+		if not sw_theme_src2.contains(sw_slot_helper):
+			push_error("LimeZuUITheme is missing slot icon-layout helper: %s" % sw_slot_helper)
+			quit(1)
+			return
+	if not FileAccess.get_file_as_string("res://ui/inventory_panel.gd").contains("apply_slot_icon_layout"):
+		push_error("Inventory slots must use the shared apply_slot_icon_layout centering helper")
+		quit(1)
+		return
+	if not FileAccess.get_file_as_string("res://ui/quick_tools_bar.gd").contains("apply_slot_icon_layout"):
+		push_error("Hotbar slots must use the same apply_slot_icon_layout centering helper")
+		quit(1)
+		return
+	# Scaffold left-side admin panel was composed (header + section dividers), not a button wall.
+	if not FileAccess.get_file_as_string("res://ui/admin_panel.gd").contains("func _add_divider("):
+		push_error("Admin/world-builder panel must use composed sections (dividers), not a raw button wall")
+		quit(1)
+		return
+	# Original Hearthvale asset-generator pipeline: committed style profile + plan doc exist.
+	if not FileAccess.file_exists("res://tools/art/templates/hearthvale_generator_style_profile.json"):
+		push_error("Hearthvale generator style profile template is missing (commit-safe)")
+		quit(1)
+		return
+	if not FileAccess.file_exists("res://docs/hearthvale_asset_generator_plan.md"):
+		push_error("Hearthvale asset generator plan doc is missing")
 		quit(1)
 		return
 	print("Project smoke test passed.")
