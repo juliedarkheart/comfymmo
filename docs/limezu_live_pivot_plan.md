@@ -71,6 +71,13 @@ are skipped when they would bleed into building/object art. Future LimeZu expans
 should keep this terrain-below-props contract instead of adding path decals above
 objects.
 
+Small playable-area update: the first expansion after the screenshot cleanup is
+bounded to the immediate homestead (`LIMEZU_PLAYABLE_AREA_BOUNDS`). It adds only
+nearby LimeZu grass coverage, sparse edge clusters, and short approach path tiles so
+walking a few steps from spawn remains coherent. It is not a village/forest/full-map
+conversion; broader overworld, tameable creature, dungeon, and player-created
+adventure-plot art remain future work.
+
 ## Must remain unchanged (no gameplay churn)
 
 Gameplay systems, networking/server, farming/save data, placement/edit/delete-twice

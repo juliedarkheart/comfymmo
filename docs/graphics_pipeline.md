@@ -334,6 +334,13 @@ its assets resolve (`LiveVisualPolicy.live_limezu_slice()`):
   the LimeZu `terrain.dirt_path` tile or is hidden. `VisualSourceReport.live_opening_sources()`
   audits the live opening and validation hard-fails on any Sprout/legacy sprite.
 
+- The small playable-area expansion remains bounded by
+  `OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS`. It extends LimeZu ground/props only
+  around the homestead, keeps terrain/path on the ground layer, keeps props/actors on
+  the gameplay layer, and uses `VisualSourceReport.live_area_sources()` to audit the
+  immediate walkable area. This is a source-purity guard for the homestead perimeter,
+  not permission to render the whole unfinished overworld.
+
 **Sprout stays fully integrated as a secondary/comparison provider** (registries, the
 Sprout-required helper, the Sprout spike, and docs are NOT removed). Extraction is
 `tools/art/limezu_integrate.py`; spike/live slicing is

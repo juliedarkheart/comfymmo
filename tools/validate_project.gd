@@ -1213,6 +1213,18 @@ func _initialize() -> void:
 		if gen_count > 40 or limezu_count < gen_count:
 			push_error("LimeZu opening is not LimeZu-dominant (limezu=%d generated=%d)" % [limezu_count, gen_count])
 			ow.queue_free(); quit(1); return
+		var playable_area: Dictionary = VisualSourceReport.live_area_sources(ow_map, OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS)
+		print("[visual-source] live playable area sources=", playable_area)
+		for forbidden_area_tier in ["sprout", "legacy", "missing"]:
+			if int(playable_area.get(forbidden_area_tier, 0)) > 0:
+				push_error("LimeZu playable area still has %d '%s' sprite(s)" % [int(playable_area[forbidden_area_tier]), forbidden_area_tier])
+				ow.queue_free(); quit(1); return
+		var area_limezu_count: int = int(playable_area.get("limezu", 0))
+		var area_generated_count: int = int(playable_area.get("generated", 0))
+		var area_procedural_count: int = int(playable_area.get("procedural", 0))
+		if area_limezu_count < 900 or area_generated_count > 40 or area_procedural_count > 2:
+			push_error("LimeZu playable area is not clean enough (limezu=%d generated=%d procedural=%d)" % [area_limezu_count, area_generated_count, area_procedural_count])
+			ow.queue_free(); quit(1); return
 		ow.queue_free()
 		await process_frame
 		# UI source-tier: the tiny non-square Modern UI pixel art distorts when stretched as a
@@ -1339,11 +1351,19 @@ func _initialize() -> void:
 				quit(1)
 				return
 		for limezu_footprint_snippet in [
+			"const LIMEZU_PLAYABLE_AREA_BOUNDS",
+			"const LIMEZU_APPROACH_PATH_TILES",
 			"const LIMEZU_CURATED_PATH_TILES",
 			"const LIMEZU_TILLED_SOIL_RECT",
 			"const LIMEZU_BARN_VISUAL_FOOTPRINT",
 			"const LIMEZU_CRATE_VISUAL_FOOTPRINT",
 			"const LIMEZU_SIGN_VISUAL_FOOTPRINTS",
+			"const LIMEZU_EDGE_TREE_TILES",
+			"const LIMEZU_EDGE_SMALL_TREE_TILES",
+			"const LIMEZU_EDGE_FLOWER_TILES",
+			"const LIMEZU_EDGE_FENCE_TILES",
+			"const LIMEZU_EDGE_CRATE_TILES",
+			"const LIMEZU_PROP_VISUAL_FOOTPRINTS",
 			"func _limezu_is_ground_blocked",
 			"func _limezu_should_draw_path",
 			"func _limezu_should_draw_soil",
@@ -1372,6 +1392,28 @@ func _initialize() -> void:
 			push_error("LimeZu terrain/objects no longer use the expected ground/gameplay parents")
 			quit(1)
 			return
+		if OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS.size.x > 48 or OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS.size.y > 36:
+			push_error("LimeZu playable area expanded too far; this pass must stay small")
+			quit(1)
+			return
+		var visual_source_report_src: String = FileAccess.get_file_as_string("res://systems/visual_source_report.gd")
+		for area_audit_snippet in ["func live_area_sources", "_node_in_tile_bounds", "_is_visible_canvas_item"]:
+			if not visual_source_report_src.contains(area_audit_snippet):
+				push_error("VisualSourceReport is missing playable-area source audit helper: %s" % area_audit_snippet)
+				quit(1)
+				return
+		var capture_src: String = FileAccess.get_file_as_string("res://tools/live_visual_capture.gd")
+		for area_capture_snippet in [
+			"live_limezu_opening_after_area_expansion.png",
+			"live_limezu_walk_east_after_area_expansion.png",
+			"live_limezu_walk_south_after_area_expansion.png",
+			"live_limezu_inventory_after_area_expansion.png",
+			"_capture_player_offset",
+		]:
+			if not capture_src.contains(area_capture_snippet):
+				push_error("Live visual capture is missing area-expansion screenshot support: %s" % area_capture_snippet)
+				quit(1)
+				return
 		if overworld_map_src_live.contains("_limezu_object(\"object.sign\""):
 			push_error("Default LimeZu opening still places optional sign clutter in the map slice")
 			quit(1)
@@ -1382,6 +1424,10 @@ func _initialize() -> void:
 			return
 		if not (LimeZuArtRegistry.has_asset("animal.chicken") or LimeZuArtRegistry.has_asset("animal.cow")):
 			push_error("No LimeZu animal resolves for the spike")
+			quit(1)
+			return
+		if load("res://systems/building_placement_system.gd") == null or load("res://ui/build_edit_toolbar.tscn") == null or load("res://buildings/placeable_crate.gd") == null:
+			push_error("Placement/edit/delete scripts or toolbar failed to load")
 			quit(1)
 			return
 		if not LimeZuArtRegistry.has_asset("character.farmer_idle"):
@@ -1462,6 +1508,13 @@ func _initialize() -> void:
 				push_error("OverworldController is missing LimeZu sign fallback guard: %s" % limezu_sign_snippet)
 				quit(1)
 				return
+		var plot_boundary_index: int = overworld_controller_src_live.find("func _build_plot_boundary")
+		var plot_boundary_limezu_guard_index: int = overworld_controller_src_live.find("LiveVisualPolicy.live_limezu_slice()", plot_boundary_index)
+		var plot_boundary_line_index: int = overworld_controller_src_live.find("Line2D.new()", plot_boundary_index)
+		if plot_boundary_index == -1 or plot_boundary_limezu_guard_index == -1 or plot_boundary_line_index == -1 or plot_boundary_limezu_guard_index > plot_boundary_line_index:
+			push_error("Plot boundary line/post visuals must be guarded out of LimeZu live mode")
+			quit(1)
+			return
 		var make_sign_index: int = overworld_controller_src_live.find("func _make_sign")
 		var make_sign_limezu_index: int = overworld_controller_src_live.find("_add_limezu_sign_sprite", make_sign_index)
 		var make_sign_sprout_index: int = overworld_controller_src_live.find("ContentIds.PLACEABLE_SIGNPOST", make_sign_index)

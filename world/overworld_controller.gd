@@ -852,6 +852,8 @@ func _read_neighborhood_board() -> void:
 ## Draw corner posts + a soft boundary outline so a plot reads as a real yard.
 ## Nodes go under `parent` (a per-plot container) so the whole plot can be freed.
 func _build_plot_boundary(plot_id: String, parent: Node2D = null) -> void:
+	if LiveVisualPolicy.live_limezu_slice():
+		return
 	if parent == null:
 		parent = gameplay_layer
 	var corners: Array = LandRegistry.corner_tiles(plot_id)

@@ -17,6 +17,10 @@ const LAYERING_CLEANUP_FILE := OUT_DIR + "/live_limezu_opening_after_layering_cl
 # This pass: clean LimeZu flat UI rewrite + bottom-board cleanup.
 const UI_REWRITE_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_ui_rewrite.png"
 const UI_REWRITE_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_ui_rewrite.png"
+const AREA_EXPANSION_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_area_expansion.png"
+const AREA_EXPANSION_WALK_EAST_FILE := OUT_DIR + "/live_limezu_walk_east_after_area_expansion.png"
+const AREA_EXPANSION_WALK_SOUTH_FILE := OUT_DIR + "/live_limezu_walk_south_after_area_expansion.png"
+const AREA_EXPANSION_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_area_expansion.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -47,17 +51,32 @@ func _initialize() -> void:
 		opening_img.save_png(OLD_VISUAL_CLEANUP_FILE)
 		opening_img.save_png(LAYERING_CLEANUP_FILE)
 		opening_img.save_png(UI_REWRITE_OPENING_FILE)
+		opening_img.save_png(AREA_EXPANSION_OPENING_FILE)
 		print("[live-capture] saved ", OUT_FILE)
 		print("[live-capture] saved ", UI_REWRITE_OPENING_FILE)
+		print("[live-capture] saved ", AREA_EXPANSION_OPENING_FILE)
 	else:
 		push_warning("[live-capture] failed to save opening screenshot")
+	var player: Node2D = _find_player()
+	var start_position: Vector2 = player.global_position if player != null else Vector2.ZERO
+	if player != null:
+		await _capture_player_offset(player, start_position, Vector2(360, 0), AREA_EXPANSION_WALK_EAST_FILE)
+		await _capture_player_offset(player, start_position, Vector2(0, 320), AREA_EXPANSION_WALK_SOUTH_FILE)
+		player.global_position = start_position
+		_reset_player_camera(player)
+		for _i in range(8):
+			await process_frame
+	else:
+		push_warning("[live-capture] player not found; skipped east/south area captures")
 	# 2) Inventory view (opens the full inventory panel so its UI can be reviewed).
 	if _open_inventory_panel():
 		for _i in range(8):
 			await process_frame
 		var inv_img: Image = _grab_image()
 		if inv_img != null and inv_img.save_png(UI_REWRITE_INVENTORY_FILE) == OK:
+			inv_img.save_png(AREA_EXPANSION_INVENTORY_FILE)
 			print("[live-capture] saved ", UI_REWRITE_INVENTORY_FILE)
+			print("[live-capture] saved ", AREA_EXPANSION_INVENTORY_FILE)
 		else:
 			push_warning("[live-capture] failed to save inventory screenshot")
 	else:
@@ -70,6 +89,36 @@ func _grab_image() -> Image:
 	if img == null or img.is_empty() or img.get_width() == 0:
 		return null
 	return img
+
+func _capture_player_offset(player: Node2D, start_position: Vector2, offset: Vector2, file_path: String) -> void:
+	player.global_position = start_position + offset
+	_reset_player_camera(player)
+	for _i in range(16):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save area screenshot: %s" % file_path)
+
+func _find_player() -> Node2D:
+	var root := get_root()
+	if root == null:
+		return null
+	for node in root.find_children("*", "AvatarController", true, false):
+		if node is Node2D:
+			return node as Node2D
+	for node in root.find_children("*", "CharacterBody2D", true, false):
+		if node is AvatarController:
+			return node as Node2D
+	return null
+
+func _reset_player_camera(player: Node2D) -> void:
+	if player == null:
+		return
+	for node in player.find_children("*", "Camera2D", true, false):
+		if node.has_method("reset_smoothing"):
+			node.call("reset_smoothing")
 
 ## Open the full inventory panel so its UI can be captured. Targets the CanvasLayer
 ## named "InventoryPanel" specifically (other panels — crafting, land, build — also

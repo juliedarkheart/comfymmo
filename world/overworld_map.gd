@@ -32,6 +32,7 @@ const LIMEZU_GAMEPLAY_LAYER_Z := 0
 const LIMEZU_GROUND_GRASS_Z := -30
 const LIMEZU_GROUND_PATH_Z := -24
 const LIMEZU_GROUND_SOIL_Z := -22
+const LIMEZU_PLAYABLE_AREA_BOUNDS := Rect2i(-8, -4, 42, 30)
 const LIMEZU_CURATED_PATH_TILES: Array[Vector2i] = [
 	Vector2i(7, 14),
 	Vector2i(8, 14),
@@ -40,11 +41,63 @@ const LIMEZU_CURATED_PATH_TILES: Array[Vector2i] = [
 	Vector2i(11, 14),
 	Vector2i(12, 14),
 ]
+const LIMEZU_APPROACH_PATH_TILES: Array[Vector2i] = [
+	Vector2i(12, 15),
+	Vector2i(13, 16),
+	Vector2i(14, 16),
+	Vector2i(15, 16),
+	Vector2i(16, 17),
+	Vector2i(17, 17),
+	Vector2i(18, 18),
+	Vector2i(19, 18),
+	Vector2i(20, 18),
+]
 const LIMEZU_TILLED_SOIL_RECT := Rect2i(2, 12, 3, 3)
 const LIMEZU_BARN_VISUAL_FOOTPRINT := Rect2i(9, 4, 9, 10)
 const LIMEZU_CRATE_VISUAL_FOOTPRINT := Rect2i(10, 13, 1, 1)
 const LIMEZU_SIGN_VISUAL_FOOTPRINTS: Array[Rect2i] = [
 	Rect2i(9, 11, 1, 2),
+]
+const LIMEZU_EDGE_TREE_TILES: Array[Vector2i] = [
+	Vector2i(29, 8),
+	Vector2i(31, 18),
+	Vector2i(25, 23),
+]
+const LIMEZU_EDGE_SMALL_TREE_TILES: Array[Vector2i] = [
+	Vector2i(27, 7),
+	Vector2i(29, 20),
+	Vector2i(18, 24),
+	Vector2i(10, 24),
+]
+const LIMEZU_EDGE_FLOWER_TILES: Array[Vector2i] = [
+	Vector2i(23, 12),
+	Vector2i(25, 18),
+	Vector2i(22, 22),
+	Vector2i(28, 23),
+	Vector2i(16, 24),
+	Vector2i(12, 23),
+	Vector2i(15, 25),
+	Vector2i(20, 24),
+]
+const LIMEZU_EDGE_FENCE_TILES: Array[Vector2i] = [
+	Vector2i(27, 15),
+	Vector2i(28, 15),
+	Vector2i(29, 15),
+	Vector2i(30, 15),
+	Vector2i(13, 25),
+	Vector2i(14, 25),
+	Vector2i(15, 25),
+	Vector2i(16, 25),
+]
+const LIMEZU_EDGE_CRATE_TILES: Array[Vector2i] = [
+	Vector2i(26, 17),
+	Vector2i(18, 24),
+]
+const LIMEZU_PROP_VISUAL_FOOTPRINTS: Array[Rect2i] = [
+	Rect2i(26, 17, 1, 1),
+	Rect2i(27, 15, 4, 1),
+	Rect2i(18, 24, 1, 1),
+	Rect2i(13, 25, 4, 1),
 ]
 
 func _ready() -> void:
@@ -625,12 +678,14 @@ func _build_curated_slice() -> void:
 ## placement bounds, spawn, and colliders are unchanged.
 func _build_limezu_slice() -> void:
 	set_meta("limezu_slice", true)
-	# 1) LimeZu grass ground covering the visible opening area (camera-framed core).
-	for ty in range(-2, MAP_HEIGHT + 4):
-		for tx in range(-6, MAP_WIDTH + 8):
+	# 1) LimeZu grass ground covering the small playable homestead area. This is
+	# intentionally bounded; the full overworld remains deferred.
+	for ty in range(LIMEZU_PLAYABLE_AREA_BOUNDS.position.y, LIMEZU_PLAYABLE_AREA_BOUNDS.end.y):
+		for tx in range(LIMEZU_PLAYABLE_AREA_BOUNDS.position.x, LIMEZU_PLAYABLE_AREA_BOUNDS.end.x):
 			_limezu_ground("terrain.grass", Vector2i(tx, ty), LIMEZU_GROUND_GRASS_Z)
-	# 2) A short dirt path in front of the home, plus a tidy tilled garden bed SW.
-	for tile in LIMEZU_CURATED_PATH_TILES:
+	# 2) A short dirt path in front of the home, plus small east/south approaches
+	# that stay on the ground layer and never paint through visual footprints.
+	for tile in LIMEZU_CURATED_PATH_TILES + LIMEZU_APPROACH_PATH_TILES:
 		if _limezu_should_draw_path(tile):
 			_limezu_ground("terrain.dirt_path", tile, LIMEZU_GROUND_PATH_Z)
 	for gy in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
@@ -658,6 +713,19 @@ func _build_limezu_slice() -> void:
 	_limezu_object("animal.chicken", Vector2i(6, 12))
 	_limezu_object("animal.cow", Vector2i(11, 15))
 	_limezu_object("object.crate", Vector2i(10, 13))
+	# 6) Sparse LimeZu-only edge clusters so walking a few steps from spawn still
+	# feels authored without turning this into a whole-world makeover.
+	for edge_tree_tile in LIMEZU_EDGE_TREE_TILES:
+		_limezu_object("object.tree", edge_tree_tile)
+	for edge_small_tree_tile in LIMEZU_EDGE_SMALL_TREE_TILES:
+		_limezu_object("object.tree_small", edge_small_tree_tile)
+	var flower_variants: Array[String] = ["object.flower", "object.flower2", "object.flower3"]
+	for i in range(LIMEZU_EDGE_FLOWER_TILES.size()):
+		_limezu_object(flower_variants[i % flower_variants.size()], LIMEZU_EDGE_FLOWER_TILES[i])
+	for fence_tile in LIMEZU_EDGE_FENCE_TILES:
+		_limezu_object("object.fence_horizontal", fence_tile)
+	for edge_crate_tile in LIMEZU_EDGE_CRATE_TILES:
+		_limezu_object("object.crate", edge_crate_tile)
 
 func _limezu_is_ground_blocked(tile: Vector2i) -> bool:
 	if LIMEZU_BARN_VISUAL_FOOTPRINT.has_point(tile):
@@ -667,8 +735,17 @@ func _limezu_is_ground_blocked(tile: Vector2i) -> bool:
 	for sign_rect in LIMEZU_SIGN_VISUAL_FOOTPRINTS:
 		if sign_rect.has_point(tile):
 			return true
+	for prop_rect in LIMEZU_PROP_VISUAL_FOOTPRINTS:
+		if prop_rect.has_point(tile):
+			return true
 	for tree_tile in TREE_TILES:
 		if tile == (tree_tile as Vector2i):
+			return true
+	for edge_tree_tile in LIMEZU_EDGE_TREE_TILES:
+		if tile == edge_tree_tile:
+			return true
+	for edge_small_tree_tile in LIMEZU_EDGE_SMALL_TREE_TILES:
+		if tile == edge_small_tree_tile:
 			return true
 	return false
 
@@ -691,6 +768,7 @@ func _limezu_ground(logical_id: String, tile: Vector2i, z: int) -> void:
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	s.z_index = z
 	s.set_meta("ground_role", logical_id)
+	s.set_meta("tile", tile)
 	ground_layer.add_child(s)
 
 ## A LimeZu object/animal, bottom-anchored to base_tile and y-sorted via its feet.
@@ -703,6 +781,8 @@ func _limezu_object(logical_id: String, base_tile: Vector2i) -> void:
 	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
 	var holder := Node2D.new()
 	holder.position = grid_to_world(base_tile) + Vector2(0, 16)
+	holder.set_meta("limezu_logical_id", logical_id)
+	holder.set_meta("tile", base_tile)
 	gameplay_layer.add_child(holder)
 	var s := Sprite2D.new()
 	s.texture = tex
@@ -710,6 +790,8 @@ func _limezu_object(logical_id: String, base_tile: Vector2i) -> void:
 	s.position = Vector2(-tex.get_width() * scale_f * 0.5, -tex.get_height() * scale_f)
 	s.scale = Vector2(scale_f, scale_f)
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.set_meta("limezu_logical_id", logical_id)
+	s.set_meta("tile", base_tile)
 	holder.add_child(s)
 
 func _build_overworld_bounds() -> void:

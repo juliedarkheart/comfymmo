@@ -127,6 +127,18 @@ approaches the barn from below instead of running through object art. Capture
 `licensed_assets/limezu/review_screenshots/live_limezu_opening_after_layering_cleanup.png`
 for the focused review image; it remains gitignored/local-only.
 
+Small playable-area expansion update: LimeZu coverage now extends a short distance
+around the homestead using the bounded `LIMEZU_PLAYABLE_AREA_BOUNDS`, not the whole
+overworld. The opening camera stays the same, while a few steps east/south remain on
+LimeZu grass with sparse LimeZu tree/flower/fence/crate clusters and no generated
+road slabs. Old procedural plot boundary lines/posts are also hidden in LimeZu live
+mode; plot markers/interactions remain registered. Validation audits the bounded
+playable area and hard-blocks Sprout, legacy, or missing sprites inside it. Review captures are:
+`licensed_assets/limezu/review_screenshots/live_limezu_opening_after_area_expansion.png`,
+`licensed_assets/limezu/review_screenshots/live_limezu_walk_east_after_area_expansion.png`,
+`licensed_assets/limezu/review_screenshots/live_limezu_walk_south_after_area_expansion.png`,
+and `licensed_assets/limezu/review_screenshots/live_limezu_inventory_after_area_expansion.png`.
+
 ## Visual/UI foundation checks
 
 This branch now has a first reusable Hearthvale visual direction:

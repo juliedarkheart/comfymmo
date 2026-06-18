@@ -94,6 +94,17 @@ uses `LimeZuUITheme` flat dark-wood panels, cream/gold text, and readable slot/b
 states. If scalable UI art is unavailable, use this clean flat style rather than a
 distorted texture frame.
 
+Small playable-area expansion: the live LimeZu treatment now has a named bounded
+homestead area (`OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS`) around spawn, the barn,
+garden, immediate east/south walking space, and a small approach toward the wider
+world. This is deliberately not a full overworld makeover and does not broaden the
+opening camera. The area uses LimeZu grass, sparse LimeZu trees/flowers/fence/crate
+clusters, and a short ground-layer path approach; old Sprout/generated/legacy ground
+and props remain forbidden in this immediate playable area. Old procedural plot
+boundary lines/posts are suppressed in LimeZu live mode while marker data and
+interactions stay intact. Broader village, forest, creature-family, dungeon, and
+adventure-plot art coverage remains deferred.
+
 Coverage findings (honest): strong for farming/building/interiors/office/UI; still
 weak for cozy dungeon tilesets and tameable-companion creatures beyond the curated
 opening. Full report: docs/limezu_visual_spike.md; pivot details:

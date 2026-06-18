@@ -80,6 +80,8 @@ static func scene_summary(map: Node) -> Dictionary:
 	if map != null:
 		for node in map.find_children("*", "Sprite2D", true, false):
 			var sprite: Sprite2D = node as Sprite2D
+			if not _is_visible_canvas_item(sprite):
+				continue
 			var path: String = sprite.texture.resource_path if sprite.texture != null else ""
 			if String(sprite.name).begins_with("TerrainArt"):
 				terrain_sprites += 1
@@ -127,10 +129,58 @@ static func live_opening_sources(map: Node) -> Dictionary:
 	if map != null:
 		for node in map.find_children("*", "Sprite2D", true, false):
 			var s := node as Sprite2D
+			if not _is_visible_canvas_item(s):
+				continue
 			var path: String = s.texture.resource_path if s.texture != null else ""
 			var tier := classify_texture(path)
 			tiers[tier] = int(tiers.get(tier, 0)) + 1
 	return tiers
+
+## Tally visible Sprite2D/Polygon2D sources whose tile position falls inside the
+## named small LimeZu playable area. This is intentionally structural: it proves the
+## bounded area is not leaking Sprout/legacy sprites without requiring pixel tests.
+static func live_area_sources(map: Node, tile_bounds: Rect2i) -> Dictionary:
+	var tiers: Dictionary = {}
+	if map == null:
+		return tiers
+	for node in map.find_children("*", "Sprite2D", true, false):
+		var s := node as Sprite2D
+		if not _is_visible_canvas_item(s) or not _node_in_tile_bounds(map, s, tile_bounds):
+			continue
+		var path: String = s.texture.resource_path if s.texture != null else ""
+		var tier := classify_texture(path)
+		tiers[tier] = int(tiers.get(tier, 0)) + 1
+	for node in map.find_children("*", "Polygon2D", true, false):
+		var p := node as Polygon2D
+		if not _is_visible_canvas_item(p) or not _node_in_tile_bounds(map, p, tile_bounds):
+			continue
+		tiers["procedural"] = int(tiers.get("procedural", 0)) + 1
+	return tiers
+
+static func _is_visible_canvas_item(item: CanvasItem) -> bool:
+	return item != null and item.visible and (not item.is_inside_tree() or item.is_visible_in_tree())
+
+static func _node_in_tile_bounds(map: Node, node: Node, tile_bounds: Rect2i) -> bool:
+	var tile_variant: Variant = _node_tile(node)
+	if tile_variant is Vector2i:
+		return tile_bounds.has_point(tile_variant as Vector2i)
+	if map.has_method("world_to_grid") and node is Node2D and map is Node2D:
+		var map_node := map as Node2D
+		var node_2d := node as Node2D
+		var local_pos: Vector2 = map_node.to_local(node_2d.global_position)
+		var tile: Vector2i = map.call("world_to_grid", local_pos)
+		return tile_bounds.has_point(tile)
+	return false
+
+static func _node_tile(node: Node) -> Variant:
+	if node == null:
+		return null
+	if node.has_meta("tile"):
+		return node.get_meta("tile")
+	var parent := node.get_parent()
+	if parent != null and parent.has_meta("tile"):
+		return parent.get_meta("tile")
+	return null
 
 static func print_report(map: Node = null, mode: String = WorldProjection.DEFAULT_MODE) -> void:
 	var r: Dictionary = registry_summary(mode)
