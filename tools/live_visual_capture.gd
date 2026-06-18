@@ -44,6 +44,12 @@ const LEFT_MENU_FILE := OUT_DIR + "/live_limezu_left_menu_after_polish.png"
 const HUD_POLISH_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_hud_polish.png"
 const HUD_POLISH_CLOSEUP_FILE := OUT_DIR + "/live_limezu_hud_closeup_after_hud_polish.png"
 const HUD_POLISH_INVENTORY_FILE := OUT_DIR + "/live_limezu_inventory_after_hud_polish.png"
+# This pass: collision / interaction / farm playability alignment.
+const COLLISION_OPENING_FILE := OUT_DIR + "/live_limezu_opening_after_collision_interaction.png"
+const COLLISION_FARM_FILE := OUT_DIR + "/live_limezu_farm_prompt_after_collision_interaction.png"
+const COLLISION_BUILD_FILE := OUT_DIR + "/live_limezu_build_after_collision_interaction.png"
+const COLLISION_ADMIN_FILE := OUT_DIR + "/live_limezu_admin_after_collision_interaction.png"
+const COLLISION_DEBUG_FILE := OUT_DIR + "/live_limezu_collision_debug_after_collision_interaction.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -75,7 +81,7 @@ func _initialize() -> void:
 		opening_img.save_png(LAYERING_CLEANUP_FILE)
 		opening_img.save_png(UI_REWRITE_OPENING_FILE)
 		opening_img.save_png(AREA_EXPANSION_OPENING_FILE)
-		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE); opening_img.save_png(POLISH_OPENING_FILE); opening_img.save_png(ICON_ALIGN_HOTBAR_FILE); opening_img.save_png(HUD_POLISH_OPENING_FILE); opening_img.get_region(Rect2i(0, 0, 360, 230)).save_png(HUD_POLISH_CLOSEUP_FILE)
+		opening_img.save_png(PLAYABILITY_OPENING_FILE); opening_img.save_png(STARDEW_OPENING_FILE); opening_img.save_png(POLISH_OPENING_FILE); opening_img.save_png(ICON_ALIGN_HOTBAR_FILE); opening_img.save_png(HUD_POLISH_OPENING_FILE); opening_img.save_png(COLLISION_OPENING_FILE); opening_img.get_region(Rect2i(0, 0, 360, 230)).save_png(HUD_POLISH_CLOSEUP_FILE)
 		print("[live-capture] saved ", OUT_FILE)
 		print("[live-capture] saved ", UI_REWRITE_OPENING_FILE)
 		print("[live-capture] saved ", AREA_EXPANSION_OPENING_FILE)
@@ -116,7 +122,7 @@ func _initialize() -> void:
 			await process_frame
 		var build_img: Image = _grab_image()
 		if build_img != null and build_img.save_png(PLAYABILITY_BUILD_MENU_FILE) == OK:
-			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); build_img.save_png(POLISH_BUILD_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
+			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); build_img.save_png(POLISH_BUILD_FILE); build_img.save_png(COLLISION_BUILD_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
 		else:
 			push_warning("[live-capture] failed to save build menu screenshot")
 	else:
@@ -129,6 +135,7 @@ func _initialize() -> void:
 			await process_frame
 		var admin_img: Image = _grab_image()
 		if admin_img != null and admin_img.save_png(LEFT_MENU_FILE) == OK:
+			admin_img.save_png(COLLISION_ADMIN_FILE)
 			print("[live-capture] saved ", LEFT_MENU_FILE)
 		else:
 			push_warning("[live-capture] failed to save left-menu screenshot")
@@ -142,10 +149,32 @@ func _initialize() -> void:
 				await process_frame
 			var farm_img: Image = _grab_image()
 			if farm_img != null and farm_img.save_png(PLAYABILITY_FARM_PROMPT_FILE) == OK:
-				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); farm_img.save_png(POLISH_PROMPT_FILE); farm_img.save_png(POLISH_FARM_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
+				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); farm_img.save_png(POLISH_PROMPT_FILE); farm_img.save_png(POLISH_FARM_FILE); farm_img.save_png(COLLISION_FARM_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
 			else:
 				push_warning("[live-capture] failed to save farm prompt screenshot")
+	_close_review_overlays()
+	for _i in range(4):
+		await process_frame
+	if _enable_collision_debug():
+		if player != null:
+			player.global_position = start_position
+			_reset_player_camera(player)
+		for _i in range(8):
+			await process_frame
+		var dbg_img: Image = _grab_image()
+		if dbg_img != null and dbg_img.save_png(COLLISION_DEBUG_FILE) == OK:
+			print("[live-capture] saved ", COLLISION_DEBUG_FILE)
 	quit(0)
+
+func _enable_collision_debug() -> bool:
+	var root := get_root()
+	if root == null:
+		return false
+	for node in root.find_children("Map", "Node2D", true, false):
+		if node.has_method("set_collision_debug"):
+			node.call("set_collision_debug", true)
+			return true
+	return false
 
 func _grab_image() -> Image:
 	var tex: Texture2D = get_root().get_texture() if get_root() != null else null

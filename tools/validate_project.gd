@@ -1239,6 +1239,10 @@ func _initialize() -> void:
 		if limezu_barn_body == null or limezu_barn_body.get_node_or_null("CollisionShape2D") == null:
 			push_error("Live LimeZu map did not instantiate the barn collider")
 			ow.queue_free(); quit(1); return
+		# Tree trunk colliders (StaticBody2D "Tree_*") must exist for the homestead trees.
+		if ow_map.find_children("Tree_*", "StaticBody2D", true, false).is_empty():
+			push_error("Live LimeZu map did not instantiate the tree trunk colliders")
+			ow.queue_free(); quit(1); return
 		ow.queue_free()
 		await process_frame
 		# UI source-tier: live LimeZu UI must use reviewed Modern UI assets, not the
@@ -3944,6 +3948,31 @@ func _initialize() -> void:
 		return
 	if not FileAccess.file_exists("res://docs/hearthvale_asset_generator_plan.md"):
 		push_error("Hearthvale asset generator plan doc is missing")
+		quit(1)
+		return
+	# Collision debug overlay toggle is wired (map + admin controller) for in-play diagnosis.
+	if not FileAccess.get_file_as_string("res://world/overworld_map.gd").contains("func set_collision_debug("):
+		push_error("OverworldMap is missing the collision debug overlay (set_collision_debug)")
+		quit(1)
+		return
+	if not FileAccess.get_file_as_string("res://world/overworld_controller.gd").contains("func admin_toggle_collision_debug("):
+		push_error("OverworldController is missing admin_toggle_collision_debug hook")
+		quit(1)
+		return
+	# Minimap script loads and has a world->map coordinate mapping.
+	var sw_minimap_src: String = FileAccess.get_file_as_string("res://ui/minimap_panel.gd")
+	if not sw_minimap_src.contains("func _world_to_map(") or load("res://ui/minimap_panel.tscn") == null:
+		push_error("Minimap is missing its world->map coordinate mapping or failed to load")
+		quit(1)
+		return
+	# Tree colliders block only the trunk base (compact circle), not the full canopy.
+	if not FileAccess.get_file_as_string("res://world/homestead_map.gd").contains("Block only the TRUNK BASE"):
+		push_error("LimeZu tree collider must be the compact trunk-base footprint, not the canopy")
+		quit(1)
+		return
+	# Player collider must be the compact feet shape (not the old tall capsule).
+	if FileAccess.get_file_as_string("res://scenes/avatar/player_avatar.tscn").contains("CapsuleShape2D"):
+		push_error("Player collider should be a compact feet shape, not the tall CapsuleShape2D")
 		quit(1)
 		return
 	print("Project smoke test passed.")

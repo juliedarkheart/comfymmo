@@ -5,6 +5,15 @@ Sprout-compatible top-down / gentle 3/4 space. The older 64x32 isometric diamond
 view remains a legacy fallback. The player should be able to understand paths,
 plots, public areas, wilderness, and biome changes at a glance.
 
+## Collision vs. visual footprints (LimeZu homestead)
+
+Collision is keyed to **ground footprints**, not full sprite bounds: tall bottom-anchored
+props (barn, apple trees) block at their base/trunk, not their canopy/roof airspace, so the
+player can walk "in front of/behind" the tall art. Solid = barn + homestead trees (trunk) +
+fence; visual-only = edge trees, flowers, grass, path, soil, crops, crate; signs/NPCs/farm
+are interactable but not solid. The full contract + the F7 "Show Collision" debug overlay are
+in `docs/playtest_readiness.md`.
+
 ## UI art direction (LimeZu Modern UI, cozy-survival inspired)
 
 The live UI uses the LimeZu **Modern UI** kit as real 9-patch frames — a Stardew /

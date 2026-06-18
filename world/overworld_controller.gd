@@ -1445,6 +1445,14 @@ func admin_toggle_world_overlay() -> void:
 	var on: bool = bool(_world_overlay.call("toggle"))
 	_chat_toast("(builder) World overlay %s." % ("ON — plot bounds, names & corners shown" if on else "OFF"))
 
+## Dev: toggle the collision debug overlay (blocked cells / spawn / farm patch).
+func admin_toggle_collision_debug() -> void:
+	if map == null or not map.has_method("set_collision_debug"):
+		return
+	var on: bool = not bool(map.call("is_collision_debug_enabled"))
+	map.call("set_collision_debug", on)
+	_chat_toast("(builder) Collision overlay %s." % ("ON — red=blocked, blue=spawn, green=farm" if on else "OFF"))
+
 ## Plot directory for the admin panel's teleport buttons.
 func admin_plot_directory() -> Array:
 	var directory: Array = []

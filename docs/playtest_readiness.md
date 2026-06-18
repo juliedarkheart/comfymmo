@@ -64,6 +64,51 @@ the controls line is hidden by default, the "Hearthvale" title header exists, th
 compact (≤ 8 visible rows), and it is composed (`_compose_card`/`_insert_hud_divider_after`).
 The hotbar, inventory, admin panel, and generator pipeline were not touched.
 
+## Collision / interaction / farm alignment (2026-06-18 follow-up 4)
+
+### Homestead collision contract
+- **Solid blockers (block at ground footprint):** the barn/building (full footprint rect,
+  `LIMEZU_BARN_COLLIDER_RECT`), the homestead apple trees (`TREE_TILES`) — blocked at the
+  **trunk base only** (compact radius-10 circle at the visible feet, not the canopy), and the
+  fence line (`FENCE_START_TILE`..+`FENCE_LENGTH`).
+- **Visual-only decor (never block):** edge/background trees + small trees, flowers, grass,
+  path, tilled soil, crops, the apple crate, signs (interactable, not solid), and the cow/NPCs.
+- **Interactables (do not block):** plot/area signs, NPCs (Rowan/Hazel), the farm patch,
+  resource nodes — reached on **F** within `LiveVisualPolicy.INTERACTION_RADIUS` (78px ≈ 2.4
+  tiles), nearest target wins; bottom-anchored sprites interact at their feet.
+
+### Player collision
+Compact **feet** collider — a radius-9 `CircleShape2D` at `(0,-6)` (was a tall 28px capsule),
+so the player blocks solids at the feet and walks "in front of" tall sprites. Layer/mask 1.
+Spawn tile `(7,11)` is open (validated not inside any blocker) and a few tiles NE of the farm.
+
+### Farm patch
+Tilled-soil bed + LimeZu crops at tiles `(2-4, 12-14)` — SW of spawn, reachable, crops render
+above soil. Walking onto it shows "Press F to plant carrot". (No old diamond/iso farm visuals.)
+
+### Build / edit / admin controls
+- **B** build menu · **E** edit · **Q/RB** rotate · **Del/Y** delete (two-press safety) ·
+  **Esc/B** cancel — placement ghost snaps to the LimeZu grid.
+- **F7** world-builder (admin) panel → **Clear Local Test Placements** (explicit, no auto-delete)
+  removes leftover local test clutter; **Show Collision** toggles the debug overlay.
+
+### Collision debug overlay
+F7 → **Show Collision** draws translucent cells: **red** = blocked footprints, **blue** =
+spawn, **green** = farm patch — for verifying collision-vs-art alignment in play. Off by default.
+
+### Minimap
+Schematic top-down map; the player marker maps world→rect linearly (`_world_to_map`) and moves
+N/E/S/W correctly (verified via the walk-east/walk-south captures). It is approximate (fixed
+world bounds) and intentionally small.
+
+### Manual playtest checklist
+1. Walk through open grass/path — smooth, no snagging on decor.
+2. Walk into the barn / a tree trunk / the fence — blocked at the visible base.
+3. Walk SW to the soil patch — "Press F to plant carrot" appears; F works.
+4. Approach Rowan/Hazel/a sign — F talks/reads at sensible range.
+5. B → place a piece on the grid; E → select; Del twice → removes.
+6. F7 → Show Collision (verify alignment), Clear Local Test Placements (clears clutter).
+
 ## Sprout secondary-provider status
 
 Sprout remains present as a secondary/comparison provider and its licensed files

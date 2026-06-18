@@ -234,6 +234,45 @@ func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = [])
 			return {"valid": false, "reason": "Blocked by fence"}
 	return {"valid": true, "reason": ""}
 
+# --- Dev collision debug overlay (off by default; toggled via the admin panel) ----------
+# Draws translucent cells over the blocked footprints (red), the reserved spawn (blue), and
+# the farm test patch (green) so collision-vs-art alignment can be verified in play without
+# guessing. Map-static (does not follow the player); a pure diagnostic, not a play feature.
+var _collision_debug: Node2D = null
+
+func set_collision_debug(enabled: bool) -> void:
+	if enabled:
+		if _collision_debug == null:
+			_collision_debug = Node2D.new()
+			_collision_debug.name = "CollisionDebugOverlay"
+			_collision_debug.z_index = 4000
+			_collision_debug.draw.connect(_draw_collision_debug)
+			gameplay_layer.add_child(_collision_debug)
+		_collision_debug.visible = true
+		_collision_debug.queue_redraw()
+	elif _collision_debug != null:
+		_collision_debug.visible = false
+
+func is_collision_debug_enabled() -> bool:
+	return _collision_debug != null and _collision_debug.visible
+
+func _draw_collision_debug() -> void:
+	var ts: Vector2i = WorldProjection.tile_size(visual_projection_mode())
+	var cell := Vector2(ts.x, ts.y)
+	for tile in get_static_blocked_tiles():
+		var r := Rect2(grid_to_world(tile), cell)
+		_collision_debug.draw_rect(r, Color(0.92, 0.18, 0.18, 0.45))
+		_collision_debug.draw_rect(r, Color(1.0, 0.3, 0.25, 0.95), false, 2.0)
+	var spawn_rect := Rect2(grid_to_world(get_spawn_tile()), cell)
+	_collision_debug.draw_rect(spawn_rect, Color(0.3, 0.5, 1.0, 0.6))
+	_collision_debug.draw_rect(spawn_rect, Color(0.5, 0.7, 1.0, 0.95), false, 2.0)
+	if LiveVisualPolicy.live_limezu_slice():
+		for gy in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
+			for gx in range(LIMEZU_TILLED_SOIL_RECT.position.x, LIMEZU_TILLED_SOIL_RECT.end.x):
+				var fr := Rect2(grid_to_world(Vector2i(gx, gy)), cell)
+				_collision_debug.draw_rect(fr, Color(0.3, 0.85, 0.35, 0.5))
+				_collision_debug.draw_rect(fr, Color(0.4, 1.0, 0.45, 0.95), false, 2.0)
+
 func _configure_visual_layers() -> void:
 	ground_layer.z_index = LIMEZU_GROUND_LAYER_Z
 	ground_layer.y_sort_enabled = false

@@ -27,6 +27,13 @@ Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
 > Sprout/old-generated/old-procedural/legacy visual — it must resolve to LimeZu, be a
 > clean LimeZu UI element, or be hidden. The road/path must be the LimeZu path tile or hidden.
 
+> **Playability (collision/interaction):** the LimeZu homestead has an explicit collision
+> contract — barn/tree-trunk/fence are solid (ground footprints), decor is visual-only,
+> signs/NPCs/farm are interactable on F (`INTERACTION_RADIUS=78`). The player uses a compact
+> feet collider, spawn `(7,11)` is open, and a tilled farm patch sits at `(2-4,12-14)`. A F7
+> "Show Collision" debug overlay + "Clear Local Test Placements" support building/testing. See
+> `docs/playtest_readiness.md` for the contract + manual checklist.
+
 ## Why LimeZu looks better for Hearthvale
 
 The LimeZu visual spike (`scenes/visual_spikes/limezu_homestead_slice.tscn`) renders a

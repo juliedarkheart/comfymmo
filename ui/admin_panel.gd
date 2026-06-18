@@ -68,6 +68,9 @@ func _ready() -> void:
 	_add_button("Toggle World Overlay", func() -> void:
 		if _controller != null and _controller.has_method("admin_toggle_world_overlay"):
 			_controller.call("admin_toggle_world_overlay"))
+	_add_button("Show Collision", func() -> void:
+		if _controller != null and _controller.has_method("admin_toggle_collision_debug"):
+			_controller.call("admin_toggle_collision_debug"))
 
 	# --- World-builder: plots --------------------------------------------------
 	_add_heading("World Builder · Plots")

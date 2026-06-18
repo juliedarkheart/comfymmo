@@ -696,10 +696,14 @@ func _add_tree(tile: Vector2i) -> void:
 	# LimeZu live mode: keep the collider, skip the Sprout visual (the LimeZu tree in
 	# OverworldMap._build_limezu_slice sits on this collider).
 	if LiveVisualPolicy.live_limezu_slice():
+		# Block only the TRUNK BASE, not the canopy. The LimeZu tree sprite is bottom-
+		# anchored with its feet ~+16 below this StaticBody origin (tile top-left), so a
+		# small circle centred near +12 sits on the visible trunk instead of floating ~22px
+		# above it (the old (0,-6) r14 collider read as an invisible wall above the tree).
 		var lz_collision := CollisionShape2D.new()
 		var lz_shape := CircleShape2D.new()
-		lz_shape.radius = 14.0
-		lz_collision.position = Vector2(0, -6)
+		lz_shape.radius = 10.0
+		lz_collision.position = Vector2(0, 12)
 		lz_collision.shape = lz_shape
 		tree.add_child(lz_collision)
 		return
