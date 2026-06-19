@@ -6,6 +6,7 @@ const CURRENT_SAVE_VERSION: int = 3
 const DEFAULT_REGION_ID: String = "homestead"
 const DEFAULT_MOOD: String = "morning"
 const DEFAULT_DAY_COUNT: int = 1
+const QUICKBAR_SLOT_COUNT: int = 9
 
 func get_current_region_id() -> String:
 	var save_data: Dictionary = load_save_data()
@@ -126,6 +127,74 @@ func set_player_appearance(appearance: Dictionary) -> void:
 	var save_data: Dictionary = load_save_data()
 	var player_data: Dictionary = _get_dictionary_section(save_data, "player")
 	player_data["appearance"] = CharacterAppearance.normalized(appearance)
+	save_data["player"] = player_data
+	save_save_data(save_data)
+
+# --- Player quickbar shortcuts (additive, backward-compatible) ----------------
+# Inventory owns item counts. The quickbar stores item ids (or "" for empty slots)
+# under player.quickbar and never removes/duplicates inventory items.
+
+static func default_quickbar_slots() -> Array[String]:
+	var slots: Array[String] = []
+	for item_id in [
+		ItemIds.TOOL_WORN_AXE,
+		ItemIds.TOOL_WORN_PICKAXE,
+		ItemIds.TOOL_WORN_HOE,
+		ItemIds.TOOL_WATERING_CAN,
+		ItemIds.TOOL_SIMPLE_HAMMER,
+		ItemIds.TOOL_BASIC_SHOVEL,
+	]:
+		slots.append(String(item_id))
+	while slots.size() < QUICKBAR_SLOT_COUNT:
+		slots.append("")
+	return slots
+
+static func normalize_quickbar_slots(raw_slots: Variant) -> Array[String]:
+	var slots: Array[String] = []
+	var source: Array = raw_slots as Array if typeof(raw_slots) == TYPE_ARRAY else []
+	for i in range(QUICKBAR_SLOT_COUNT):
+		var item_id := ""
+		if i < source.size():
+			item_id = String(source[i]).strip_edges()
+		if not item_id.is_empty() and not _is_valid_quickbar_item(item_id):
+			item_id = ""
+		slots.append(item_id)
+	return slots
+
+static func _is_valid_quickbar_item(item_id: String) -> bool:
+	return item_id.is_empty() or ItemIds.is_storable(item_id) or ContentRegistry.items().has(item_id)
+
+static func normalize_quickbar_selected_index(value: Variant) -> int:
+	var index := int(value)
+	return clampi(index, -1, QUICKBAR_SLOT_COUNT - 1)
+
+func get_player_quickbar() -> Dictionary:
+	var save_data: Dictionary = load_save_data()
+	var player_data: Dictionary = _get_dictionary_section(save_data, "player")
+	var raw_quickbar: Variant = player_data.get("quickbar", {})
+	if typeof(raw_quickbar) != TYPE_DICTIONARY:
+		return {
+			"slots": default_quickbar_slots(),
+			"selected_index": 0,
+		}
+	var quickbar := raw_quickbar as Dictionary
+	if not quickbar.has("slots"):
+		return {
+			"slots": default_quickbar_slots(),
+			"selected_index": 0,
+		}
+	return {
+		"slots": normalize_quickbar_slots(quickbar.get("slots", [])),
+		"selected_index": normalize_quickbar_selected_index(quickbar.get("selected_index", 0)),
+	}
+
+func set_player_quickbar(slots: Array, selected_index: int = -1) -> void:
+	var save_data: Dictionary = load_save_data()
+	var player_data: Dictionary = _get_dictionary_section(save_data, "player")
+	player_data["quickbar"] = {
+		"slots": normalize_quickbar_slots(slots),
+		"selected_index": normalize_quickbar_selected_index(selected_index),
+	}
 	save_data["player"] = player_data
 	save_save_data(save_data)
 

@@ -134,6 +134,45 @@ villager, and ambient creature ids to actor sprites under
 cannot load; normal gameplay actors should route through `CharacterArtRegistry`
 first so characters do not visually drift away from the terrain/object style.
 
+### Actor depth, animation, and held-tool visuals
+
+Live LimeZu actors and foreground objects should share the same y-sorted gameplay layer and
+sort by feet/base point. Actor sprites must not use fixed high z-index values to float above
+trees/buildings; UI, prompts, nameplates, and debug overlays are the surfaces that belong
+above the world.
+
+`AvatarVisual` currently exposes the minimal state names `idle_down`, `idle_up`, `idle_side`,
+`walk_down`, `walk_up`, and `walk_side`. Until reviewed full animation sheets are integrated,
+walking uses a small bob/sway fallback and idle eases back to rest. This keeps the player from
+feeling like a sliding token without committing licensed animation frames.
+
+Held tools are selected-hotbar visuals only. `ui/quick_tools_bar.gd` emits
+`selected_hotbar_index`, `selected_item_id`, and `held_visual_id`; `AvatarVisual` attaches a
+small icon/sprite near the hands and hides it for empty selection. This is not a full equipment
+system: true RPG equipment slots, multiplayer equipment replication policy, and full
+generator/animation-sheet integration remain deferred.
+
+### Quickbar and generated item icons
+
+The bottom bar is a saved shortcut bar, not the inventory itself. `player.quickbar.slots`
+stores 9 item ids or empty strings; inventory counts remain authoritative. Hotkeys `1`-`9`
+select slots, `0` or re-pressing the selected slot unequips, inventory item click begins
+assignment mode, and right-clicking a quickbar slot clears it.
+
+Icon resolution for quickbar, inventory, and held-tool fallbacks is centralized in
+`ObjectArtRegistry.icon_texture_for_item()`:
+
+1. mapped LimeZu icon, when present locally;
+2. original Hearthvale generated local preview icon from
+   `licensed_assets/limezu/generator_outputs/hearthvale_generated/item_icons/`;
+3. committed Hearthvale fallback icon under `art/ui/icons/`;
+4. UI text glyph when no texture is available.
+
+`tools/art/hearthvale_icon_generator.py --preview` now includes original recipes for axe,
+pickaxe, hoe, shovel, watering can, empty hands, generic seed, and generic tool, plus the
+older log/stone/leaf/berry/acorn/coin set. The generated PNGs and review sheet stay
+gitignored until an explicit commit policy changes.
+
 ## Fallback Strategy
 
 Both registries resolve every id through one preference order

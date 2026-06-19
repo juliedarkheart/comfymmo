@@ -124,7 +124,19 @@ func _setup_overworld_ui() -> void:
 	_quick_tools = QUICK_TOOLS_SCENE.instantiate() as CanvasLayer
 	_quick_tools.name = "QuickToolsBar"
 	add_child(_quick_tools)
-	_quick_tools.call("setup", Callable(self, "_crafting_get_count"))
+	if _quick_tools.has_signal("selected_tool_changed"):
+		_quick_tools.connect("selected_tool_changed", Callable(self, "_on_quick_tool_selected"))
+	if _quick_tools.has_signal("quickbar_assignments_changed"):
+		_quick_tools.connect("quickbar_assignments_changed", Callable(self, "_on_quickbar_assignments_changed"))
+	var quickbar_state: Dictionary = save_system.get_player_quickbar()
+	_quick_tools.call(
+		"setup",
+		Callable(self, "_crafting_get_count"),
+		quickbar_state.get("slots", []),
+		int(quickbar_state.get("selected_index", 0))
+	)
+	if _inventory_panel != null and _inventory_panel.has_signal("quickbar_assign_requested"):
+		_inventory_panel.connect("quickbar_assign_requested", Callable(self, "_on_inventory_quickbar_assign_requested"))
 
 	_minimap = MINIMAP_SCENE.instantiate() as CanvasLayer
 	_minimap.name = "MinimapPanel"
@@ -169,6 +181,20 @@ func _unhandled_input(event: InputEvent) -> void:
 func _refresh_quick_tools() -> void:
 	if _quick_tools != null:
 		_quick_tools.call("refresh")
+
+func _on_quick_tool_selected(selected_hotbar_index: int, selected_item_id: String, held_visual_id: String) -> void:
+	var player: AvatarController = _find_player()
+	if player != null and player.has_method("set_selected_hotbar_tool"):
+		player.call("set_selected_hotbar_tool", selected_hotbar_index, selected_item_id, held_visual_id)
+
+func _on_quickbar_assignments_changed(assignments: Array, selected_hotbar_index: int) -> void:
+	save_system.set_player_quickbar(assignments, selected_hotbar_index)
+
+func _on_inventory_quickbar_assign_requested(item_id: String) -> void:
+	if _quick_tools == null or not _quick_tools.has_method("begin_quickbar_assignment"):
+		return
+	if bool(_quick_tools.call("begin_quickbar_assignment", item_id)):
+		_chat_toast("Assign %s: click a quickbar slot. Right-click a slot to clear it." % ItemIds.display_name(item_id))
 
 ## Static minimap landmark dots (Rowan, the land clerk, town fountain, shrine).
 func _overworld_landmarks() -> Array:

@@ -455,6 +455,26 @@ func _draw_limezu_tile_fallback_debug(rect: Rect2) -> void:
 		_collision_debug.draw_line(Vector2(x, rect.end.y), Vector2(x + rect.size.y, rect.position.y), Color(1.0, 0.3, 0.25, 0.22), 1.0)
 		x += step
 
+func _draw_limezu_npc_collision_debug() -> void:
+	if not AssetWorldMetadata.has_asset_collision_shapes("npc"):
+		return
+	for child in gameplay_layer.get_children():
+		if child is SimpleVillager:
+			_draw_limezu_asset_collision_debug("npc", (child as Node2D).position)
+
+func _draw_sort_base_marker(world_pos: Vector2) -> void:
+	_collision_debug.draw_circle(world_pos, 4.0, Color(0.2, 0.95, 1.0, 0.85))
+	_collision_debug.draw_line(world_pos + Vector2(-7, 0), world_pos + Vector2(7, 0), Color(0.2, 0.95, 1.0, 0.95), 1.0)
+	_collision_debug.draw_line(world_pos + Vector2(0, -7), world_pos + Vector2(0, 7), Color(0.2, 0.95, 1.0, 0.95), 1.0)
+
+func _draw_limezu_sort_base_markers() -> void:
+	for child in gameplay_layer.get_children():
+		if not (child is Node2D) or child == _collision_debug:
+			continue
+		var node := child as Node2D
+		if node is AvatarController or node is SimpleVillager or node.has_meta("debug_footprint_tiles") or bool(node.get_meta("limezu_collider", false)):
+			_draw_sort_base_marker(node.position)
+
 func _ensure_collision_debug_legend() -> void:
 	if _collision_debug_legend != null and is_instance_valid(_collision_debug_legend):
 		return
@@ -483,6 +503,7 @@ func _ensure_collision_debug_legend() -> void:
 		{"color": Color(0.4, 1.0, 0.45, 0.95), "text": "Green: farm patch"},
 		{"color": Color(1.0, 0.9, 0.2, 0.95), "text": "Yellow: interaction"},
 		{"color": Color(0.7, 0.4, 0.95, 0.95), "text": "Purple: minimap feature"},
+		{"color": Color(0.2, 0.95, 1.0, 0.95), "text": "Cyan: y-sort base"},
 	]:
 		var row := HBoxContainer.new()
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -509,6 +530,7 @@ func _draw_collision_debug() -> void:
 		for instance_variant in _limezu_collision_debug_instances():
 			var instance: Dictionary = instance_variant as Dictionary
 			_draw_limezu_asset_collision_debug(String(instance["asset_id"]), instance["origin"] as Vector2)
+		_draw_limezu_npc_collision_debug()
 		var barn_proxy_rect: Rect2i = _lz_barn_tile_proxy_rect()
 		if barn_proxy_rect.size.x > 0 and barn_proxy_rect.size.y > 0:
 			_draw_limezu_tile_fallback_debug(_limezu_collision_rect_world(barn_proxy_rect))
@@ -555,6 +577,7 @@ func _draw_collision_debug() -> void:
 				if placed_fill > 0.0:
 					_collision_debug.draw_rect(placed_rect, Color(1.0, 0.55, 0.12, placed_fill))
 				_collision_debug.draw_rect(placed_rect, Color(1.0, 0.6, 0.18, 0.9), false, 2.0)
+		_draw_limezu_sort_base_markers()
 
 func _configure_visual_layers() -> void:
 	ground_layer.z_index = LIMEZU_GROUND_LAYER_Z

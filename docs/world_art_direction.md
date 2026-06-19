@@ -124,6 +124,11 @@ Any broader LimeZu map expansion must preserve this rule: if a terrain cell conf
 with a building/object footprint, hide the terrain cell rather than drawing it over
 the object.
 
+Depth rule: in LimeZu live mode, actors and foreground objects should share the same
+y-sorted world band and sort by their feet/base point. Do not lift player/NPC sprites
+above trees/buildings with fixed z-index values. UI, prompts, nameplates, and debug
+overlays remain above the world; terrain remains below it.
+
 Source-purity rule (hard): in LimeZu live mode, every visible asset in the default
 opening view must be a resolved LimeZu asset, a deliberate disabled/blocked UI fallback,
 or hidden/deferred. **No Sprout, old generated, old procedural, old
@@ -155,6 +160,26 @@ ground/flowers stay visual-only. The visible garden bed is wired to the existing
 farm plot interactions, and LimeZu mode uses a slightly wider interaction radius so
 prompts line up with 32px top-down art instead of the old hidden cottage/farm
 positions.
+
+NPC/player body policy: player collision is a compact feet circle, and current
+SimpleVillager NPCs use a compact metadata body circle so they feel physically present
+without becoming walls. Interaction reach remains larger than body collision.
+
+Animation/tool visual policy: until full reviewed animation sheets are integrated,
+the local player uses a minimal idle/walk state contract with a small bob/sway fallback.
+The visible held tool is driven by selected hotbar state only; it is not RPG equipment,
+does not add stats, and does not add combat/tool gameplay.
+
+Quickbar policy: inventory owns the item counts, while the quickbar stores shortcut item ids
+or empty slots. The selected quickbar slot is the only source for the visible held item;
+empty selection means hands empty. Assignment/clearing is UI state and must not duplicate,
+consume, or grant inventory items. True equipment slots, armor/stat gear, and real held-tool
+sprites remain outside this visual pass.
+
+Icon policy: live UI should prefer reviewed LimeZu icons when mapped, then local original
+Hearthvale generated review icons under gitignored `licensed_assets/limezu/generator_outputs/`,
+then committed Hearthvale fallback icons or readable glyphs. Runtime must never depend on
+gitignored generated PNGs for a clean checkout.
 
 Small playable-area expansion: the live LimeZu treatment now has a named bounded
 homestead area (`OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS`) around spawn, the barn,

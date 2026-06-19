@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+signal quickbar_assign_requested(item_id: String)
+
 ## Full player inventory (I): identity header plus item categories. Snapshot
 ## driven like the crafting/progression panels, so the same panel serves offline
 ## and connected sessions. Esc, I, or the Close button hides it.
@@ -11,6 +13,7 @@ var _identity_label: Label = null
 var _detail_label: Label = null
 var _body: VBoxContainer = null
 const DEFAULT_DETAIL := "Hover an item for details."
+const ASSIGN_DETAIL := "Click an item to assign it to the quickbar; right-click a quickbar slot to clear it."
 const SLOT_PX := 56.0
 
 @onready var _panel: PanelContainer = $Panel
@@ -63,7 +66,7 @@ func _ready() -> void:
 	# Grid-first inventory: item names live on this hover/selection detail line at the
 	# bottom (Stardew-style) instead of wrapping under every slot.
 	_detail_label = Label.new()
-	_detail_label.text = DEFAULT_DETAIL
+	_detail_label.text = ASSIGN_DETAIL
 	_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail_label.add_theme_stylebox_override("normal", LimeZuUITheme.tooltip_panel_style())
 	_detail_label.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -104,7 +107,7 @@ func refresh() -> void:
 		return
 	_refresh_identity()
 	if _detail_label != null:
-		_detail_label.text = DEFAULT_DETAIL
+		_detail_label.text = ASSIGN_DETAIL
 	for child in _body.get_children():
 		child.queue_free()
 	# Owned items only, grouped; empty categories are skipped entirely (no header, no
@@ -200,6 +203,14 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 
 	var detail: String = "%s   x%d" % [_item_label(item_id), count]
 	slot.mouse_entered.connect(func() -> void: _set_detail(detail))
+	slot.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			quickbar_assign_requested.emit(item_id)
+			_set_detail("Assign %s: click a quickbar slot. Right-click quickbar slot to clear." % _item_label(item_id))
+			var viewport := get_viewport()
+			if viewport != null:
+				viewport.set_input_as_handled()
+	)
 	return slot
 
 func _set_detail(text: String) -> void:
@@ -208,36 +219,7 @@ func _set_detail(text: String) -> void:
 
 ## LimeZu live icon where mapped, else the cozy ObjectArtRegistry icon, else null.
 func _icon_texture_for_item(item_id: String) -> Texture2D:
-	var limezu_icon: Texture2D = _limezu_icon_for_item(item_id)
-	if limezu_icon != null:
-		return limezu_icon
-	var icon_path: String = ObjectArtRegistry.texture_path(item_id)
-	if ObjectArtRegistry.source_of(icon_path) != "missing":
-		return load(icon_path) as Texture2D
-	return null
-
-func _limezu_icon_for_item(item_id: String) -> Texture2D:
-	if not LiveVisualPolicy.live_limezu_slice():
-		return null
-	var limezu_id: String = ""
-	match item_id:
-		ContentIds.ITEM_CARROT:
-			limezu_id = "icon.carrot"
-		ResourceIds.MATERIAL_WOOD:
-			limezu_id = "icon.wood"
-		ResourceIds.COMPONENT_SEED_PACKET:
-			limezu_id = "icon.seed"
-		ItemIds.TOOL_WORN_AXE:
-			limezu_id = "icon.tool_axe"
-		ItemIds.TOOL_WATERING_CAN:
-			limezu_id = "icon.tool_watering_can"
-		ItemIds.TOOL_BASIC_SHOVEL:
-			limezu_id = "icon.tool_shovel"
-		_:
-			pass
-	if limezu_id.is_empty() or not LimeZuArtRegistry.has_asset(limezu_id):
-		return null
-	return LimeZuArtRegistry.resolve_texture(limezu_id)
+	return ObjectArtRegistry.icon_texture_for_item(item_id)
 
 func _item_label(item_id: String) -> String:
 	if ItemIds.is_storable(item_id):

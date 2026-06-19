@@ -2,7 +2,7 @@
 """Generate ORIGINAL Hearthvale placeholder icons procedurally (commit-safe tool).
 
 Draws simple, ORIGINAL geometric silhouettes (NOT copied from LimeZu or any pack) using the
-committed `tools/art/templates/hearthvale_generator_style_profile.json` — its palette, 1px
+committed `tools/art/templates/hearthvale_generator_style_profile.json` â€” its palette, 1px
 darker-shade outline, top-light + 1px-down shadow, and 16px cell with inner padding. Outputs
 are local/gitignored under `licensed_assets/limezu/generator_outputs/hearthvale_generated/`
 until docs/hearthvale_asset_generator_plan.md declares a commit policy.
@@ -62,6 +62,49 @@ def _draw_icon(name: str, pal: dict, cell: int = 16) -> "Image.Image":
     elif name == "coin":
         body = P["gold"]; d.ellipse([3, 3, cell - 3, cell - 3], fill=body, outline=_shade(body))
         d.ellipse([6, 6, cell - 6, cell - 6], outline=_shade(body))
+    elif name == "axe":
+        handle = P["wood_mid"]; metal = P["stone"]
+        d.line([(5, 3), (11, cell - 3)], fill=_shade(handle), width=3)
+        d.line([(5, 3), (11, cell - 3)], fill=handle, width=1)
+        d.polygon([(3, 3), (8, 2), (9, 6), (4, 7)], fill=metal, outline=_shade(metal))
+    elif name == "pickaxe":
+        handle = P["wood_mid"]; metal = P["stone"]
+        d.line([(8, 4), (8, cell - 3)], fill=_shade(handle), width=3)
+        d.line([(8, 4), (8, cell - 3)], fill=handle, width=1)
+        d.line([(3, 4), (13, 4)], fill=_shade(metal), width=3)
+        d.line([(3, 4), (13, 4)], fill=metal, width=1)
+    elif name == "hoe":
+        handle = P["wood_mid"]; metal = P["stone"]
+        d.line([(5, 3), (11, cell - 3)], fill=_shade(handle), width=3)
+        d.line([(5, 3), (11, cell - 3)], fill=handle, width=1)
+        d.rectangle([3, 3, 8, 5], fill=metal, outline=_shade(metal))
+    elif name == "shovel":
+        handle = P["wood_mid"]; metal = P["stone"]
+        d.line([(8, 2), (8, 10)], fill=_shade(handle), width=3)
+        d.line([(8, 2), (8, 10)], fill=handle, width=1)
+        d.polygon([(5, 9), (11, 9), (10, 14), (6, 14)], fill=metal, outline=_shade(metal))
+    elif name == "watering_can":
+        body = P["water"]; rim = _shade(body)
+        d.rounded_rectangle([3, 6, 11, 13], radius=2, fill=body, outline=rim)
+        d.arc([8, 5, 15, 12], 260, 80, fill=rim, width=1)
+        d.line([(3, 7), (1, 5)], fill=rim, width=1)
+        d.point([(1, 4), (2, 4)], fill=P["water"])
+    elif name == "generic_seed":
+        body = P["leaf_light"]
+        d.ellipse([3, 4, 7, 8], fill=body, outline=_shade(body))
+        d.ellipse([8, 7, 12, 11], fill=P["leaf_mid"], outline=_shade(P["leaf_mid"]))
+        d.ellipse([5, 10, 9, 14], fill=P["wood_light"], outline=_shade(P["wood_light"]))
+    elif name == "generic_tool":
+        handle = P["wood_mid"]; metal = P["stone"]
+        d.line([(4, 12), (12, 4)], fill=_shade(handle), width=3)
+        d.line([(4, 12), (12, 4)], fill=handle, width=1)
+        d.rectangle([9, 2, 13, 6], fill=metal, outline=_shade(metal))
+    elif name == "empty_hands":
+        skin = P["parchment"]; outline = _shade(skin)
+        d.ellipse([3, 6, 8, 11], fill=skin, outline=outline)
+        d.ellipse([8, 6, 13, 11], fill=skin, outline=outline)
+        d.line([(5, 11), (4, 13)], fill=outline, width=1)
+        d.line([(11, 11), (12, 13)], fill=outline, width=1)
     else:
         body = P["parchment"]; d.rounded_rectangle([3, 3, cell - 3, cell - 3], radius=2, fill=body, outline=_shade(body))
     # top-left highlight + 1px down shadow contact dot (style-profile rules)
@@ -99,17 +142,24 @@ def main() -> None:
         log("Nothing to do without --preview (this is a preview/stub generator).")
         return
 
-    names = ["log", "stone", "leaf", "berry", "acorn", "coin"]
+    names = [
+        "log", "stone", "leaf", "berry", "acorn", "coin",
+        "axe", "pickaxe", "hoe", "shovel", "watering_can",
+        "empty_hands", "generic_seed", "generic_tool",
+    ]
     for n in names:
         img = _draw_icon(n, pal, cell)
         img.save(out_dir / f"item_icon_{n}_{cell}px.png")
     # Contact sheet (gitignored review).
     s = args.scale
-    cols = len(names)
-    sheet = Image.new("RGBA", (cols * cell * s + (cols + 1) * 4, cell * s + 8), (40, 40, 48, 255))
+    cols = min(7, len(names))
+    rows = (len(names) + cols - 1) // cols
+    sheet = Image.new("RGBA", (cols * cell * s + (cols + 1) * 4, rows * cell * s + (rows + 1) * 4), (40, 40, 48, 255))
     for i, n in enumerate(names):
         img = Image.open(out_dir / f"item_icon_{n}_{cell}px.png").convert("RGBA").resize((cell * s, cell * s), Image.NEAREST)
-        sheet.paste(img, (4 + i * (cell * s + 4), 4), img)
+        x = i % cols
+        y = i // cols
+        sheet.paste(img, (4 + x * (cell * s + 4), 4 + y * (cell * s + 4)), img)
     sheet.save(review_dir / "hearthvale_icon_preview.png")
     log(f"generated {len(names)} original placeholder icons -> {out_dir.relative_to(ROOT)} (gitignored)")
     log(f"contact sheet -> {(review_dir / 'hearthvale_icon_preview.png').relative_to(ROOT)}")

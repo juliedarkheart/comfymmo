@@ -109,7 +109,8 @@ static func make_sprite(visual_id: String) -> Sprite2D:
 	sprite.position = visual.get("anchor", Vector2.ZERO) as Vector2
 	sprite.scale = sprite_scale(String(visual.get("id", visual_id)))
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.z_index = 2
+	# In LimeZu live mode actors y-sort with objects (z 0); Sprout keeps its z 2 actor band.
+	sprite.z_index = 0 if LiveVisualPolicy.live_limezu_slice() else 2
 	return sprite
 
 ## In LimeZu live mode, returns a bottom-anchored LimeZu farmer sprite for human
@@ -133,7 +134,10 @@ static func _limezu_actor_sprite(visual_id: String) -> Sprite2D:
 	sprite.position = Vector2(0, -tex.get_height() * scale_f * 0.5)
 	sprite.scale = Vector2(scale_f, scale_f)
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.z_index = 2
+	# z 0 so the actor Y-SORTS with the LimeZu gameplay objects (trees/barn/fence are z 0 in
+	# the gameplay layer). The old z 2 forced actors to always draw on top, which broke
+	# walk-behind depth. The gameplay layer's y_sort_enabled handles front/behind by feet.
+	sprite.z_index = 0
 	return sprite
 
 static func apply_sprite(parent: Node2D, visual_id: String) -> bool:

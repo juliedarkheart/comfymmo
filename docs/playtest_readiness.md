@@ -138,6 +138,53 @@ purple = minimap-visible feature. The green farm overlay uses centered LimeZu vi
 rects so it lines up with the visible soil/crops; the minimap remains schematic and should not
 be used to judge collision precision.
 
+## Depth, body collision, animation, and held tools (2026-06-18 follow-up 7)
+
+The live LimeZu world now treats depth as a shared feet/base contract: terrain/path/farm ground
+stays on the non-y-sorted ground layer, while player, NPCs, animals, foreground trees,
+buildings, fences, and visible placed foreground objects live in the y-sorted gameplay layer.
+Actor and foreground object sprites no longer force themselves above the world with raised
+z-index values in LimeZu mode. F7 debug overlay adds cyan feet/base markers to help review the
+sort origin.
+
+Player collision remains a compact feet circle. Rowan/Hazel/SimpleVillager NPCs now add a
+compact metadata-driven body circle (`AssetWorldMetadata["npc"]`) so the player cannot casually
+walk through them, while interaction remains larger and unchanged so talking still works.
+
+Animation is intentionally minimal for now: `AvatarVisual` accepts `idle_down`, `idle_up`,
+`idle_side`, `walk_down`, `walk_up`, and `walk_side`. Until full safe animation sheets are
+integrated, walking uses a small bob/sway fallback and idle eases back to rest.
+
+Held tools are cosmetic only. The quick tools bar emits selected hotbar state
+(`selected_hotbar_index`, `selected_item_id`, `held_visual_id`), and the avatar shows a small
+held visual for the selected starter tool when available. This is not RPG equipment: no
+equipment slots, stats, combat, or new tool gameplay were added.
+
+## Quickbar assignment, unequip, and icons (2026-06-18 follow-up 8)
+
+Inventory remains the source of owned items. The bottom bar is now a player-configured
+quickbar: each of the 9 slots stores an item id or an empty string, and assigning an item never
+removes it from inventory. Existing saves with no quickbar data receive MVP starter defaults
+(tools in the first six slots, empty trailing slots); once changed, assignments persist under
+`player.quickbar`.
+
+Controls: press `1`-`9` to select quickbar slots, press the same selected number again or `0`
+to unequip/hands-empty, click an inventory item to enter "assign to quickbar" mode, then click
+a quickbar slot. Right-click a quickbar slot to clear it. Selecting an empty slot also means
+hands empty and hides the held-tool visual.
+
+The held-tool visual still reads only the selected quickbar item. If a LimeZu icon exists it is
+used; otherwise the runtime tries local original Hearthvale generated icon outputs, then the
+committed fallback icons, then a text glyph. Missing icons should never produce a missing
+texture box in clean checkout.
+
+Manual checklist for this pass:
+- Launch, press `1`, `2`, `3`, and confirm the highlight moves without consuming inventory.
+- Press the selected number again, then press `0`; the held tool should disappear.
+- Open inventory with `I`, click a material/tool item, then click quickbar slot `8` or `9`.
+- Right-click that quickbar slot; it should clear and remain empty after reopening inventory.
+- Restart and confirm customized quickbar assignments persist.
+
 ## Collision / interaction / farm alignment (2026-06-18 follow-up 4)
 
 ### Homestead collision contract
@@ -156,6 +203,11 @@ Compact **feet** collider — a radius-9 `CircleShape2D` at `(0,-6)` (was a tall
 so the player blocks solids at the feet and walks "in front of" tall sprites. Layer/mask 1.
 Spawn tile `(7,11)` is open (validated not inside any blocker) and a few tiles NE of the farm.
 
+### NPC body collision
+Rowan, Hazel, and current `SimpleVillager`-based NPCs use a compact metadata circle at the
+lower body/feet. It is small enough not to become a wall or trap the player; interaction reach
+remains much larger than body collision.
+
 ### Farm patch
 Tilled-soil bed + LimeZu crops at tiles `(2-4, 12-14)` — SW of spawn, reachable, crops render
 above soil. Walking onto it shows "Press F to plant carrot". (No old diamond/iso farm visuals.)
@@ -169,7 +221,8 @@ above soil. Walking onto it shows "Press F to plant carrot". (No old diamond/iso
 ### Collision debug overlay
 F7 -> **Show Collision** draws the actual metadata shapes: **red solid** = asset collision,
 **red hatch** = tile fallback/proxy, **blue** = spawn, **green** = farm patch, **yellow** =
-interaction radius, **purple** = minimap-visible schematic feature. Off by default.
+interaction radius, **purple** = minimap-visible schematic feature, **cyan** = y-sort feet/base
+markers. Off by default.
 
 ### Minimap
 Schematic top-down map; the player marker maps world→rect linearly (`_world_to_map`) and moves
@@ -184,12 +237,16 @@ world bounds) and intentionally small.
 5. B → place a piece on the grid; E → select; Del twice → removes.
 6. F7 → Show Collision (verify alignment), Clear Local Test Placements (clears clutter).
 
+7. Walk above and below a tree/building/NPC and confirm the player draws behind/in front by feet.
+8. Walk into Rowan/Hazel and confirm they have a small body, not a giant invisible wall.
+9. Press number keys/click the hotbar and confirm owned starter tools appear in the player's hand.
+
 Additional minimap/overlay checklist:
 1. Press M and confirm the minimap remains clipped, the player marker moves while walking,
    the barn/farm are shapes, and no fake town/forest/plot markers appear in default live mode.
 2. F7 -> Show Collision and confirm the legend appears, green covers the visible farm patch,
-   red covers blockers, yellow marks interaction radius, and purple outlines minimap-visible
-   features.
+   red covers blockers, cyan marks y-sort bases, yellow marks interaction radius, and purple
+   outlines minimap-visible features.
 
 ## Sprout secondary-provider status
 

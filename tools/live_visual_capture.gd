@@ -70,6 +70,18 @@ const PIXEL_TREE_COLLISION_FILE := OUT_DIR + "/live_limezu_tree_pixel_collision_
 const PIXEL_FENCE_COLLISION_FILE := OUT_DIR + "/live_limezu_fence_pixel_collision_overlay.png"
 const PIXEL_MINIMAP_FILE := OUT_DIR + "/live_limezu_minimap_after_pixel_collision.png"
 const PIXEL_FARM_PROMPT_FILE := OUT_DIR + "/live_limezu_farm_prompt_after_pixel_collision.png"
+const DEPTH_FRONT_FILE := OUT_DIR + "/live_limezu_player_in_front_of_tree.png"
+const DEPTH_BEHIND_FILE := OUT_DIR + "/live_limezu_player_behind_tree.png"
+const NPC_BODY_COLLISION_FILE := OUT_DIR + "/live_limezu_npc_body_collision.png"
+const WALK_ANIMATION_FILE := OUT_DIR + "/live_limezu_player_walk_animation.png"
+const HELD_TOOL_VISUAL_FILE := OUT_DIR + "/live_limezu_held_tool_visual.png"
+const PLACED_YSORT_OVERLAY_FILE := OUT_DIR + "/live_limezu_placed_object_ysort_overlay.png"
+const QUICKBAR_ASSIGNED_FILE := OUT_DIR + "/live_limezu_quickbar_assigned.png"
+const QUICKBAR_EMPTY_UNEQUIPPED_FILE := OUT_DIR + "/live_limezu_quickbar_empty_unequipped.png"
+const HELD_TOOL_AFTER_QUICKBAR_FILE := OUT_DIR + "/live_limezu_held_tool_after_quickbar.png"
+const QUICKBAR_ASSIGN_FILE := OUT_DIR + "/live_limezu_inventory_quickbar_assign.png"
+const GENERATED_TOOL_ICONS_REVIEW_FILE := OUT_DIR + "/live_limezu_generated_tool_icons_review.png"
+const GENERATED_TOOL_ICONS_SOURCE := "res://licensed_assets/limezu/generator_outputs/hearthvale_generated/review/hearthvale_icon_preview.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -113,6 +125,13 @@ func _initialize() -> void:
 	if player != null:
 		await _capture_player_offset(player, start_position, Vector2(360, 0), AREA_EXPANSION_WALK_EAST_FILE)
 		await _capture_player_offset(player, start_position, Vector2(0, 320), AREA_EXPANSION_WALK_SOUTH_FILE)
+		await _capture_player_depth_pose(player, Vector2i(3, 11), Vector2(0, 52), DEPTH_FRONT_FILE)
+		await _capture_player_depth_pose(player, Vector2i(3, 11), Vector2(0, -30), DEPTH_BEHIND_FILE)
+		await _capture_player_walk_pose(player, start_position + Vector2(80, 16), WALK_ANIMATION_FILE)
+		await _capture_held_tool_pose(player, start_position + Vector2(92, 42), HELD_TOOL_VISUAL_FILE)
+		await _capture_quickbar_assigned(player, start_position + Vector2(70, 26), QUICKBAR_ASSIGNED_FILE)
+		await _capture_held_tool_pose(player, start_position + Vector2(92, 42), HELD_TOOL_AFTER_QUICKBAR_FILE)
+		await _capture_quickbar_empty(player, start_position + Vector2(70, 26), QUICKBAR_EMPTY_UNEQUIPPED_FILE)
 		player.global_position = start_position
 		_reset_player_camera(player)
 		for _i in range(8):
@@ -126,7 +145,7 @@ func _initialize() -> void:
 		var inv_img: Image = _grab_image()
 		if inv_img != null and inv_img.save_png(UI_REWRITE_INVENTORY_FILE) == OK:
 			inv_img.save_png(AREA_EXPANSION_INVENTORY_FILE)
-			inv_img.save_png(PLAYABILITY_INVENTORY_FILE); inv_img.save_png(STARDEW_INVENTORY_FILE); inv_img.save_png(POLISH_INVENTORY_FILE); inv_img.save_png(ICON_ALIGN_INVENTORY_FILE); inv_img.save_png(HUD_POLISH_INVENTORY_FILE)
+			inv_img.save_png(PLAYABILITY_INVENTORY_FILE); inv_img.save_png(STARDEW_INVENTORY_FILE); inv_img.save_png(POLISH_INVENTORY_FILE); inv_img.save_png(ICON_ALIGN_INVENTORY_FILE); inv_img.save_png(HUD_POLISH_INVENTORY_FILE); inv_img.save_png(QUICKBAR_ASSIGN_FILE)
 			print("[live-capture] saved ", UI_REWRITE_INVENTORY_FILE)
 			print("[live-capture] saved ", AREA_EXPANSION_INVENTORY_FILE)
 			print("[live-capture] saved ", PLAYABILITY_INVENTORY_FILE)
@@ -192,6 +211,10 @@ func _initialize() -> void:
 			dbg_img.get_region(Rect2i(0, 190, 680, 470)).save_png(PIXEL_TREE_COLLISION_FILE)
 			dbg_img.get_region(Rect2i(360, 0, 560, 220)).save_png(PIXEL_FENCE_COLLISION_FILE)
 			print("[live-capture] saved ", COLLISION_DEBUG_FILE)
+		if player != null:
+			await _capture_npc_body_collision(player, NPC_BODY_COLLISION_FILE)
+			await _capture_placed_object_ysort_overlay(player, PLACED_YSORT_OVERLAY_FILE)
+	_copy_generated_icon_review()
 	quit(0)
 
 func _enable_collision_debug() -> bool:
@@ -222,6 +245,122 @@ func _capture_player_offset(player: Node2D, start_position: Vector2, offset: Vec
 	else:
 		push_warning("[live-capture] failed to save area screenshot: %s" % file_path)
 
+func _capture_player_depth_pose(player: Node2D, tree_tile: Vector2i, offset: Vector2, file_path: String) -> void:
+	var map_node := _find_map()
+	if map_node == null or not map_node.has_method("grid_to_world"):
+		return
+	player.global_position = (map_node.call("grid_to_world", tree_tile) as Vector2) + Vector2(0, 16) + offset
+	_set_player_animation_state(player, AvatarVisual.STATE_IDLE_DOWN, AvatarVisual.FACING_DOWN)
+	_reset_player_camera(player)
+	for _i in range(18):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save depth screenshot: %s" % file_path)
+
+func _capture_player_walk_pose(player: Node2D, world_pos: Vector2, file_path: String) -> void:
+	player.global_position = world_pos
+	_set_player_animation_state(player, AvatarVisual.STATE_WALK_SIDE, AvatarVisual.FACING_SIDE, 1.0)
+	_reset_player_camera(player)
+	for _i in range(24):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save walk screenshot: %s" % file_path)
+
+func _capture_held_tool_pose(player: Node2D, world_pos: Vector2, file_path: String) -> void:
+	_set_quickbar_assignments(LocalSaveSystem.default_quickbar_slots(), 3)
+	player.global_position = world_pos
+	_set_player_animation_state(player, AvatarVisual.STATE_IDLE_SIDE, AvatarVisual.FACING_SIDE, 1.0)
+	_reset_player_camera(player)
+	for _i in range(18):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save held-tool screenshot: %s" % file_path)
+
+func _capture_quickbar_assigned(player: Node2D, world_pos: Vector2, file_path: String) -> void:
+	_set_quickbar_assignments(LocalSaveSystem.default_quickbar_slots(), 0)
+	player.global_position = world_pos
+	_set_player_animation_state(player, AvatarVisual.STATE_IDLE_DOWN, AvatarVisual.FACING_DOWN)
+	_reset_player_camera(player)
+	for _i in range(16):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save assigned quickbar screenshot: %s" % file_path)
+
+func _capture_quickbar_empty(player: Node2D, world_pos: Vector2, file_path: String) -> void:
+	var slots: Array[String] = LocalSaveSystem.default_quickbar_slots()
+	slots[8] = ""
+	_set_quickbar_assignments(slots, 8)
+	player.global_position = world_pos
+	_set_player_animation_state(player, AvatarVisual.STATE_IDLE_DOWN, AvatarVisual.FACING_DOWN)
+	_reset_player_camera(player)
+	for _i in range(16):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save empty quickbar screenshot: %s" % file_path)
+
+func _capture_npc_body_collision(player: Node2D, file_path: String) -> void:
+	var npc := _find_first_villager()
+	if npc == null:
+		return
+	player.global_position = npc.global_position + Vector2(26, 10)
+	_set_player_animation_state(player, AvatarVisual.STATE_IDLE_SIDE, AvatarVisual.FACING_SIDE, -1.0)
+	_reset_player_camera(player)
+	for _i in range(16):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save NPC collision screenshot: %s" % file_path)
+
+func _capture_placed_object_ysort_overlay(player: Node2D, file_path: String) -> void:
+	var map_node := _find_map()
+	if map_node == null or not map_node.has_method("grid_to_world"):
+		return
+	var gameplay := map_node.get_node_or_null("GameplayLayer") as Node2D
+	if gameplay == null:
+		return
+	var scene := load("res://scenes/buildings/decor/placeable_bench.tscn") as PackedScene
+	if scene == null:
+		return
+	var placed := scene.instantiate() as PlaceableCrate
+	if placed == null:
+		return
+	var tile := Vector2i(8, 12)
+	placed.name = "CapturePlacedYSortBench"
+	placed.position = map_node.call("grid_to_world", tile) as Vector2
+	placed.set_meta("debug_collision_kind", "proxy")
+	placed.set_meta("debug_collision_asset", "capture_only")
+	placed.set_meta("debug_footprint_tiles", [tile])
+	gameplay.add_child(placed)
+	placed.set_placed_visual()
+	player.global_position = placed.global_position + Vector2(0, 34)
+	_set_player_animation_state(player, AvatarVisual.STATE_IDLE_DOWN, AvatarVisual.FACING_DOWN)
+	_reset_player_camera(player)
+	for _i in range(18):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save placed-object overlay screenshot: %s" % file_path)
+	placed.queue_free()
+
 func _find_player() -> Node2D:
 	var root := get_root()
 	if root == null:
@@ -233,6 +372,61 @@ func _find_player() -> Node2D:
 		if node is AvatarController:
 			return node as Node2D
 	return null
+
+func _find_map() -> Node:
+	var root := get_root()
+	if root == null:
+		return null
+	for node in root.find_children("Map", "Node2D", true, false):
+		return node
+	return null
+
+func _find_first_villager() -> Node2D:
+	var root := get_root()
+	if root == null:
+		return null
+	for node in root.find_children("*", "Node2D", true, false):
+		if node is SimpleVillager:
+			return node as Node2D
+	return null
+
+func _set_player_animation_state(player: Node2D, state: String, facing: String, side_sign: float = 0.0) -> void:
+	var body := player.get_node_or_null("Body")
+	if body != null and body.has_method("set_facing_direction"):
+		body.call("set_facing_direction", facing, side_sign)
+	if body != null and body.has_method("set_animation_state"):
+		body.call("set_animation_state", state, Vector2.RIGHT if state == AvatarVisual.STATE_WALK_SIDE else Vector2.ZERO)
+
+func _select_hotbar_index(index: int) -> void:
+	var root := get_root()
+	if root == null:
+		return
+	for node in root.find_children("QuickToolsBar", "CanvasLayer", true, false):
+		if node.has_method("select_hotbar_index"):
+			node.call("select_hotbar_index", index)
+			return
+
+func _set_quickbar_assignments(assignments: Array, selected_index: int) -> void:
+	var root := get_root()
+	if root == null:
+		return
+	for node in root.find_children("QuickToolsBar", "CanvasLayer", true, false):
+		if node.has_method("set_quickbar_assignments"):
+			node.call("set_quickbar_assignments", assignments, selected_index, false)
+			return
+
+func _copy_generated_icon_review() -> void:
+	if not FileAccess.file_exists(GENERATED_TOOL_ICONS_SOURCE):
+		push_warning("[live-capture] generated icon review sheet missing; run hearthvale_icon_generator.py --preview")
+		return
+	var img := Image.new()
+	if img.load(GENERATED_TOOL_ICONS_SOURCE) != OK:
+		push_warning("[live-capture] failed to load generated icon review sheet")
+		return
+	if img.save_png(GENERATED_TOOL_ICONS_REVIEW_FILE) == OK:
+		print("[live-capture] saved ", GENERATED_TOOL_ICONS_REVIEW_FILE)
+	else:
+		push_warning("[live-capture] failed to save generated icon review screenshot")
 
 func _reset_player_camera(player: Node2D) -> void:
 	if player == null:

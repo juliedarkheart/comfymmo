@@ -113,6 +113,19 @@ and LimeZu prompts use a 32px-top-down interaction radius. The bottom-center qui
 tools and compact inventory are sized around the smaller Modern UI control assets
 instead of forcing the art to fit the old oversized prototype UI.
 
+Depth/collision/animation update: LimeZu actors and foreground objects now share the
+y-sorted gameplay band by feet/base instead of forcing actors above world props. Rowan,
+Hazel, and SimpleVillager NPCs have compact metadata body collision while retaining the
+larger talk interaction radius. Player animation is a minimal idle/walk state fallback
+(bob/sway until reviewed sheets land), and held-tool display is selected-hotbar visual
+state only, not RPG equipment slots.
+
+Quickbar/icon update: the bottom bar is now a configurable 9-slot shortcut bar backed by
+`player.quickbar`, with empty slots, `0`/same-slot unequip, inventory-click assignment, and
+right-click clear. Icon completion stays narrow: mapped LimeZu icons win, original Hearthvale
+generated review icons can be used locally from gitignored generator outputs, and committed
+fallback icons/glyphs keep clean checkout safe.
+
 ## Must remain unchanged (no gameplay churn)
 
 Gameplay systems, networking/server, farming/save data, placement/edit/delete-twice

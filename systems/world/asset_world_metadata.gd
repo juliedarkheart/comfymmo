@@ -261,7 +261,14 @@ const DATA := {
 	"crop.watermelon": {"debug_name": "Watermelon Crop", "collision_type": COLLISION_NONE, "notes": "Crops never hard-block."},
 	"npc": {
 		"debug_name": "NPC",
-		"collision_type": COLLISION_NONE,
+		"collision_type": COLLISION_CIRCLE,
+		"collision_radius": 7.0,
+		"collision_offset": Vector2(0, -8),
+		"collision_anchor": "sprite_bottom_center",
+		"collision_precision": "compact_body_soft",
+		"collision_shapes": [
+			{"type": COLLISION_CIRCLE, "label": "npc_body", "offset": Vector2(0, -8), "radius": 7.0},
+		],
 		"interaction_enabled": true,
 		"interaction_label": "talk",
 		"minimap_visible": true,
@@ -270,7 +277,7 @@ const DATA := {
 		"minimap_shape": "dot",
 		"minimap_priority": 90,
 		"minimap_label": "NPC",
-		"notes": "NPCs are interactable near their base; non-blocking so they never trap the player.",
+		"notes": "Compact feet/body collider so NPCs feel physically present. Small (r7) + at open spots so it never traps; interaction reach (78px) is far larger, so talking still works. Set body_collision_enabled=false on a villager for a debug ghost.",
 	},
 }
 

@@ -22,6 +22,31 @@ const HEARTHVALE_OBJECT_ROOT := "res://art/generated/hearthvale/objects/"
 const HEARTHVALE_TERRAIN_ROOT := "res://art/generated/hearthvale/terrain/"
 const LEGACY_OBJECT_ROOT := "res://art/objects/"
 const LEGACY_TILE_ROOT := "res://art/tiles/"
+const HEARTHVALE_GENERATED_ICON_ROOT := "res://licensed_assets/limezu/generator_outputs/hearthvale_generated/item_icons/"
+
+const LIMEZU_ICON_IDS := {
+	ContentIds.ITEM_CARROT: "icon.carrot",
+	ResourceIds.MATERIAL_WOOD: "icon.wood",
+	ResourceIds.COMPONENT_SEED_PACKET: "icon.seed",
+	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET: "icon.seed",
+	ItemIds.TOOL_WORN_AXE: "icon.tool_axe",
+	ItemIds.TOOL_WATERING_CAN: "icon.tool_watering_can",
+	ItemIds.TOOL_BASIC_SHOVEL: "icon.tool_shovel",
+}
+
+const HEARTHVALE_GENERATED_ICON_PATHS := {
+	ItemIds.TOOL_WORN_AXE: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_axe_16px.png",
+	ItemIds.TOOL_WORN_PICKAXE: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_pickaxe_16px.png",
+	ItemIds.TOOL_WORN_HOE: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_hoe_16px.png",
+	ItemIds.TOOL_WATERING_CAN: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_watering_can_16px.png",
+	ItemIds.TOOL_SIMPLE_HAMMER: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_generic_tool_16px.png",
+	ItemIds.TOOL_BASIC_SHOVEL: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_shovel_16px.png",
+	ResourceIds.COMPONENT_SEED_PACKET: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_generic_seed_16px.png",
+	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_generic_seed_16px.png",
+	ContentIds.ITEM_BERRY: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_berry_16px.png",
+	ResourceIds.MATERIAL_WOOD: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_log_16px.png",
+	ResourceIds.MATERIAL_STONE: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_stone_16px.png",
+}
 
 static func _hearthvale_object_path(mapped_path: String) -> String:
 	var candidate: String = ""
@@ -48,6 +73,8 @@ static func source_of(resolved_path: String) -> String:
 	if resolved_path == FALLBACK_PATH:
 		return "missing"
 	if resolved_path.begins_with("res://licensed_assets/"):
+		if resolved_path.contains("/generator_outputs/hearthvale_generated/"):
+			return "hearthvale_generated_local"
 		return "licensed_modified" if resolved_path.contains("/modified/") else "licensed"
 	if resolved_path.begins_with(EXTERNAL_ACTIVE_ROOT):
 		return "external"
@@ -164,6 +191,47 @@ static func texture_path(object_id: String) -> String:
 static func texture(object_id: String) -> Texture2D:
 	return load(texture_path(object_id)) as Texture2D
 
+static func generated_icon_path_for_item(item_id: String) -> String:
+	var path: String = String(HEARTHVALE_GENERATED_ICON_PATHS.get(normalize_id(item_id), ""))
+	return path if not path.is_empty() and FileAccess.file_exists(path) else ""
+
+static func limezu_icon_id_for_item(item_id: String) -> String:
+	var limezu_id: String = String(LIMEZU_ICON_IDS.get(normalize_id(item_id), ""))
+	if limezu_id.is_empty() or not LimeZuArtRegistry.has_asset(limezu_id):
+		return ""
+	return limezu_id
+
+static func icon_texture_for_item(item_id: String) -> Texture2D:
+	if item_id.is_empty():
+		return null
+	var limezu_id := limezu_icon_id_for_item(item_id)
+	if not limezu_id.is_empty():
+		return LimeZuArtRegistry.resolve_texture(limezu_id)
+	var generated_path := generated_icon_path_for_item(item_id)
+	if not generated_path.is_empty():
+		return _load_unimported_png(generated_path)
+	var path := texture_path(item_id)
+	if path == FALLBACK_PATH:
+		return null
+	return load(path) as Texture2D
+
+static func icon_source_for_item(item_id: String) -> String:
+	if item_id.is_empty():
+		return "empty"
+	if not limezu_icon_id_for_item(item_id).is_empty():
+		return "limezu"
+	var generated_path := generated_icon_path_for_item(item_id)
+	if not generated_path.is_empty():
+		return source_of(generated_path)
+	var path := texture_path(item_id)
+	return source_of(path)
+
+static func _load_unimported_png(path: String) -> Texture2D:
+	var image := Image.new()
+	if image.load(path) != OK:
+		return null
+	return ImageTexture.create_from_image(image)
+
 static func visual_for(object_id: String) -> Dictionary:
 	var normalized_id: String = normalize_id(object_id)
 	var path: String = texture_path(normalized_id)
@@ -210,6 +278,8 @@ static func anchor_offset(object_id: String) -> Vector2:
 static func _z_index_for(object_id: String) -> int:
 	if _is_terrain_placeable(object_id):
 		return -2
+	if LiveVisualPolicy.live_limezu_slice():
+		return 0
 	return 1
 
 static func _is_terrain_placeable(object_id: String) -> bool:

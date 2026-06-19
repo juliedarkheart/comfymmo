@@ -6,6 +6,8 @@ class_name SimpleVillager
 @export var repeat_visit_text: String = "Good to see you again."
 @export var repeat_visit_lines: PackedStringArray = PackedStringArray()
 @export var visual_id: String = CharacterArtRegistry.MARIBEL
+## A compact body collider so the NPC is not a ghost. Turn off for a debug pass-through NPC.
+@export var body_collision_enabled: bool = true
 
 var _idle_timer: float = 0.0
 var _body_node: Node2D = null
@@ -15,6 +17,19 @@ func _ready() -> void:
 	_rng.randomize()
 	_idle_timer = _rng.randf_range(0.0, TAU)
 	_build_visual()
+	_build_body_collision()
+
+## Compact NPC body collision from AssetWorldMetadata("npc"). A small static circle at the
+## feet/lower-body so the player bumps a body but is never trapped (it sits on the stationary
+## root, not the bobbing visual). Interaction reach is far larger, so talking still works.
+func _build_body_collision() -> void:
+	if not body_collision_enabled or not AssetWorldMetadata.is_blocking("npc"):
+		return
+	var body := StaticBody2D.new()
+	body.name = "NpcBody"
+	body.set_meta("npc_body_collision", true)
+	add_child(body)
+	PlacedObjectCollision.build_shapes_into(body, "npc")
 
 func _process(delta: float) -> void:
 	_idle_timer += delta * 0.9

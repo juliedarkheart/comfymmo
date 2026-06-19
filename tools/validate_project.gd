@@ -1129,7 +1129,7 @@ func _initialize() -> void:
 		return
 	# Esc/close-button behavior + LimeZu/Sprout styling, not hardcoded panel art.
 	var inventory_src: String = FileAccess.get_file_as_string("res://ui/inventory_panel.gd")
-	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_inventory_panel", "slot_texture_style", "apply_close_button", "_limezu_icon_for_item"]:
+	for inventory_snippet in ["cancel_action", "close_panel", "CozyUITheme.apply_inventory_panel", "slot_texture_style", "apply_close_button", "ObjectArtRegistry.icon_texture_for_item"]:
 		if not inventory_src.contains(inventory_snippet):
 			push_error("Inventory panel is missing required behavior/styling: %s" % inventory_snippet)
 			inventory_probe.queue_free()
@@ -1546,12 +1546,101 @@ func _initialize() -> void:
 		var quick_tools: CanvasLayer = quick_tools_scene.instantiate() as CanvasLayer
 		get_root().add_child(quick_tools)
 		await process_frame
-		quick_tools.call("setup", Callable(self, "_validation_get_inventory_count"))
+		quick_tools.call("setup", Callable(self, "_validation_get_inventory_count"), LocalSaveSystem.default_quickbar_slots(), 0)
 		await process_frame
 		var hotbar_strip: HBoxContainer = quick_tools.get_node_or_null("Wrap/Rail/Strip") as HBoxContainer
 		var hotbar_wrap: Control = quick_tools.get_node_or_null("Wrap") as Control
 		if hotbar_strip == null or hotbar_strip.find_children("*", "Panel", false, false).size() < 8 or hotbar_wrap == null or hotbar_wrap.anchor_top < 0.99:
 			push_error("Hotbar did not build a bottom-centered quickslot row in a framed rail")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		for hotbar_contract_snippet in [
+			"signal selected_tool_changed",
+			"signal quickbar_assignments_changed",
+			"func selected_hotbar_index",
+			"func selected_item_id",
+			"func held_visual_id",
+			"func set_quickbar_assignments",
+			"func quickbar_assignments",
+			"func begin_quickbar_assignment",
+			"func assign_quickbar_slot",
+			"func clear_quickbar_slot",
+			"func unequip",
+			"KEY_0",
+			"KEY_1",
+			"DEFAULT_ASSIGNMENTS",
+			"HELD_TOOL_VISUAL_IDS",
+		]:
+			if not quick_tools_source.contains(hotbar_contract_snippet):
+				push_error("Hotbar selected-tool visual contract is missing '%s'" % hotbar_contract_snippet)
+				quick_tools.queue_free()
+				quit(1)
+				return
+		if quick_tools_source.contains("const TOOL_ORDER"):
+			push_error("Quickbar still exposes the old forced TOOL_ORDER model instead of saved assignments")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		if String(quick_tools.call("selected_item_id")) != ItemIds.TOOL_WORN_AXE:
+			push_error("Hotbar selected_item_id did not expose the owned first starter tool")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		quick_tools.call("select_hotbar_index", 3)
+		if String(quick_tools.call("selected_item_id")) != ItemIds.TOOL_WATERING_CAN \
+				or String(quick_tools.call("held_visual_id")).is_empty():
+			push_error("Hotbar selection did not expose the watering-can held visual contract")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		var validation_slots: Array[String] = LocalSaveSystem.default_quickbar_slots()
+		validation_slots[1] = ""
+		quick_tools.call("set_quickbar_assignments", validation_slots, 1, false)
+		if String(quick_tools.call("selected_item_id")) != "" or String(quick_tools.call("held_visual_id")) != "":
+			push_error("Quickbar empty selected slot must resolve to empty hands / no held visual")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		quick_tools.call("assign_quickbar_slot", 1, ResourceIds.MATERIAL_WOOD)
+		if String(quick_tools.call("selected_item_id")) != ResourceIds.MATERIAL_WOOD:
+			push_error("Quickbar assignment did not store/select an inventory item id")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		quick_tools.call("clear_quickbar_slot", 1)
+		if String((quick_tools.call("quickbar_assignments") as Array)[1]) != "" or String(quick_tools.call("selected_item_id")) != "":
+			push_error("Quickbar clear slot did not leave an empty, unequipped slot")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		quick_tools.call("assign_quickbar_slot", 2, ItemIds.TOOL_WORN_HOE)
+		quick_tools.call("unequip")
+		if int(quick_tools.call("selected_hotbar_index")) != -1 or String(quick_tools.call("selected_item_id")) != "":
+			push_error("Quickbar unequip did not set hands empty")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		if not bool(quick_tools.call("begin_quickbar_assignment", ContentIds.ITEM_CARROT)):
+			push_error("Quickbar did not accept an inventory item assignment request")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		var normalized_quickbar: Array[String] = LocalSaveSystem.normalize_quickbar_slots([ItemIds.TOOL_WORN_AXE, "", "__bad_id__"])
+		if normalized_quickbar.size() != LocalSaveSystem.QUICKBAR_SLOT_COUNT or normalized_quickbar[0] != ItemIds.TOOL_WORN_AXE or normalized_quickbar[2] != "":
+			push_error("LocalSaveSystem quickbar normalization did not preserve valid ids and reject invalid/tiny data")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		if ObjectArtRegistry.icon_texture_for_item(ItemIds.TOOL_WORN_PICKAXE) == null \
+				or ObjectArtRegistry.icon_texture_for_item(ItemIds.TOOL_WORN_HOE) == null \
+				or ObjectArtRegistry.icon_texture_for_item(ItemIds.TOOL_SIMPLE_HAMMER) == null:
+			push_error("Core tools need clean-checkout icon fallback textures")
+			quick_tools.queue_free()
+			quit(1)
+			return
+		if ObjectArtRegistry.icon_texture_for_item("__missing__") != null:
+			push_error("Unknown item icon lookup should fail safe to null, not a missing-texture box")
 			quick_tools.queue_free()
 			quit(1)
 			return
@@ -1668,6 +1757,65 @@ func _initialize() -> void:
 			push_error("%s is not routed through CharacterArtRegistry actor sprites" % String(actor_source_pair[0]))
 			quit(1)
 			return
+	var player_avatar_source: String = FileAccess.get_file_as_string("res://scenes/avatar/player_avatar.tscn")
+	var avatar_controller_source: String = FileAccess.get_file_as_string("res://avatar/avatar_controller.gd")
+	var character_registry_source: String = FileAccess.get_file_as_string("res://systems/art/character_art_registry.gd")
+	var object_registry_source_live: String = FileAccess.get_file_as_string("res://systems/art/object_art_registry.gd")
+	var overworld_map_source_live_layers: String = FileAccess.get_file_as_string("res://world/overworld_map.gd")
+	var overworld_controller_source_live_layers: String = FileAccess.get_file_as_string("res://world/overworld_controller.gd")
+	if not player_avatar_source.contains("y_sort_enabled = true"):
+		push_error("Player avatar root must participate in y-sort by its feet/base")
+		quit(1)
+		return
+	if not character_registry_source.contains("sprite.z_index = 0 if LiveVisualPolicy.live_limezu_slice() else 2") \
+			or not character_registry_source.contains("sprite.z_index = 0"):
+		push_error("CharacterArtRegistry must not force LimeZu actors above y-sorted world objects")
+		quit(1)
+		return
+	if not object_registry_source_live.contains("if LiveVisualPolicy.live_limezu_slice():") \
+			or not object_registry_source_live.contains("return 0"):
+		push_error("ObjectArtRegistry foreground sprites must use the LimeZu y-sort band, not a raised z stack")
+		quit(1)
+		return
+	for ysort_snippet in [
+		"ground_layer.y_sort_enabled = false",
+		"gameplay_layer.y_sort_enabled = true",
+		"_collision_debug.z_index = 4000",
+		"_collision_debug_legend.layer = 90",
+		"Cyan: y-sort base",
+		"_draw_limezu_npc_collision_debug",
+	]:
+		if not overworld_map_source_live_layers.contains(ysort_snippet):
+			push_error("OverworldMap depth/debug contract is missing '%s'" % ysort_snippet)
+			quit(1)
+			return
+	for npc_spawn_snippet in ["gameplay_layer.add_child(rowan)", "gameplay_layer.add_child(clerk)"]:
+		if not overworld_controller_source_live_layers.contains(npc_spawn_snippet):
+			push_error("NPCs must be direct gameplay-layer children for y-sort: %s" % npc_spawn_snippet)
+			quit(1)
+			return
+	for avatar_controller_snippet in [
+		"var facing_direction",
+		"var movement_vector",
+		"func set_selected_hotbar_tool",
+		"func _animation_state_for",
+	]:
+		if not avatar_controller_source.contains(avatar_controller_snippet):
+			push_error("AvatarController is missing visual-state contract '%s'" % avatar_controller_snippet)
+			quit(1)
+			return
+	for avatar_visual_snippet in [
+		"STATE_IDLE_DOWN",
+		"STATE_WALK_SIDE",
+		"func set_animation_state",
+		"func set_held_tool_contract",
+		"HeldToolAttachment",
+		"held_visual_id_for_item",
+	]:
+		if not avatar_visual_source.contains(avatar_visual_snippet):
+			push_error("AvatarVisual is missing animation/held-tool snippet '%s'" % avatar_visual_snippet)
+			quit(1)
+			return
 	if FileAccess.get_file_as_string("res://scenes/avatar/player_avatar.tscn").contains("Polygon2D"):
 		push_error("Player avatar scene still contains a procedural Polygon2D body/shadow")
 		quit(1)
@@ -1694,6 +1842,56 @@ func _initialize() -> void:
 		quit(1)
 		return
 	player_avatar.queue_free()
+	var avatar_visual_probe := AvatarVisual.new()
+	get_root().add_child(avatar_visual_probe)
+	await process_frame
+	avatar_visual_probe.call("set_facing_direction", AvatarVisual.FACING_SIDE, 1.0)
+	avatar_visual_probe.call("set_animation_state", AvatarVisual.STATE_WALK_SIDE, Vector2.RIGHT)
+	if String(avatar_visual_probe.call("get_animation_state")) != AvatarVisual.STATE_WALK_SIDE:
+		push_error("AvatarVisual walk animation state did not apply")
+		avatar_visual_probe.queue_free()
+		quit(1)
+		return
+	avatar_visual_probe.call("set_held_tool_contract", 0, ItemIds.TOOL_WORN_AXE, "")
+	await process_frame
+	var held_attachment: Node = avatar_visual_probe.find_child("HeldToolAttachment", true, false)
+	var held_sprite: Sprite2D = avatar_visual_probe.find_child("HeldToolSprite", true, false) as Sprite2D
+	if held_attachment == null or held_sprite == null or not held_sprite.visible or held_sprite.texture == null:
+		push_error("AvatarVisual held-tool attachment did not show a selected tool")
+		avatar_visual_probe.queue_free()
+		quit(1)
+		return
+	avatar_visual_probe.call("clear_held_tool")
+	await process_frame
+	if held_sprite.visible:
+		push_error("AvatarVisual held-tool sprite did not hide for empty selection")
+		avatar_visual_probe.queue_free()
+		quit(1)
+		return
+	avatar_visual_probe.queue_free()
+	await process_frame
+	if AssetWorldMetadata.collision_type("npc") != AssetWorldMetadata.COLLISION_CIRCLE \
+			or not AssetWorldMetadata.interaction_enabled("npc") \
+			or AssetWorldMetadata.trunk_radius("npc") <= 0.0 \
+			or AssetWorldMetadata.trunk_radius("npc") > 12.0:
+		push_error("NPC metadata must use compact body collision while preserving interaction")
+		quit(1)
+		return
+	var villager_probe := SimpleVillager.new()
+	get_root().add_child(villager_probe)
+	await process_frame
+	var npc_body: StaticBody2D = villager_probe.get_node_or_null("NpcBody") as StaticBody2D
+	var npc_shapes: Array = npc_body.find_children("*", "CollisionShape2D", true, false) if npc_body != null else []
+	var npc_shape_node: CollisionShape2D = npc_shapes[0] as CollisionShape2D if not npc_shapes.is_empty() else null
+	var npc_circle: CircleShape2D = npc_shape_node.shape as CircleShape2D if npc_shape_node != null else null
+	if npc_body == null or npc_shape_node == null or npc_shape_node.disabled or npc_circle == null \
+			or npc_circle.radius <= 0.0 or npc_circle.radius > 12.0:
+		push_error("SimpleVillager did not build a compact enabled NPC body collision circle")
+		villager_probe.queue_free()
+		quit(1)
+		return
+	villager_probe.queue_free()
+	await process_frame
 	var live_actor_summary: Dictionary = VisualSourceReport.registry_summary(WorldProjection.MODE_SPROUT_TOPDOWN)
 	if (live_actor_summary["actors"] as Dictionary).has("missing"):
 		push_error("Live actor registry has missing generated actor art: %s" % [live_actor_summary["actors"]])
@@ -3984,10 +4182,20 @@ func _initialize() -> void:
 			push_error("LimeZuUITheme is missing slot icon-layout helper: %s" % sw_slot_helper)
 			quit(1)
 			return
-	if not FileAccess.get_file_as_string("res://ui/inventory_panel.gd").contains("apply_slot_icon_layout"):
-		push_error("Inventory slots must use the shared apply_slot_icon_layout centering helper")
-		quit(1)
-		return
+		if not FileAccess.get_file_as_string("res://ui/inventory_panel.gd").contains("apply_slot_icon_layout"):
+			push_error("Inventory slots must use the shared apply_slot_icon_layout centering helper")
+			quit(1)
+			return
+	var inventory_panel_source_for_quickbar: String = FileAccess.get_file_as_string("res://ui/inventory_panel.gd")
+	for inventory_quickbar_snippet in [
+		"signal quickbar_assign_requested",
+		"Click an item to assign it to the quickbar",
+		"quickbar_assign_requested.emit",
+	]:
+		if not inventory_panel_source_for_quickbar.contains(inventory_quickbar_snippet):
+			push_error("Inventory panel quickbar assignment MVP is missing '%s'" % inventory_quickbar_snippet)
+			quit(1)
+			return
 	if not FileAccess.get_file_as_string("res://ui/quick_tools_bar.gd").contains("apply_slot_icon_layout"):
 		push_error("Hotbar slots must use the same apply_slot_icon_layout centering helper")
 		quit(1)
@@ -4002,6 +4210,33 @@ func _initialize() -> void:
 		push_error("Hearthvale generator style profile template is missing (commit-safe)")
 		quit(1)
 		return
+	var hearthvale_icon_generator_source: String = FileAccess.get_file_as_string("res://tools/art/hearthvale_icon_generator.py")
+	for icon_recipe in [
+		"axe",
+		"pickaxe",
+		"hoe",
+		"shovel",
+		"watering_can",
+		"empty_hands",
+		"generic_seed",
+		"generic_tool",
+	]:
+		if not hearthvale_icon_generator_source.contains("\"%s\"" % icon_recipe):
+			push_error("Hearthvale icon generator is missing core tool/quickbar recipe '%s'" % icon_recipe)
+			quit(1)
+			return
+	var object_icon_source: String = FileAccess.get_file_as_string("res://systems/art/object_art_registry.gd")
+	for icon_contract_snippet in [
+		"HEARTHVALE_GENERATED_ICON_PATHS",
+		"func icon_texture_for_item",
+		"func icon_source_for_item",
+		"item_icon_pickaxe_16px.png",
+		"item_icon_generic_tool_16px.png",
+	]:
+		if not object_icon_source.contains(icon_contract_snippet):
+			push_error("ObjectArtRegistry icon fallback contract is missing '%s'" % icon_contract_snippet)
+			quit(1)
+			return
 	if not FileAccess.file_exists("res://docs/hearthvale_asset_generator_plan.md"):
 		push_error("Hearthvale asset generator plan doc is missing")
 		quit(1)
@@ -4183,6 +4418,10 @@ func _initialize() -> void:
 		"PlacedObjectCollision.apply_to_placed",
 		"AssetWorldMetadata.asset_id_for_placeable",
 		"debug_footprint_tiles",
+		"gameplay_layer.add_child(placed_object)",
+		"placed_object.visible = false",
+		"placed_node.queue_free()",
+		"_placed_nodes.erase",
 	]:
 		if not sw_placement_source.contains(placement_snippet):
 			push_error("BuildingPlacementSystem placed-object collision path is missing '%s'" % placement_snippet)
@@ -4218,6 +4457,17 @@ func _initialize() -> void:
 		"live_limezu_fence_pixel_collision_overlay.png",
 		"live_limezu_minimap_after_pixel_collision.png",
 		"live_limezu_farm_prompt_after_pixel_collision.png",
+		"live_limezu_player_in_front_of_tree.png",
+		"live_limezu_player_behind_tree.png",
+		"live_limezu_npc_body_collision.png",
+		"live_limezu_player_walk_animation.png",
+		"live_limezu_held_tool_visual.png",
+		"live_limezu_placed_object_ysort_overlay.png",
+		"live_limezu_quickbar_assigned.png",
+		"live_limezu_quickbar_empty_unequipped.png",
+		"live_limezu_held_tool_after_quickbar.png",
+		"live_limezu_inventory_quickbar_assign.png",
+		"live_limezu_generated_tool_icons_review.png",
 	]:
 		if not live_capture_source.contains(live_capture_snippet):
 			push_error("Live visual capture is missing pixel-collision output '%s'" % live_capture_snippet)
