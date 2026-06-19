@@ -218,7 +218,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_decorating_mode_changed(is_active: bool, player: AvatarController) -> void:
 	_decorating_mode_active = is_active
-	player.set_movement_enabled(not is_active)
+	# Build/edit own placement interactions, but walking/camera follow should stay active.
+	player.set_movement_enabled(true)
 	interactable_system.set_interactions_enabled(not is_active and not _is_mailbox_open())
 	# Show the build menu while placing (it drives item selection); hide it when
 	# leaving build/edit.
@@ -718,9 +719,9 @@ func _align_limezu_farm_interaction_nodes() -> void:
 	if not LiveVisualPolicy.live_limezu_slice() or map == null:
 		return
 	var farm_tiles := {
-		FARM_PLOT_CARROT_ID: Vector2i(2, 12),
-		FARM_PLOT_TURNIP_ID: Vector2i(3, 13),
-		FARM_PLOT_BERRY_ID: Vector2i(4, 12),
+		FARM_PLOT_CARROT_ID: Vector2i(6, 15),
+		FARM_PLOT_TURNIP_ID: Vector2i(7, 16),
+		FARM_PLOT_BERRY_ID: Vector2i(8, 15),
 	}
 	for plot_id in farm_tiles.keys():
 		var plot: FarmPlot = _farm_plots.get(plot_id, null) as FarmPlot

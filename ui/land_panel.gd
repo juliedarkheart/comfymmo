@@ -12,11 +12,14 @@ var _title_label: Label = null
 var _info_label: Label = null
 var _claim_button: Button = null
 
+const SAFE_DOCK_RECT := Rect2(440, 180, 400, 300)
+
 func setup(claim_callback: Callable) -> void:
 	_claim_callback = claim_callback
 
 func _ready() -> void:
 	visible = false
+	_apply_safe_dock()
 	CozyUITheme.apply_panel(_panel)
 
 	_title_label = Label.new()
@@ -43,6 +46,13 @@ func _ready() -> void:
 	close_button.pressed.connect(close_panel)
 	CozyUITheme.apply_close_button(close_button)
 	buttons.add_child(close_button)
+
+func _apply_safe_dock() -> void:
+	_panel.set_anchors_preset(Control.PRESET_TOP_LEFT, false)
+	_panel.offset_left = SAFE_DOCK_RECT.position.x
+	_panel.offset_top = SAFE_DOCK_RECT.position.y
+	_panel.offset_right = SAFE_DOCK_RECT.end.x
+	_panel.offset_bottom = SAFE_DOCK_RECT.end.y
 
 func open_for_plot(info: Dictionary) -> void:
 	_current_plot_id = String(info.get("plot_id", ""))

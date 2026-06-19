@@ -30,7 +30,7 @@ Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
 > **Playability (collision/interaction):** the LimeZu homestead has an explicit collision
 > contract: barn polygons, tree trunk/base circles, and thin fence strips are solid; decor is visual-only,
 > signs/NPCs/farm are interactable on F (`INTERACTION_RADIUS=78`). The player uses a compact
-> feet collider, spawn `(7,11)` is open, and a tilled farm patch sits at `(2-4,12-14)`. A F7
+> feet collider, spawn `(7,11)` is open, and a tilled farm patch sits at `(6-8,15-17)`. A F7
 > "Show Collision" debug overlay + "Clear Local Test Placements" support building/testing. See
 > `docs/playtest_readiness.md` for the contract + manual checklist.
 >
@@ -42,6 +42,11 @@ Plan for moving Hearthvale's **live** visual provider from Sprout to LimeZu.
 > objects use the same model** via the shared `PlacedObjectCollision` builder (metadata shapes
 > preferred; conservative proxy only for unmapped placeables), and feed the truth-mode minimap +
 > F7 overlay (orange = placed, distinct from curated red).
+
+> **Build/panel usability:** build menu ids now stay linked to selected visual ids before they
+> reach collision metadata; the generic/missing box is a debug fallback only. Build/edit modes
+> keep movement active while suppressing world interactions. Major popup panels use safe 1280x720
+> docking positions until full draggable-window polish is scheduled.
 
 > **Minimap readability + overlay clarity:** the live minimap remains truthful but now draws
 > real current features as a tiny schematic: barn/farm footprints, path/fence strips, subtle

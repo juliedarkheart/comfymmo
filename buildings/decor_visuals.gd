@@ -216,6 +216,7 @@ static func build(parent: Node2D, decor_id: String) -> void:
 			_ellipse(parent, Vector2(5, 1), 3.0, 1.6, Color("#8cba74"), 8)
 		_:
 			# Unknown id: visible placeholder so a registry mistake is obvious.
+			parent.set_meta("debug_visual_fallback", true)
 			_ellipse(parent, Vector2(0, -8), 10.0, 10.0, Color("#c25448"))
 
 ## Generic 2x2 structure shell, centered on the footprint midpoint (world

@@ -1232,13 +1232,26 @@ func _initialize() -> void:
 		var sw_spawn_tile: Vector2i = ow_map.call("get_spawn_tile")
 		var sw_blocked: Array = ow_map.call("get_static_blocked_tiles")
 		var sw_spawn_blocked: bool = sw_spawn_tile in sw_blocked
-		var sw_farm_ok: bool = OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS.has_point(OverworldMap.LIMEZU_TILLED_SOIL_RECT.position)
+		var sw_farm_ok: bool = OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS.encloses(OverworldMap.LIMEZU_TILLED_SOIL_RECT)
+		var sw_farm_center := Vector2i(
+			OverworldMap.LIMEZU_TILLED_SOIL_RECT.position.x + int(OverworldMap.LIMEZU_TILLED_SOIL_RECT.size.x / 2),
+			OverworldMap.LIMEZU_TILLED_SOIL_RECT.position.y + int(OverworldMap.LIMEZU_TILLED_SOIL_RECT.size.y / 2)
+		)
 		if sw_spawn_blocked:
 			push_error("Player spawn tile %s is inside blocking LimeZu collision" % str(sw_spawn_tile))
 			ow.queue_free(); quit(1); return
 		if not sw_farm_ok:
 			push_error("Farm test patch (tilled soil) is not inside the playable area near spawn")
 			ow.queue_free(); quit(1); return
+		if Vector2(sw_farm_center.x - sw_spawn_tile.x, sw_farm_center.y - sw_spawn_tile.y).length() > 8.0:
+			push_error("Farm test patch is too far from spawn for a 30-second usability check")
+			ow.queue_free(); quit(1); return
+		for fy in range(OverworldMap.LIMEZU_TILLED_SOIL_RECT.position.y, OverworldMap.LIMEZU_TILLED_SOIL_RECT.end.y):
+			for fx in range(OverworldMap.LIMEZU_TILLED_SOIL_RECT.position.x, OverworldMap.LIMEZU_TILLED_SOIL_RECT.end.x):
+				var farm_tile := Vector2i(fx, fy)
+				if farm_tile in sw_blocked:
+					push_error("Farm test patch tile %s is blocked by static collision" % str(farm_tile))
+					ow.queue_free(); quit(1); return
 		var limezu_barn_body: StaticBody2D = ow_map.find_child("LimeZuBarnCollision", true, false) as StaticBody2D
 		if limezu_barn_body == null or limezu_barn_body.find_children("*", "CollisionPolygon2D", true, false).size() < 2:
 			push_error("Live LimeZu map did not instantiate asset-shaped barn collision polygons")
@@ -1710,9 +1723,9 @@ func _initialize() -> void:
 		var homestead_live_source: String = FileAccess.get_file_as_string("res://world/homestead_controller.gd")
 		for farm_alignment_snippet in [
 			"_align_limezu_farm_interaction_nodes",
-			"FARM_PLOT_CARROT_ID: Vector2i(2, 12)",
-			"FARM_PLOT_TURNIP_ID: Vector2i(3, 13)",
-			"FARM_PLOT_BERRY_ID: Vector2i(4, 12)",
+			"FARM_PLOT_CARROT_ID: Vector2i(6, 15)",
+			"FARM_PLOT_TURNIP_ID: Vector2i(7, 16)",
+			"FARM_PLOT_BERRY_ID: Vector2i(8, 15)",
 		]:
 			if not homestead_live_source.contains(farm_alignment_snippet):
 				push_error("HomesteadController is missing LimeZu farm interaction alignment: %s" % farm_alignment_snippet)
@@ -1960,6 +1973,17 @@ func _initialize() -> void:
 		push_error("Build/edit delete confirmation safety is missing")
 		quit(1)
 		return
+	var movement_build_src: String = FileAccess.get_file_as_string("res://world/homestead_controller.gd")
+	var decorating_mode_index: int = movement_build_src.find("func _on_decorating_mode_changed")
+	var decorating_mode_block: String = movement_build_src.substr(decorating_mode_index, 420) if decorating_mode_index >= 0 else ""
+	if decorating_mode_block.contains("set_movement_enabled(not is_active)"):
+		push_error("Build/edit mode still disables player movement")
+		quit(1)
+		return
+	if not decorating_mode_block.contains("set_movement_enabled(true)"):
+		push_error("Build/edit mode does not explicitly keep player movement active")
+		quit(1)
+		return
 	# Worldbuilder previews load and align to whole cells in top-down mode.
 	if load("res://systems/parcel_preview.gd") == null or load("res://systems/world_builder_overlay.gd") == null:
 		push_error("Parcel preview / world-builder overlay scripts failed to load")
@@ -1995,10 +2019,85 @@ func _initialize() -> void:
 		return
 	var graphics_decor_visual_source: String = FileAccess.get_file_as_string("res://buildings/decor_visuals.gd")
 	var graphics_crate_visual_source: String = FileAccess.get_file_as_string("res://buildings/placeable_crate.gd")
+	var graphics_placeable_decor_source: String = FileAccess.get_file_as_string("res://buildings/placeable_decor.gd")
 	if not graphics_decor_visual_source.contains("ObjectArtRegistry.has_art_id") or not graphics_crate_visual_source.contains("ObjectArtRegistry.apply_sprite"):
 		push_error("Placeable visuals are not wired to ObjectArtRegistry")
 		quit(1)
 		return
+	for visual_identity_snippet in [
+		"func _art_object_id()",
+		"return decor_id if not decor_id.is_empty()",
+		"_apply_registry_art()",
+		"debug_visual_fallback",
+	]:
+		if not graphics_placeable_decor_source.contains(visual_identity_snippet) and not graphics_crate_visual_source.contains(visual_identity_snippet):
+			push_error("Placeable selected-asset visual identity is missing '%s'" % visual_identity_snippet)
+			quit(1)
+			return
+	var registry_visual_required_ids := [
+		ContentIds.PLACEABLE_FENCE_SEGMENT,
+		ContentIds.PLACEABLE_SIGNPOST,
+		ContentIds.PLACEABLE_CRATE,
+		ContentIds.PLACEABLE_DIRT_PATH,
+		ContentIds.PLACEABLE_FLOOR_DECK,
+		ContentIds.PLACEABLE_BARN_SHELL,
+		ContentIds.PLACEABLE_WOOD_WALL,
+	]
+	for required_visual_placeable_id in registry_visual_required_ids + [
+		ContentIds.PLACEABLE_FLOWER_BED,
+		ContentIds.PLACEABLE_DECOR_SHRUB,
+	]:
+		if not ContentRegistry.placeables().has(required_visual_placeable_id):
+			push_error("Priority build item is missing from ContentRegistry: %s" % required_visual_placeable_id)
+			quit(1)
+			return
+		if registry_visual_required_ids.has(required_visual_placeable_id):
+			if not ObjectArtRegistry.has_art_id(required_visual_placeable_id):
+				push_error("Priority build item has no ObjectArtRegistry visual id: %s" % required_visual_placeable_id)
+				quit(1)
+				return
+			if ObjectArtRegistry.texture_path(required_visual_placeable_id) == ObjectArtRegistry.FALLBACK_PATH:
+				push_error("Priority build item resolves to the generic missing-art fallback: %s" % required_visual_placeable_id)
+				quit(1)
+				return
+		var visual_entry: Dictionary = ContentRegistry.placeables().get(required_visual_placeable_id, {}) as Dictionary
+		var visual_scene := load(String(visual_entry.get("scene_path", ""))) as PackedScene
+		if visual_scene == null:
+			push_error("Priority build item scene failed to load: %s" % required_visual_placeable_id)
+			quit(1)
+			return
+		var visual_node := visual_scene.instantiate()
+		get_root().add_child(visual_node)
+		await process_frame
+		var has_registry_sprite: bool = visual_node.get_node_or_null("RegistryArtSprite") != null
+		var has_custom_visual: bool = has_registry_sprite
+		if not has_custom_visual:
+			for visual_child in visual_node.get_children():
+				if visual_child is Polygon2D and not String((visual_child as Node).name).begins_with("Selection"):
+					has_custom_visual = true
+					break
+		if registry_visual_required_ids.has(required_visual_placeable_id) and not has_registry_sprite:
+			push_error("Priority build item did not instantiate a selected-id RegistryArtSprite: %s" % required_visual_placeable_id)
+			visual_node.queue_free()
+			quit(1)
+			return
+		if not has_custom_visual:
+			push_error("Priority build item did not instantiate any selected visual: %s" % required_visual_placeable_id)
+			visual_node.queue_free()
+			quit(1)
+			return
+		if String(visual_node.get_meta("debug_visual_asset_id", "")) != required_visual_placeable_id:
+			push_error("Priority build item debug visual id did not match selected content id: %s" % required_visual_placeable_id)
+			visual_node.queue_free()
+			quit(1)
+			return
+		if bool(visual_node.get_meta("debug_visual_fallback", true)):
+			push_error("Priority build item is using the generic visual fallback: %s" % required_visual_placeable_id)
+			visual_node.queue_free()
+			quit(1)
+			return
+		visual_node.queue_free()
+		await process_frame
 	if not graphics_decor_visual_source.contains("WorldProjection.tile_polygon") or not graphics_crate_visual_source.contains("WorldProjection.tile_polygon"):
 		push_error("Placeable terrain/edit overlays are not using WorldProjection polygons")
 		quit(1)
@@ -4205,6 +4304,17 @@ func _initialize() -> void:
 		push_error("Admin/world-builder panel must use composed sections (dividers), not a raw button wall")
 		quit(1)
 		return
+	for safe_panel_path in [
+		"res://ui/build_menu_panel.gd",
+		"res://ui/inventory_panel.gd",
+		"res://ui/admin_panel.gd",
+		"res://ui/land_panel.gd",
+	]:
+		var safe_panel_source: String = FileAccess.get_file_as_string(safe_panel_path)
+		if not safe_panel_source.contains("SAFE_DOCK_RECT") or not safe_panel_source.contains("_apply_safe_dock"):
+			push_error("Popup panel is missing the safe docking contract: %s" % safe_panel_path)
+			quit(1)
+			return
 	# Original Hearthvale asset-generator pipeline: committed style profile + plan doc exist.
 	if not FileAccess.file_exists("res://tools/art/templates/hearthvale_generator_style_profile.json"):
 		push_error("Hearthvale generator style profile template is missing (commit-safe)")
@@ -4418,6 +4528,8 @@ func _initialize() -> void:
 		"PlacedObjectCollision.apply_to_placed",
 		"AssetWorldMetadata.asset_id_for_placeable",
 		"debug_footprint_tiles",
+		"_preview_object = placeable_data.scene.instantiate()",
+		"placed_object: PlaceableCrate = placeable_data.scene.instantiate()",
 		"gameplay_layer.add_child(placed_object)",
 		"placed_object.visible = false",
 		"placed_node.queue_free()",
@@ -4427,6 +4539,11 @@ func _initialize() -> void:
 			push_error("BuildingPlacementSystem placed-object collision path is missing '%s'" % placement_snippet)
 			quit(1)
 			return
+	if sw_placement_source.contains("_preview_object = PLACEABLE_CRATE_SCENE.instantiate()") \
+			or sw_placement_source.contains("placed_object: PlaceableCrate = PLACEABLE_CRATE_SCENE.instantiate()"):
+		push_error("Build placement still instantiates the crate scene instead of the selected scene")
+		quit(1)
+		return
 	# At least fence/sign/crate/building placeables map to explicit asset metadata.
 	for placeable_id in ["fence_segment", "signpost", "crate", "barn_shell"]:
 		if AssetWorldMetadata.asset_id_for_placeable(placeable_id).is_empty():
@@ -4468,11 +4585,22 @@ func _initialize() -> void:
 		"live_limezu_held_tool_after_quickbar.png",
 		"live_limezu_inventory_quickbar_assign.png",
 		"live_limezu_generated_tool_icons_review.png",
+		"live_limezu_build_selected_asset.png",
+		"live_limezu_build_ghost_asset.png",
+		"live_limezu_placed_asset_visual.png",
+		"live_limezu_edit_selected_asset.png",
+		"live_limezu_admin_safe_panel_position.png",
+		"live_limezu_visible_farm_patch.png",
+		"live_limezu_farm_prompt_visible_patch.png",
 	]:
 		if not live_capture_source.contains(live_capture_snippet):
 			push_error("Live visual capture is missing pixel-collision output '%s'" % live_capture_snippet)
 			quit(1)
 			return
+	if not live_capture_source.contains("OverworldMap.LIMEZU_TILLED_SOIL_RECT"):
+		push_error("Live visual capture farm prompt must follow the current visible farm patch rect")
+		quit(1)
+		return
 	var minimap_live_source: String = FileAccess.get_file_as_string("res://ui/minimap_panel.gd")
 	if not minimap_live_source.contains("_truth_mode"):
 		push_error("Minimap is missing truth mode (phantom bands/plots not suppressed in the live slice)")

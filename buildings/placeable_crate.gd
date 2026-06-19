@@ -71,6 +71,9 @@ func _apply_registry_art() -> void:
 		return
 	if not ObjectArtRegistry.has_art_id(art_id):
 		return
+	var visual: Dictionary = ObjectArtRegistry.visual_for(art_id)
+	set_meta("debug_visual_asset_id", art_id)
+	set_meta("debug_visual_fallback", bool(visual.get("fallback", false)))
 	if ObjectArtRegistry.apply_sprite(self, art_id):
 		_hide_prototype_polygons()
 

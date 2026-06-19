@@ -14,6 +14,8 @@ var _terrain_picker: OptionButton = null
 var _marker_picker: OptionButton = null
 var _plot_teleport_box: VBoxContainer = null
 
+const SAFE_DOCK_RECT := Rect2(336, 64, 312, 540)
+
 @onready var _panel: PanelContainer = $Panel
 @onready var _rows: VBoxContainer = $Panel/Scroll/Rows
 
@@ -22,6 +24,7 @@ func setup(controller: Node) -> void:
 
 func _ready() -> void:
 	visible = false
+	_apply_safe_dock()
 	CozyUITheme.apply_panel(_panel)
 	_rows.add_theme_constant_override("separation", 5)
 
@@ -133,6 +136,16 @@ func _ready() -> void:
 	_rows.add_child(_plot_teleport_box)
 
 	# Close lives in the header now (composed menu); no trailing debug Close button.
+
+func _apply_safe_dock() -> void:
+	_panel.set_anchors_preset(Control.PRESET_TOP_LEFT, false)
+	_panel.offset_left = SAFE_DOCK_RECT.position.x
+	_panel.offset_top = SAFE_DOCK_RECT.position.y
+	_panel.offset_right = SAFE_DOCK_RECT.end.x
+	_panel.offset_bottom = SAFE_DOCK_RECT.end.y
+	var scroll := $Panel/Scroll as ScrollContainer
+	if scroll != null:
+		scroll.custom_minimum_size = Vector2(292, 500)
 
 func toggle_panel() -> void:
 	visible = not visible

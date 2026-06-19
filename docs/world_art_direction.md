@@ -28,6 +28,18 @@ phantom planned regions/plots).
 also feed the truth-mode minimap and the F7 overlay (orange = placed, distinct from curated
 red). See `docs/playtest_readiness.md`.
 
+Build visuals follow the same selected-content-id chain: build menu item id -> object scene
+id -> `ObjectArtRegistry` sprite when mapped, or an explicit `DecorVisuals` custom drawing
+when the piece is procedural. The missing/generic box is allowed only as a labeled debug
+fallback for an unmapped visual, never as the normal result for fence/sign/crate/path/shell
+pieces. Build/edit mode should preserve player movement while suppressing world interactions.
+
+Popup panels use a safe docking contract at the 1280x720 target until full draggable windows
+are polished: HUD top-left, minimap top-right, hotbar bottom-center, build lower-right,
+inventory center-right, admin/worldbuilder center-left, and land centered. The visible farm
+test patch should remain a clear 3x3 LimeZu tilled-soil block near spawn, currently tiles
+`(6-8,15-17)`, so farming can be found and tested quickly.
+
 The live minimap is allowed to be schematic, but not fictional. Buildings and farms may draw
 as simplified footprints/patches, path and fence data may draw as tiny strips, and player/NPC
 markers may remain dots. Planned town/forest bands, LandRegistry plot squares, and other

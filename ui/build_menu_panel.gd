@@ -14,6 +14,8 @@ var _compact: bool = false
 var _category_buttons: Dictionary = {}
 var _selected_info: Label = null
 
+const SAFE_DOCK_RECT := Rect2(860, 204, 392, 410)
+
 const CATEGORY_LABELS := {
 	BuildCategories.FOUNDATIONS: "Found",
 	BuildCategories.WALLS: "Walls",
@@ -42,12 +44,20 @@ func setup(get_all_ids: Callable, get_status: Callable, do_select: Callable, get
 
 func _ready() -> void:
 	visible = false
+	_apply_safe_dock()
 	CozyUITheme.apply_panel(_panel)
 	_build_header()
 	_build_selected_info()
 	_build_category_buttons()
 	_help_label.text = "Place: click/Enter/A | Edit: E | Rotate: Q/RB\nDelete: Del/Y | Cancel: Esc/B"
 	CozyUITheme.apply_secondary_label(_help_label, 11)
+
+func _apply_safe_dock() -> void:
+	_panel.set_anchors_preset(Control.PRESET_TOP_LEFT, false)
+	_panel.offset_left = SAFE_DOCK_RECT.position.x
+	_panel.offset_top = SAFE_DOCK_RECT.position.y
+	_panel.offset_right = SAFE_DOCK_RECT.end.x
+	_panel.offset_bottom = SAFE_DOCK_RECT.end.y
 
 func open_panel() -> void:
 	visible = true

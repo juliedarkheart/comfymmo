@@ -15,6 +15,7 @@ var _body: VBoxContainer = null
 const DEFAULT_DETAIL := "Hover an item for details."
 const ASSIGN_DETAIL := "Click an item to assign it to the quickbar; right-click a quickbar slot to clear it."
 const SLOT_PX := 56.0
+const SAFE_DOCK_RECT := Rect2(520, 126, 336, 420)
 
 @onready var _panel: PanelContainer = $Panel
 @onready var _root_rows: VBoxContainer = $Panel/Rows
@@ -27,6 +28,7 @@ func setup(get_count: Callable, get_identity: Callable) -> void:
 func _ready() -> void:
 	visible = false
 	_body = _scroll_body
+	_apply_safe_dock()
 	CozyUITheme.apply_inventory_panel(_panel)
 
 	var header := HBoxContainer.new()
@@ -74,6 +76,13 @@ func _ready() -> void:
 	_detail_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	CozyUITheme.apply_body_label(_detail_label, 12)
 	_root_rows.add_child(_detail_label)
+
+func _apply_safe_dock() -> void:
+	_panel.set_anchors_preset(Control.PRESET_TOP_LEFT, false)
+	_panel.offset_left = SAFE_DOCK_RECT.position.x
+	_panel.offset_top = SAFE_DOCK_RECT.position.y
+	_panel.offset_right = SAFE_DOCK_RECT.end.x
+	_panel.offset_bottom = SAFE_DOCK_RECT.end.y
 
 func open_panel() -> void:
 	visible = true

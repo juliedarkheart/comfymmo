@@ -52,7 +52,7 @@ const LIMEZU_APPROACH_PATH_TILES: Array[Vector2i] = [
 	Vector2i(19, 18),
 	Vector2i(20, 18),
 ]
-const LIMEZU_TILLED_SOIL_RECT := Rect2i(2, 12, 3, 3)
+const LIMEZU_TILLED_SOIL_RECT := Rect2i(6, 15, 3, 3)
 const LIMEZU_BARN_BASE_TILE := Vector2i(13, 13)
 const LIMEZU_BARN_VISUAL_FOOTPRINT := Rect2i(9, 4, 9, 10)
 const LIMEZU_CRATE_VISUAL_FOOTPRINT := Rect2i(10, 13, 1, 1)
@@ -1051,10 +1051,10 @@ func _build_curated_slice() -> void:
 	set_meta("curated_slice", true)
 	# Focal well just east of the cottage (Sprout object, decor only).
 	_decor_sprite(gameplay_layer, grid_to_world(Vector2i(11, 7)), ContentIds.PLACEABLE_WELL, 0.72)
-	# A small tended garden bed: a clean 3x2 tilled patch tucked to the south-west,
+	# A small tended garden bed: a clean visible test patch near spawn,
 	# drawn in the ground layer (behind the player) so it reads as a kept plot.
-	for ty in range(12, 14):
-		for tx in range(2, 5):
+	for ty in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
+		for tx in range(LIMEZU_TILLED_SOIL_RECT.position.x, LIMEZU_TILLED_SOIL_RECT.end.x):
 			var tile := Vector2i(tx, ty)
 			var cell := Node2D.new()
 			cell.name = "CuratedBed_%d_%d" % [tx, ty]
@@ -1097,8 +1097,8 @@ func _build_limezu_slice() -> void:
 	# 3) Crops on the tilled bed.
 	var crops: Array[String] = ["crop.carrot", "crop.cauliflower", "crop.watermelon", "crop.carrot_stage1"]
 	var crop_i: int = 0
-	for gy in range(12, 15):
-		for gx in range(2, 5):
+	for gy in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
+		for gx in range(LIMEZU_TILLED_SOIL_RECT.position.x, LIMEZU_TILLED_SOIL_RECT.end.x):
 			_limezu_object(crops[crop_i % crops.size()], Vector2i(gx, gy))
 			crop_i += 1
 	# 4) Focal barn (decor, placed low so it is fully on-screen), framing trees on the

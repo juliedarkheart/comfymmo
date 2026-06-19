@@ -1,5 +1,15 @@
 # Playtest Readiness
 
+## Build placement, panels, and farm usability (2026-06-18 follow-up 7)
+
+- **Build id -> visual id -> metadata:** build menu cards keep the selected content id unchanged; `ObjectRegistry` loads that id's scene; `PlaceableDecor.decor_id` now reports the selected id through the placeable art path; `ObjectArtRegistry` supplies selected sprites where mapped; `DecorVisuals` supplies explicit custom visuals for procedural decor; `AssetWorldMetadata.asset_id_for_placeable()` still supplies collision/minimap metadata.
+- **Generic box policy:** a generic/missing-looking box is a debug fallback only. Fence, sign, crate, floor/path, barn shell, and wall pieces must not resolve to the missing-art fallback. Flower bed/shrub custom visuals are accepted when they draw non-selection geometry and do not mark fallback.
+- **Build/edit movement:** build, edit, and move modes should not freeze the player. Interactions are paused while decorating so F does not fight placement, but WASD/arrow movement and camera follow remain active.
+- **Popup policy at 1280x720:** HUD stays top-left, minimap top-right, hotbar bottom-center. Build docks lower-right, inventory docks center-right, admin/worldbuilder docks center-left, and land stays centered so panels avoid the HUD/minimap/hotbar pile-up without rewriting UI.
+- **Visible farm patch:** the MVP LimeZu farm test patch is now the clear 3x3 tilled-soil block at tiles `(6-8,15-17)`, with interactable plots at `(6,15)`, `(7,16)`, and `(8,15)`. It is near spawn `(7,11)`, outside static blockers, and should show the F prompt within a short walk.
+- **Manual check:** press `B`, select fence/sign/crate, confirm the preview and placed object match the selection; press `E`, select/move/delete with two-press safety; open inventory/build/admin/land and confirm safe panel positions; walk to the farm patch and press `F` to plant/water/harvest or see a clear tool-gate message.
+- **Deferrals:** full draggable panels, polished per-piece ghost art, broader farm-system polish, and complete build catalog art coverage remain follow-ups.
+
 ## Placed-object instance collision + minimap (2026-06-18 follow-up 6)
 
 Player-PLACED/build objects now use the **same** `AssetWorldMetadata` collision model as
@@ -62,7 +72,7 @@ Player collision (CharacterBody2D capsule, layer/mask 1) is correct.
 - **Interaction:** reach is calibrated for the 2x LimeZu scale (`INTERACTION_RADIUS = 78`,
   with `interaction_point_offset` for tall sprites + nearest-target selection); validation
   asserts the radius stays >= 70 in LimeZu mode.
-- **Farm patch:** a tilled-soil test bed with crops sits at tiles (2-4, 12-14), inside the
+- **Farm patch:** a tilled-soil test bed with crops sits at tiles (6-8, 15-17), inside the
   playable area near spawn; validation asserts it stays within the playable bounds.
 
 ## UI alignment + asset-generator planning (2026-06-18 follow-up 2)

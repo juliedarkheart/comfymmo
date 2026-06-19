@@ -82,6 +82,13 @@ const HELD_TOOL_AFTER_QUICKBAR_FILE := OUT_DIR + "/live_limezu_held_tool_after_q
 const QUICKBAR_ASSIGN_FILE := OUT_DIR + "/live_limezu_inventory_quickbar_assign.png"
 const GENERATED_TOOL_ICONS_REVIEW_FILE := OUT_DIR + "/live_limezu_generated_tool_icons_review.png"
 const GENERATED_TOOL_ICONS_SOURCE := "res://licensed_assets/limezu/generator_outputs/hearthvale_generated/review/hearthvale_icon_preview.png"
+const BUILD_SELECTED_ASSET_FILE := OUT_DIR + "/live_limezu_build_selected_asset.png"
+const BUILD_GHOST_ASSET_FILE := OUT_DIR + "/live_limezu_build_ghost_asset.png"
+const PLACED_ASSET_VISUAL_FILE := OUT_DIR + "/live_limezu_placed_asset_visual.png"
+const EDIT_SELECTED_ASSET_FILE := OUT_DIR + "/live_limezu_edit_selected_asset.png"
+const ADMIN_SAFE_PANEL_FILE := OUT_DIR + "/live_limezu_admin_safe_panel_position.png"
+const VISIBLE_FARM_PATCH_FILE := OUT_DIR + "/live_limezu_visible_farm_patch.png"
+const FARM_PROMPT_VISIBLE_PATCH_FILE := OUT_DIR + "/live_limezu_farm_prompt_visible_patch.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -157,15 +164,21 @@ func _initialize() -> void:
 	for _i in range(5):
 		await process_frame
 	if _open_build_menu_panel():
+		_select_build_placeable(ContentIds.PLACEABLE_FENCE_SEGMENT)
 		for _i in range(8):
 			await process_frame
 		var build_img: Image = _grab_image()
 		if build_img != null and build_img.save_png(PLAYABILITY_BUILD_MENU_FILE) == OK:
-			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); build_img.save_png(POLISH_BUILD_FILE); build_img.save_png(BUILD_INSTANCE_FILE); build_img.save_png(COLLISION_BUILD_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
+			print("[live-capture] saved ", PLAYABILITY_BUILD_MENU_FILE); build_img.save_png(STARDEW_BUILD_FILE); build_img.save_png(POLISH_BUILD_FILE); build_img.save_png(BUILD_INSTANCE_FILE); build_img.save_png(COLLISION_BUILD_FILE); build_img.save_png(BUILD_SELECTED_ASSET_FILE); print("[live-capture] saved ", STARDEW_BUILD_FILE)
 		else:
 			push_warning("[live-capture] failed to save build menu screenshot")
 	else:
 		push_warning("[live-capture] build menu panel not found; skipped build menu capture")
+	_close_review_overlays()
+	for _i in range(5):
+		await process_frame
+	if player != null:
+		await _capture_build_asset_proofs(player)
 	_close_review_overlays()
 	for _i in range(5):
 		await process_frame
@@ -175,11 +188,21 @@ func _initialize() -> void:
 		var admin_img: Image = _grab_image()
 		if admin_img != null and admin_img.save_png(LEFT_MENU_FILE) == OK:
 			admin_img.save_png(COLLISION_ADMIN_FILE)
+			admin_img.save_png(ADMIN_SAFE_PANEL_FILE)
 			print("[live-capture] saved ", LEFT_MENU_FILE)
 		else:
 			push_warning("[live-capture] failed to save left-menu screenshot")
 		_close_review_overlays()
 	if player != null:
+		var visible_farm_pos: Vector2 = _farm_prompt_position() + Vector2(0, -64)
+		if visible_farm_pos != Vector2.INF:
+			player.global_position = visible_farm_pos
+			_reset_player_camera(player)
+			for _i in range(10):
+				await process_frame
+			var visible_farm_img: Image = _grab_image()
+			if visible_farm_img != null and visible_farm_img.save_png(VISIBLE_FARM_PATCH_FILE) == OK:
+				print("[live-capture] saved ", VISIBLE_FARM_PATCH_FILE)
 		var farm_pos: Vector2 = _farm_prompt_position()
 		if farm_pos != Vector2.INF:
 			player.global_position = farm_pos
@@ -188,7 +211,7 @@ func _initialize() -> void:
 				await process_frame
 			var farm_img: Image = _grab_image()
 			if farm_img != null and farm_img.save_png(PLAYABILITY_FARM_PROMPT_FILE) == OK:
-				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); farm_img.save_png(POLISH_PROMPT_FILE); farm_img.save_png(POLISH_FARM_FILE); farm_img.save_png(COLLISION_FARM_FILE); farm_img.save_png(FARM_META_FILE); farm_img.save_png(PIXEL_FARM_PROMPT_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
+				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); farm_img.save_png(POLISH_PROMPT_FILE); farm_img.save_png(POLISH_FARM_FILE); farm_img.save_png(COLLISION_FARM_FILE); farm_img.save_png(FARM_META_FILE); farm_img.save_png(PIXEL_FARM_PROMPT_FILE); farm_img.save_png(FARM_PROMPT_VISIBLE_PATCH_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
 			else:
 				push_warning("[live-capture] failed to save farm prompt screenshot")
 	_close_review_overlays()
@@ -359,7 +382,75 @@ func _capture_placed_object_ysort_overlay(player: Node2D, file_path: String) -> 
 		print("[live-capture] saved ", file_path)
 	else:
 		push_warning("[live-capture] failed to save placed-object overlay screenshot: %s" % file_path)
-	placed.queue_free()
+
+func _capture_build_asset_proofs(player: Node2D) -> void:
+	var map := _find_map()
+	var gameplay_layer := _find_gameplay_layer(map)
+	if map == null or gameplay_layer == null:
+		push_warning("[live-capture] skipped build asset proofs; map/gameplay layer missing")
+		return
+	var proof_nodes: Array[Node] = []
+	var ghost := _make_capture_placeable(ContentIds.PLACEABLE_FENCE_SEGMENT, Vector2i(9, 15), true, false, map, gameplay_layer)
+	if ghost != null:
+		proof_nodes.append(ghost)
+		player.global_position = map.call("grid_to_world", Vector2i(7, 15)) as Vector2
+		_reset_player_camera(player)
+		for _i in range(8):
+			await process_frame
+		var ghost_img: Image = _grab_image()
+		if ghost_img != null and ghost_img.save_png(BUILD_GHOST_ASSET_FILE) == OK:
+			print("[live-capture] saved ", BUILD_GHOST_ASSET_FILE)
+	for node in proof_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	proof_nodes.clear()
+	for proof in [
+		[ContentIds.PLACEABLE_FENCE_SEGMENT, Vector2i(6, 15)],
+		[ContentIds.PLACEABLE_SIGNPOST, Vector2i(7, 15)],
+		[ContentIds.PLACEABLE_CRATE, Vector2i(8, 15)],
+	]:
+		var placed := _make_capture_placeable(String(proof[0]), proof[1] as Vector2i, false, false, map, gameplay_layer)
+		if placed != null:
+			proof_nodes.append(placed)
+	player.global_position = map.call("grid_to_world", Vector2i(7, 14)) as Vector2
+	_reset_player_camera(player)
+	for _i in range(8):
+		await process_frame
+	var placed_img: Image = _grab_image()
+	if placed_img != null and placed_img.save_png(PLACED_ASSET_VISUAL_FILE) == OK:
+		print("[live-capture] saved ", PLACED_ASSET_VISUAL_FILE)
+	if not proof_nodes.is_empty() and proof_nodes[0].has_method("set_selected"):
+		proof_nodes[0].call("set_selected", true)
+	for _i in range(4):
+		await process_frame
+	var edit_img: Image = _grab_image()
+	if edit_img != null and edit_img.save_png(EDIT_SELECTED_ASSET_FILE) == OK:
+		print("[live-capture] saved ", EDIT_SELECTED_ASSET_FILE)
+	for node in proof_nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+
+func _make_capture_placeable(placeable_id: String, tile: Vector2i, preview: bool, selected: bool, map: Node, gameplay_layer: Node) -> Node:
+	var entry: Dictionary = ContentRegistry.placeables().get(placeable_id, {}) as Dictionary
+	var scene_path: String = String(entry.get("scene_path", ""))
+	if scene_path.is_empty():
+		return null
+	var scene := load(scene_path) as PackedScene
+	if scene == null:
+		return null
+	var node := scene.instantiate()
+	if node == null:
+		return null
+	gameplay_layer.add_child(node)
+	if node.has_method("set_tile_position"):
+		node.call("set_tile_position", tile, map.call("grid_to_world", tile))
+	if preview and node.has_method("set_preview_mode"):
+		node.call("set_preview_mode", true)
+	elif node.has_method("set_placed_visual"):
+		node.call("set_placed_visual")
+	if selected and node.has_method("set_selected"):
+		node.call("set_selected", true)
+	return node
 
 func _find_player() -> Node2D:
 	var root := get_root()
@@ -470,14 +561,29 @@ func _open_build_menu_panel() -> bool:
 			return true
 	return false
 
+func _select_build_placeable(placeable_id: String) -> void:
+	var root := get_root()
+	if root == null:
+		return
+	for node in root.find_children("*", "Node", true, false):
+		if node.has_method("set_active_placeable") and node.has_method("get_active_placeable_id"):
+			node.call("set_active_placeable", placeable_id)
+			return
+
 func _farm_prompt_position() -> Vector2:
 	var root := get_root()
 	if root == null:
 		return Vector2.INF
 	for node in root.find_children("Map", "Node2D", true, false):
 		if node.has_method("grid_to_world"):
-			return node.call("grid_to_world", Vector2i(2, 12)) as Vector2
+			var prompt_tile: Vector2i = OverworldMap.LIMEZU_TILLED_SOIL_RECT.position + Vector2i(1, 1)
+			return node.call("grid_to_world", prompt_tile) as Vector2
 	return Vector2.INF
+
+func _find_gameplay_layer(map: Node) -> Node:
+	if map == null:
+		return null
+	return map.get_node_or_null("GameplayLayer")
 
 func _close_review_overlays() -> void:
 	var root := get_root()
