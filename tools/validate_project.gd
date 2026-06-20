@@ -1413,7 +1413,7 @@ func _initialize() -> void:
 			"func _limezu_should_draw_path",
 			"func _limezu_should_draw_soil",
 			"if _limezu_should_draw_path(tile):",
-			"if _limezu_should_draw_soil(soil_tile):",
+			"FarmPlot owns those live sprites",
 		]:
 			if not overworld_map_src_live.contains(limezu_footprint_snippet):
 				push_error("OverworldMap is missing LimeZu footprint exclusion contract: %s" % limezu_footprint_snippet)
@@ -1427,12 +1427,16 @@ func _initialize() -> void:
 		for limezu_ground_call in [
 			"_limezu_ground(\"terrain.grass\", Vector2i(tx, ty), LIMEZU_GROUND_GRASS_Z)",
 			"_limezu_ground(\"terrain.dirt_path\", tile, LIMEZU_GROUND_PATH_Z)",
-			"_limezu_ground(\"terrain.tilled_soil\", soil_tile, LIMEZU_GROUND_SOIL_Z)",
+			"FarmPlot owns those live sprites",
 		]:
 			if not overworld_map_src_live.contains(limezu_ground_call):
 				push_error("LimeZu ground call does not use the low-z terrain tier: %s" % limezu_ground_call)
 				quit(1)
 				return
+		if overworld_map_src_live.contains("var crops: Array[String]") or overworld_map_src_live.contains("_limezu_object(crops"):
+			push_error("LimeZu map slice still paints static boot crops instead of FarmPlot state visuals")
+			quit(1)
+			return
 		if not overworld_map_src_live.contains("ground_layer.add_child(s)") or not overworld_map_src_live.contains("gameplay_layer.add_child(holder)"):
 			push_error("LimeZu terrain/objects no longer use the expected ground/gameplay parents")
 			quit(1)
@@ -1639,6 +1643,11 @@ func _initialize() -> void:
 			quick_tools.queue_free()
 			quit(1)
 			return
+		if not bool(quick_tools.call("begin_quickbar_assignment", ContentIds.ITEM_PLACEHOLDER_SEED_PACKET)):
+			push_error("Quickbar did not accept the seed packet item assignment request")
+			quick_tools.queue_free()
+			quit(1)
+			return
 		var normalized_quickbar: Array[String] = LocalSaveSystem.normalize_quickbar_slots([ItemIds.TOOL_WORN_AXE, "", "__bad_id__"])
 		if normalized_quickbar.size() != LocalSaveSystem.QUICKBAR_SLOT_COUNT or normalized_quickbar[0] != ItemIds.TOOL_WORN_AXE or normalized_quickbar[2] != "":
 			push_error("LocalSaveSystem quickbar normalization did not preserve valid ids and reject invalid/tiny data")
@@ -1705,16 +1714,18 @@ func _initialize() -> void:
 		var farm_plot_probe: Node = farm_plot_scene.instantiate()
 		get_root().add_child(farm_plot_probe)
 		await process_frame
-		farm_plot_probe.call("set_plot_state", {"stage": "grown", "is_nearby": true, "crop_id": "carrot"})
-		for old_soil_node_name in ["SoilRim", "SoilBase", "FurrowTop", "FurrowMid", "FurrowBottom", "SoilHighlight", "MoistureOverlay"]:
+		farm_plot_probe.call("set_plot_state", {"stage": "crop_stage_3", "is_nearby": true, "crop_id": "carrot", "watered": false})
+		for old_soil_node_name in ["SoilRim", "SoilBase", "FurrowTop", "FurrowMid", "FurrowBottom", "SoilHighlight", "MoistureOverlay", "SproutSmall", "SproutLarge", "GrownLeaves", "CropAccent"]:
 			var old_soil_node: CanvasItem = farm_plot_probe.get_node_or_null(old_soil_node_name) as CanvasItem
 			if old_soil_node != null and old_soil_node.visible:
-				push_error("Old farm-plot soil/highlight visual is visible in LimeZu mode: %s" % old_soil_node_name)
+				push_error("Old farm-plot polygon visual is visible in LimeZu mode: %s" % old_soil_node_name)
 				farm_plot_probe.queue_free()
 				quit(1)
 				return
-		if not ((farm_plot_probe.get_node_or_null("GrownLeaves") as CanvasItem).visible):
-			push_error("Farm plot crop visuals disappeared while hiding old LimeZu soil marks")
+		var live_soil: CanvasItem = farm_plot_probe.get_node_or_null("LiveLimeZuSoil") as CanvasItem
+		var live_crop: CanvasItem = farm_plot_probe.get_node_or_null("LiveLimeZuCrop") as CanvasItem
+		if live_soil == null or live_crop == null or not live_soil.visible or not live_crop.visible:
+			push_error("Farm plot live LimeZu soil/crop sprites did not render for a mature crop state")
 			farm_plot_probe.queue_free()
 			quit(1)
 			return
@@ -1723,14 +1734,75 @@ func _initialize() -> void:
 		var homestead_live_source: String = FileAccess.get_file_as_string("res://world/homestead_controller.gd")
 		for farm_alignment_snippet in [
 			"_align_limezu_farm_interaction_nodes",
-			"FARM_PLOT_CARROT_ID: Vector2i(6, 15)",
-			"FARM_PLOT_TURNIP_ID: Vector2i(7, 16)",
-			"FARM_PLOT_BERRY_ID: Vector2i(8, 15)",
+			"FARM_PLOT_CARROT_ID: Vector2i(6, 13)",
+			"FARM_PLOT_TURNIP_ID: Vector2i(7, 13)",
+			"FARM_PLOT_BERRY_ID: Vector2i(8, 13)",
 		]:
 			if not homestead_live_source.contains(farm_alignment_snippet):
 				push_error("HomesteadController is missing LimeZu farm interaction alignment: %s" % farm_alignment_snippet)
 				quit(1)
 				return
+		for farm_contract_snippet in [
+			"var _selected_farming_item_id",
+			"func set_selected_farming_item",
+			"ContentIds.ITEM_PLACEHOLDER_SEED_PACKET",
+			"func admin_grow_crops",
+			"farming_system.till_plot",
+			"farming_system.plant_seed",
+			"farming_system.water_plot",
+			"farming_system.harvest_plot",
+			"Select Worn Hoe",
+			"Select a Seed Packet",
+			"Select Watering Can",
+		]:
+			if not homestead_live_source.contains(farm_contract_snippet):
+				push_error("HomesteadController is missing Stardew-style farming contract: %s" % farm_contract_snippet)
+				quit(1)
+				return
+		if not overworld_controller_src_live.contains("set_selected_farming_item(selected_item_id)"):
+			push_error("OverworldController does not pass selected quickbar item into farming actions")
+			quit(1)
+			return
+		var farming_contract_probe := FarmingSystem.new()
+		farming_contract_probe.ensure_plot_with_crop("validation_plot", ContentIds.CROP_CARROT)
+		if farming_contract_probe.plant_seed("validation_plot", ContentIds.CROP_CARROT):
+			push_error("FarmingSystem allowed seed planting before hoe/till")
+			quit(1)
+			return
+		if not farming_contract_probe.till_plot("validation_plot"):
+			push_error("FarmingSystem hoe/till action failed on an empty plot")
+			quit(1)
+			return
+		if String(farming_contract_probe.get_plot_state("validation_plot").get("stage", "")) != FarmingSystem.STAGE_TILLED_SOIL:
+			push_error("FarmingSystem till action did not set tilled_soil")
+			quit(1)
+			return
+		if not farming_contract_probe.plant_seed("validation_plot", ContentIds.CROP_CARROT):
+			push_error("FarmingSystem seed planting failed on tilled soil")
+			quit(1)
+			return
+		if not farming_contract_probe.water_plot("validation_plot"):
+			push_error("FarmingSystem watering failed on planted crop")
+			quit(1)
+			return
+		if not farming_contract_probe.grow_plot("validation_plot"):
+			push_error("FarmingSystem watered crop did not advance to stage 2")
+			quit(1)
+			return
+		if not farming_contract_probe.water_plot("validation_plot") or not farming_contract_probe.grow_plot("validation_plot"):
+			push_error("FarmingSystem crop did not advance to mature after second water/grow")
+			quit(1)
+			return
+		if String(farming_contract_probe.get_plot_state("validation_plot").get("stage", "")) != FarmingSystem.STAGE_CROP_STAGE_3:
+			push_error("FarmingSystem mature stage is not crop_stage_3")
+			quit(1)
+			return
+		var harvest_probe: Dictionary = farming_contract_probe.harvest_plot("validation_plot")
+		if String(harvest_probe.get("crop_id", "")) != ContentIds.CROP_CARROT \
+				or String(farming_contract_probe.get_plot_state("validation_plot").get("stage", "")) != FarmingSystem.STAGE_TILLED_SOIL:
+			push_error("FarmingSystem harvest did not return crop and reset to empty tilled soil")
+			quit(1)
+			return
 		var spawn_guard_index: int = homestead_live_source.find("LiveVisualPolicy.live_limezu_slice()")
 		var homestead_rabbit_index: int = homestead_live_source.find("homestead_rabbit_0")
 		if spawn_guard_index == -1 or homestead_rabbit_index == -1 or spawn_guard_index > homestead_rabbit_index:
@@ -2817,6 +2889,7 @@ func _initialize() -> void:
 		[ContentIds.ITEM_CARROT, "carrot"],
 		[ContentIds.ITEM_TURNIP, "turnip"],
 		[ContentIds.ITEM_BERRY, "berry"],
+		[ContentIds.ITEM_PLACEHOLDER_SEED_PACKET, "placeholder_seed_packet"],
 		[ContentIds.PLACEABLE_MAILBOX, "mailbox"],
 		[ContentIds.AREA_HOMESTEAD, "homestead"],
 		[ContentIds.AREA_VILLAGE_SQUARE, "village_square"],
@@ -2867,6 +2940,10 @@ func _initialize() -> void:
 			push_error("Content id mismatch: got '%s', expected '%s'" % [pair[0], pair[1]])
 			quit(1)
 			return
+	if not ContentRegistry.items().has(ContentIds.ITEM_PLACEHOLDER_SEED_PACKET):
+		push_error("Seed packet item id is missing from ContentRegistry.items(), so quickbar assignment cannot plant seeds")
+		quit(1)
+		return
 
 	# No critical id may be empty.
 	for critical_id in [
@@ -4329,6 +4406,15 @@ func _initialize() -> void:
 		"watering_can",
 		"empty_hands",
 		"generic_seed",
+		"carrot_seed_packet",
+		"turnip_seed_packet",
+		"berry_seed_packet",
+		"tilled_soil",
+		"crop_stage_1",
+		"crop_stage_2",
+		"crop_stage_3",
+		"wearable_leaf_clip",
+		"furniture_prop",
 		"generic_tool",
 	]:
 		if not hearthvale_icon_generator_source.contains("\"%s\"" % icon_recipe):
@@ -4342,6 +4428,8 @@ func _initialize() -> void:
 		"func icon_source_for_item",
 		"item_icon_pickaxe_16px.png",
 		"item_icon_generic_tool_16px.png",
+		"item_icon_turnip_16px.png",
+		"item_icon_wearable_leaf_clip_16px.png",
 	]:
 		if not object_icon_source.contains(icon_contract_snippet):
 			push_error("ObjectArtRegistry icon fallback contract is missing '%s'" % icon_contract_snippet)
@@ -4592,6 +4680,13 @@ func _initialize() -> void:
 		"live_limezu_admin_safe_panel_position.png",
 		"live_limezu_visible_farm_patch.png",
 		"live_limezu_farm_prompt_visible_patch.png",
+		"live_limezu_farm_before_hoe.png",
+		"live_limezu_farm_after_hoe_tilled.png",
+		"live_limezu_farm_planted_stage1.png",
+		"live_limezu_farm_crop_stage_update.png",
+		"live_limezu_farm_harvest_ready.png",
+		"live_limezu_build_catalog_real_assets.png",
+		"live_limezu_generated_common_items_review.png",
 	]:
 		if not live_capture_source.contains(live_capture_snippet):
 			push_error("Live visual capture is missing pixel-collision output '%s'" % live_capture_snippet)

@@ -91,6 +91,22 @@ opening also hides old farm-plot soil marks, the old rest-marker doormat diamond
 and generated homestead woodland creatures; broader creature-family coverage remains
 a custom-art gap.
 
+> **Live farming loop fix (this pass):** the live farm loop was broken because
+> `FarmPlot._apply_stage_visuals` matched legacy stage names (`planted_dry`/
+> `planted_watered`/`grown`) that `FarmingSystem._normalize_plot_state` converts away
+> to the real stages (`tilled_soil`/`planted_seed`/`crop_stage_1..3`), so nothing
+> changed on screen. `FarmPlot` now drives the REAL stages via top-down
+> `LiveLimeZuSoil`/`LiveLimeZuCrop` nodes (untilled bed → furrowed soil → sprout →
+> mature + ready ring), hides ALL old iso-diamond polygons, and is provider-agnostic
+> (works in Sprout-curated and LimeZu modes since the live view is top-down). The MVP
+> farm row moved from the tree-adjacent `(6-8,15-17)` to a clean **3-tile row near
+> spawn at (6-8,13)**; `LIMEZU_TILLED_SOIL_RECT = Rect2i(6,13,3,1)` keeps the
+> minimap/F7-overlay/capture aligned. The map no longer paints static tilled soil on
+> the row, so **hoeing visibly changes grass→soil**. See the MVP table + tool mapping
+> in `docs/playtest_readiness.md`. Recovery note: the local LimeZu *sliced textures*
+> were lost with the git metadata; re-run the LimeZu integration to repopulate them —
+> the farming loop works regardless of provider.
+
 UI rewrite update: the live HUD, minimap, inventory backs, menus, slots, buttons,
 close buttons, and tabs use the reviewed Modern UI texture slices through
 `LimeZuUITheme`/`CozyUITheme`. Panel labels use dark ink on the parchment-like frame,

@@ -52,7 +52,11 @@ const LIMEZU_APPROACH_PATH_TILES: Array[Vector2i] = [
 	Vector2i(19, 18),
 	Vector2i(20, 18),
 ]
-const LIMEZU_TILLED_SOIL_RECT := Rect2i(6, 15, 3, 3)
+# The MVP farm row: 3 tiles just south of spawn (7,11), clear of the tree at
+# (5,15). Matches the FarmPlot interactables placed by HomesteadController and the
+# minimap/overlay farm markers. The ground here stays GRASS — the per-tile FarmPlot
+# draws the untilled bed -> tilled soil change, so hoeing is a visible action.
+const LIMEZU_TILLED_SOIL_RECT := Rect2i(6, 13, 3, 1)
 const LIMEZU_BARN_BASE_TILE := Vector2i(13, 13)
 const LIMEZU_BARN_VISUAL_FOOTPRINT := Rect2i(9, 4, 9, 10)
 const LIMEZU_CRATE_VISUAL_FOOTPRINT := Rect2i(10, 13, 1, 1)
@@ -1051,16 +1055,10 @@ func _build_curated_slice() -> void:
 	set_meta("curated_slice", true)
 	# Focal well just east of the cottage (Sprout object, decor only).
 	_decor_sprite(gameplay_layer, grid_to_world(Vector2i(11, 7)), ContentIds.PLACEABLE_WELL, 0.72)
-	# A small tended garden bed: a clean visible test patch near spawn,
-	# drawn in the ground layer (behind the player) so it reads as a kept plot.
-	for ty in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
-		for tx in range(LIMEZU_TILLED_SOIL_RECT.position.x, LIMEZU_TILLED_SOIL_RECT.end.x):
-			var tile := Vector2i(tx, ty)
-			var cell := Node2D.new()
-			cell.name = "CuratedBed_%d_%d" % [tx, ty]
-			cell.position = grid_to_world(tile)
-			ground_layer.add_child(cell)
-			_add_terrain_sprite(cell, "tilled_soil", tile)
+	# NOTE: the farm row ground is intentionally left as grass here. The per-tile
+	# FarmPlot interactables (placed by HomesteadController over LIMEZU_TILLED_SOIL_RECT)
+	# draw the untilled-bed -> tilled-soil -> crop visuals, so hoeing visibly changes
+	# the ground. Painting a static tilled patch here would make hoeing a no-op.
 	# Flower beds: a soft border for the garden plus a couple by the cottage/path.
 	for flower_tile in [Vector2i(1, 12), Vector2i(5, 12), Vector2i(2, 14), Vector2i(4, 14), Vector2i(8, 7), Vector2i(8, 8), Vector2i(4, 7)]:
 		_decor_sprite(ground_layer, grid_to_world(flower_tile), "flower_patch", 0.46)
@@ -1089,18 +1087,8 @@ func _build_limezu_slice() -> void:
 	for tile in LIMEZU_CURATED_PATH_TILES + LIMEZU_APPROACH_PATH_TILES:
 		if _limezu_should_draw_path(tile):
 			_limezu_ground("terrain.dirt_path", tile, LIMEZU_GROUND_PATH_Z)
-	for gy in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
-		for gx in range(LIMEZU_TILLED_SOIL_RECT.position.x, LIMEZU_TILLED_SOIL_RECT.end.x):
-			var soil_tile := Vector2i(gx, gy)
-			if _limezu_should_draw_soil(soil_tile):
-				_limezu_ground("terrain.tilled_soil", soil_tile, LIMEZU_GROUND_SOIL_Z)
-	# 3) Crops on the tilled bed.
-	var crops: Array[String] = ["crop.carrot", "crop.cauliflower", "crop.watermelon", "crop.carrot_stage1"]
-	var crop_i: int = 0
-	for gy in range(LIMEZU_TILLED_SOIL_RECT.position.y, LIMEZU_TILLED_SOIL_RECT.end.y):
-		for gx in range(LIMEZU_TILLED_SOIL_RECT.position.x, LIMEZU_TILLED_SOIL_RECT.end.x):
-			_limezu_object(crops[crop_i % crops.size()], Vector2i(gx, gy))
-			crop_i += 1
+	# 3) Farm soil/crops are intentionally NOT painted as static map art here.
+	# FarmPlot owns those live sprites so hoeing/planting/growing changes the visible tile.
 	# 4) Focal barn (decor, placed low so it is fully on-screen), framing trees on the
 	#    existing tree colliders, and the garden fence on the existing fence colliders.
 	_limezu_object("object.barn", LIMEZU_BARN_BASE_TILE)

@@ -767,3 +767,40 @@ It is not claiming readiness for:
   demand no-Sprout playability) — the live boot would show the missing-assets
   screen. Inspect in-engine via `tools/art/asset_preview.tscn` (F6) — Sprout ids
   show a "licensed" tag.
+
+## Live MVP farming loop
+
+The live farm is a **3-tile row just south of spawn (7,11)**: carrot (6,13),
+turnip (7,13), berry (8,13) — clear of the tree at (5,15). It is marked on the
+minimap and the F7 overlay (`LIMEZU_TILLED_SOIL_RECT = Rect2i(6,13,3,1)`).
+
+`FarmPlot` draws the live, top-down visual from `FarmingSystem` state — empty
+shows a light untilled "bed" cue, `tilled_soil` shows dark furrowed soil
+(`LiveLimeZuSoil`), `planted_seed`/`crop_stage_1` add a small sprout, `crop_stage_2`
+a larger one, and `crop_stage_3` the mature crop + accent + a harvest-ready ring
+(`LiveLimeZuCrop`). The old iso-diamond soil/crop polygons are always hidden, and
+the map does not paint static tilled soil on the row — so **hoeing visibly turns
+grass into soil**. (Fixes the prior regression where `FarmPlot` matched stage
+names — `planted_dry`/`planted_watered`/`grown` — that `FarmingSystem` normalizes
+away, so nothing changed on screen.)
+
+**Tool mapping** (select on the quickbar, then press `F` at the tile):
+
+- Worn Hoe on empty → tills (grass/bed → soil).
+- Seed Packet on tilled soil → plants stage 1 (consumes one seed).
+- Watering Can on tilled/planted → waters (moisture tint).
+- Empty hands / wrong tool → clear prompt, safe no-op.
+- Mature crop + `F` → harvest (crop into inventory, tile back to tilled soil, no
+  double-harvest). Advance growth via rest or the admin **Grow Crops** action
+  (`HomesteadController.admin_grow_crops` → `FarmingSystem.advance_all_plots`).
+
+**How to test:** walk a few steps south, select the Hoe and press `F` (soil
+appears), select a Seed Packet and press `F` (sprout appears), Grow Crops to mature
+it, then `F` to harvest. Proof screenshots are captured to the gitignored
+`licensed_assets/limezu/review_screenshots/live_limezu_farm_*` set.
+
+**Deferred:** irrigation/auto-water, soil quality, crop traits/variety, creature
+farm helpers, multi-tile fields, full Stardew polish. **Recovery note:** the local
+LimeZu *sliced textures* were lost with the git-metadata damage; re-run the LimeZu
+integration to repopulate them (the farming loop is provider-agnostic and works
+without them).

@@ -39,6 +39,11 @@ const LEGACY_FARM_PLOT_ID: String = ContentIds.FARM_PLOT_LEGACY_MAIN
 const FARM_PLOT_CARROT_ID: String = ContentIds.FARM_PLOT_CARROT
 const FARM_PLOT_TURNIP_ID: String = ContentIds.FARM_PLOT_TURNIP
 const FARM_PLOT_BERRY_ID: String = ContentIds.FARM_PLOT_BERRY
+const STARTER_SEED_PACKET_COUNT: int = 6
+const FARM_SEED_ITEM_IDS: Array[String] = [
+	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET,
+	ResourceIds.COMPONENT_SEED_PACKET,
+]
 const CRAFTING_PANEL_SCENE := preload("res://ui/crafting_panel.tscn")
 const INVENTORY_PANEL_SCENE := preload("res://ui/inventory_panel.tscn")
 const BUILD_MENU_SCENE := preload("res://ui/build_menu_panel.tscn")
@@ -55,6 +60,7 @@ var _interior_view: CanvasLayer = null
 var _system_menu: CanvasLayer = null
 var _local_player: AvatarController = null
 var _local_nameplate: Node2D = null
+var _selected_farming_item_id: String = ""
 # Session-once XP marks (e.g. "talk_ow_maribel") so social/exploration XP
 # can't be farmed by spamming one villager/creature. Resets each boot.
 var _session_xp_marks: Dictionary = {}
@@ -67,6 +73,7 @@ func _ready() -> void:
 	inventory_system.configure(object_registry)
 	inventory_system.load_from_data(game_state_manager.get_player_section("inventory"))
 	_grant_starter_kit_once()
+	_grant_starter_seed_packet_once()
 	farming_system.load_from_data(game_state_manager.get_region_section(REGION_ID, "farming"))
 	_configure_farm_plots()
 	creature_system.load_from_data(game_state_manager.get_world_section("creatures"))
@@ -279,6 +286,9 @@ func refresh_inventory_panel() -> void:
 ## Quick-tools strip refresh hook. Base has no strip; overworld owns it.
 func _refresh_quick_tools() -> void:
 	pass
+
+func set_selected_farming_item(item_id: String) -> void:
+	_selected_farming_item_id = item_id.strip_edges()
 
 # --- Crafting -------------------------------------------------------------------
 
@@ -497,6 +507,15 @@ func _grant_starter_kit_once() -> void:
 	var loadout: Dictionary = ItemIds.starter_loadout()
 	for tool_id in loadout.keys():
 		inventory_system.add_item(String(tool_id), int(loadout[tool_id]))
+	_save_inventory_state()
+
+func _grant_starter_seed_packet_once() -> void:
+	if bool(save_system.get_overworld_flag("starter_seed_packet_granted", false)):
+		return
+	save_system.set_overworld_flag("starter_seed_packet_granted", true)
+	if inventory_system.get_quantity(ContentIds.ITEM_PLACEHOLDER_SEED_PACKET) < STARTER_SEED_PACKET_COUNT:
+		inventory_system.add_item(ContentIds.ITEM_PLACEHOLDER_SEED_PACKET, STARTER_SEED_PACKET_COUNT)
+	_save_inventory_state()
 
 ## Reward hook for mailbox/task completions: a small material bundle + XP.
 func _grant_task_reward(task_label: String) -> void:
@@ -550,19 +569,71 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 	if not _farm_plots.has(interactable_id):
 		return
 
-	# Farming tool gates: planting needs the hoe, watering needs the can.
-	# Harvesting stays bare-hands. Tools are starter-kit items and always
-	# hand-recraftable, so this never soft-locks.
-	var plot_stage: String = String(farming_system.get_plot_state(interactable_id).get("stage", "empty"))
-	if plot_stage == "empty" and inventory_system.get_quantity(ItemIds.TOOL_WORN_HOE) < 1:
-		_announce("Requires Worn Hoe (craft one with K).")
-		return
-	if plot_stage == "planted_dry" and inventory_system.get_quantity(ItemIds.TOOL_WATERING_CAN) < 1:
-		_announce("Requires Watering Can (craft one with K).")
-		return
+	var plot_state: Dictionary = farming_system.get_plot_state(interactable_id)
+	var plot_stage: String = String(plot_state.get("stage", FarmingSystem.STAGE_EMPTY))
+	var selected_item_id: String = _selected_farming_item_id
+	var interaction_result: Dictionary = {"changed": false, "action": "none"}
 
-	var interaction_result: Dictionary = farming_system.interact_with_plot(interactable_id)
+	match plot_stage:
+		FarmingSystem.STAGE_EMPTY:
+			if selected_item_id != ItemIds.TOOL_WORN_HOE:
+				_announce("Select Worn Hoe on the quickbar, then press F to till this plot.")
+				return
+			if farming_system.till_plot(interactable_id):
+				interaction_result = {"changed": true, "action": "till"}
+		FarmingSystem.STAGE_TILLED_SOIL:
+			if selected_item_id == ItemIds.TOOL_WATERING_CAN:
+				if farming_system.water_plot(interactable_id):
+					interaction_result = {"changed": true, "action": "water"}
+				else:
+					_announce("That soil is already watered.")
+					return
+			elif _is_seed_item(selected_item_id):
+				if inventory_system.get_quantity(selected_item_id) < 1:
+					_announce("You need a Seed Packet in your inventory.")
+					return
+				var crop_id: String = _plot_crop_id(interactable_id)
+				if not farming_system.can_plant(interactable_id, crop_id):
+					_announce("Seeds need prepared tilled soil.")
+					return
+				if not inventory_system.remove_item(selected_item_id, 1):
+					_announce("You need a Seed Packet in your inventory.")
+					return
+				if farming_system.plant_seed(interactable_id, crop_id):
+					interaction_result = {"changed": true, "action": "plant"}
+				else:
+					inventory_system.add_item(selected_item_id, 1)
+					_announce("This plot is not ready for seeds yet.")
+					return
+			else:
+				_announce("Select a Seed Packet to plant, or Watering Can to water the soil.")
+				return
+		FarmingSystem.STAGE_PLANTED_SEED, FarmingSystem.STAGE_CROP_STAGE_1, FarmingSystem.STAGE_CROP_STAGE_2:
+			if bool(plot_state.get("watered", false)):
+				_announce("This crop is watered. Rest or use admin Grow Crops to advance it.")
+				return
+			if selected_item_id != ItemIds.TOOL_WATERING_CAN:
+				_announce("Select Watering Can on the quickbar, then press F to water this crop.")
+				return
+			if farming_system.water_plot(interactable_id):
+				interaction_result = {"changed": true, "action": "water"}
+		FarmingSystem.STAGE_CROP_STAGE_3:
+			var harvested_plot: Dictionary = farming_system.harvest_plot(interactable_id)
+			if harvested_plot.is_empty():
+				_announce("This crop is not ready to harvest.")
+				return
+			interaction_result = {
+				"changed": true,
+				"action": "harvest",
+				"crop_id": String(harvested_plot.get("crop_id", CARROT_ITEM_ID)),
+			}
+		_:
+			_announce("This plot needs attention later.")
+			return
+
 	match String(interaction_result.get("action", "")):
+		"till":
+			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
 		"plant":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
 		"water":
@@ -599,6 +670,27 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 		farming_system.get_plot_prompt(interactable_id)
 	)
 	_refresh_all_farm_plot_visuals(interactable_id)
+
+func _is_seed_item(item_id: String) -> bool:
+	return FARM_SEED_ITEM_IDS.has(item_id)
+
+func _plot_crop_id(plot_id: String) -> String:
+	var crop_id: String = String(farming_system.get_plot_state(plot_id).get("crop_id", CARROT_ITEM_ID))
+	if ContentRegistry.crops().has(crop_id):
+		return crop_id
+	return CARROT_ITEM_ID
+
+func admin_grow_crops() -> void:
+	var changed_count: int = farming_system.advance_all_plots(true)
+	if changed_count <= 0:
+		_announce("(admin) No growing crops to advance.")
+		return
+	_save_farming_state()
+	_refresh_all_farm_plot_visuals("")
+	for plot_id_variant in _farm_plots.keys():
+		var plot_id: String = String(plot_id_variant)
+		interactable_system.update_interactable_prompt(plot_id, farming_system.get_plot_prompt(plot_id))
+	_announce("(admin) Advanced %d crop plot%s." % [changed_count, "" if changed_count == 1 else "s"])
 
 func _refresh_farm_plot_visuals(plot_id: String, is_nearby: bool) -> void:
 	if not _farm_plots.has(plot_id):
@@ -716,12 +808,18 @@ func _configure_farm_plots() -> void:
 	farm_plot_berry.plot_id = FARM_PLOT_BERRY_ID
 
 func _align_limezu_farm_interaction_nodes() -> void:
-	if not LiveVisualPolicy.live_limezu_slice() or map == null:
+	# Runs for the live curated top-down slice (Sprout-curated OR LimeZu) — both place
+	# the farm row here. Gating on live_limezu_slice() alone would skip the move when
+	# the local LimeZu pack is absent and the Sprout-curated slice is showing instead.
+	if not LiveVisualPolicy.CURATED_SLICE or map == null:
 		return
+	# A tidy 3-tile row just south of spawn (7,11), in clear view and away from the
+	# tree at (5,15), the cottage (6-7,6-7), the fence (row 5), and the path (rows
+	# 8-10). The old layout scattered these and put the carrot plot behind a tree.
 	var farm_tiles := {
-		FARM_PLOT_CARROT_ID: Vector2i(6, 15),
-		FARM_PLOT_TURNIP_ID: Vector2i(7, 16),
-		FARM_PLOT_BERRY_ID: Vector2i(8, 15),
+		FARM_PLOT_CARROT_ID: Vector2i(6, 13),
+		FARM_PLOT_TURNIP_ID: Vector2i(7, 13),
+		FARM_PLOT_BERRY_ID: Vector2i(8, 13),
 	}
 	for plot_id in farm_tiles.keys():
 		var plot: FarmPlot = _farm_plots.get(plot_id, null) as FarmPlot
@@ -857,6 +955,7 @@ func _confirm_rest() -> void:
 	# A restful day restores comfort. set_stat emits survival_changed, which saves
 	# and refreshes the comfort HUD line for us.
 	survival_system.set_stat("comfort", 100.0)
+	_advance_watered_crops_for_day()
 
 	if hud.has_method("set_mood"):
 		hud.call("set_mood", save_system.get_current_mood())
@@ -900,7 +999,20 @@ func _get_inventory_counts() -> Dictionary:
 		CARROT_ITEM_ID: inventory_system.get_count(CARROT_ITEM_ID),
 		TURNIP_ITEM_ID: inventory_system.get_count(TURNIP_ITEM_ID),
 		BERRY_ITEM_ID: inventory_system.get_count(BERRY_ITEM_ID),
+		ContentIds.ITEM_PLACEHOLDER_SEED_PACKET: inventory_system.get_count(ContentIds.ITEM_PLACEHOLDER_SEED_PACKET),
+		ResourceIds.COMPONENT_SEED_PACKET: inventory_system.get_count(ResourceIds.COMPONENT_SEED_PACKET),
 	}
+
+func _advance_watered_crops_for_day() -> void:
+	var changed_count: int = farming_system.advance_all_plots(false)
+	if changed_count <= 0:
+		return
+	_save_farming_state()
+	_refresh_all_farm_plot_visuals("")
+	for plot_id_variant in _farm_plots.keys():
+		var plot_id: String = String(plot_id_variant)
+		interactable_system.update_interactable_prompt(plot_id, farming_system.get_plot_prompt(plot_id))
+	_announce("Watered crops grew overnight.")
 
 func _toggle_inventory_panel() -> void:
 	if _inventory_panel != null:
@@ -937,6 +1049,7 @@ func _open_help_panel() -> void:
 		+ "Controller: left stick move | A confirm | B cancel | Start menu\n"
 		+ "Chat Enter | Profile F8 | Wardrobe F9 | Admin F7 | Fullscreen F11\n"
 		+ "System menu: Esc when no other panel is open\n\n"
+		+ "Farming: select Hoe to till, Seed Packet to plant, Watering Can to water; mature crops harvest with F.\n\n"
 		+ "Esc closes any open panel first; with nothing open it opens the system menu.\n\n"
 		+ "Getting started: gather branches/pebbles/fiber/clay (F), craft tools (K), "
 		+ "claim a plot at a plot sign, then build (B). Talk to Farmer Rowan for help."
