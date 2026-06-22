@@ -5,6 +5,36 @@ variants, NPCs, portraits). This doc is the safe workflow for using them. All
 generator tools and their outputs are **licensed/derived local files** and must stay
 under gitignored `licensed_assets/limezu/` — never committed.
 
+## Local generators (no installer required — preferred)
+
+The vendor `.exe` generators below are **OPTIONAL**. Three local Python tools cover
+most needs without any installer, and all write only under gitignored
+`licensed_assets/limezu/generator_outputs/` + `generator_manifests/`:
+
+1. **Style analyzer** — `tools/art/limezu_style_analyzer.py`. Scans the installed
+   extracted packs and writes a local **style profile**
+   (`generator_manifests/limezu_style_profile.json`): palette, accent/outline/shadow
+   colors, sizes, contrast/saturation, and crop/terrain/wood/stone/metal/fabric color
+   clusters. `--dry-run` / `--preview` (preview also writes a palette swatch).
+2. **Derivative generator** — `tools/art/limezu_derivative_generator.py`. Makes LOCAL
+   dev assets that use **licensed LimeZu source pixels** (crop a cell, nearest-neighbor
+   scale, recolor/HSV, outline, combine, icon-ify) into
+   `generator_outputs/derivatives/{crops,props,terrain,ui,icons,wearables}/`. Reads
+   only from `*/extracted/`; never edits a source file. `--dry-run` / `--preview` /
+   `--all` / `--force` (force first timestamp-backs-up the output folder).
+3. **Inspired generator** — `tools/art/limezu_inspired_generator.py`. Draws NEW
+   **Hearthvale-original** pixel art procedurally, guided by the style profile (palette,
+   outline, shadow, tile size) — it does **not** copy/slice any source sprite. Output in
+   `generator_outputs/inspired/{crops,props,terrain,ui,icons,wearables,characters}/`.
+   `--seed <int>` for deterministic, repeatable output names. Same flags as above.
+
+A **simple original fallback** (`tools/art/hearthvale_icon_generator.py`,
+`generate_hearthvale_gap_assets.py`) is used only to fill gaps when no style/source
+reference is available.
+
+Run `tools/art/limezu_generator_catalog.py --root licensed_assets/limezu` to report
+all four paths (vendor GUI exports, derivative, inspired, simple original).
+
 ## Generators found
 
 | Generator | Pack | File | Size | Type |

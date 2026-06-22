@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
-"""Catalog LimeZu generator outputs into a LOCAL, gitignored manifest (commit-safe tool).
+"""Catalog/report LimeZu generator outputs into LOCAL, gitignored manifests (commit-safe tool).
 
-The LimeZu Farmer Generator and Character Generator 2.0 are GUI installers
-(`licensed_assets/limezu/*/original/*Setup.exe`) — they cannot be run headlessly, so this
-tool does NOT generate art. It scans whatever the user has exported into
-`licensed_assets/limezu/generator_outputs/{player,npcs,portraits,characters}/` and writes
+There are FOUR local asset paths, none of which require a vendor installer:
+  1. vendor GUI exports (OPTIONAL) — the Farmer/Character Generator .exe are GUI
+     installers under `licensed_assets/limezu/*/original/*Setup.exe`; they cannot be
+     run headlessly and are NOT required. If used, drop exports into
+     `generator_outputs/{player,npcs,portraits,characters}/`.
+  2. LimeZu DERIVATIVE generator (`tools/art/limezu_derivative_generator.py`) — creates
+     local dev assets from installed LimeZu packs (slice/recolor/outline/icon).
+  3. LimeZu-INSPIRED generator (`tools/art/limezu_inspired_generator.py`) — creates NEW
+     Hearthvale-original art guided by `limezu_style_analyzer.py`'s style profile.
+  4. SIMPLE original fallback (`hearthvale_icon_generator.py` / gap assets) — gap filler
+     only, used when no style/source asset is available.
+
+This tool scans all of them and (for GUI exports) writes
 `licensed_assets/limezu/generator_manifests/limezu_generator_manifest.json` so
 `GeneratorCharacterRegistry` can resolve sprites/portraits by character id.
 
@@ -141,18 +150,46 @@ def main() -> None:
             if n:
                 gen_counts[sub.name] = n
     if gen_counts:
-        log(f"original Hearthvale generated assets present: {gen_counts}")
+        log(f"original Hearthvale simple-generated assets present: {gen_counts}")
 
-    log(f"cataloged {len(characters)} character entr(y/ies) -> {man_path.relative_to(ROOT)}")
+    # --- report ALL generator paths (GUI is just one optional path) ---------------
+    def _manifest_entry_count(name: str) -> int:
+        p = man_dir / name
+        if not p.exists():
+            return 0
+        try:
+            return len(json.loads(p.read_text(encoding="utf-8")).get("entries", {}))
+        except Exception:
+            return 0
+
+    def _png_count(rel: str) -> int:
+        d = out_root / rel
+        return len(list(d.rglob("*.png"))) if d.is_dir() else 0
+
+    deriv_entries = _manifest_entry_count("limezu_derivative_manifest.json")
+    inspired_entries = _manifest_entry_count("limezu_inspired_manifest.json")
+    log("generator paths (all local + gitignored):")
+    log(f"  - vendor GUI exports (OPTIONAL): {len(characters)} char entr(y/ies) "
+        "via the Farmer/Character Generator .exe — not required and not automated.")
+    log(f"  - LimeZu DERIVATIVE generator: {deriv_entries} manifest entr(y/ies), "
+        f"{_png_count('derivatives')} PNG(s) — local dev assets sliced/recolored from installed LimeZu packs "
+        "(tools/art/limezu_derivative_generator.py).")
+    log(f"  - LimeZu-INSPIRED Hearthvale generator: {inspired_entries} manifest entr(y/ies), "
+        f"{_png_count('inspired')} PNG(s) — NEW Hearthvale-original art from LimeZu style analysis "
+        "(tools/art/limezu_inspired_generator.py).")
+    log(f"  - SIMPLE original fallback: {sum(gen_counts.values())} PNG(s) under hearthvale_generated/ "
+        "(tools/art/hearthvale_icon_generator.py / generate_hearthvale_gap_assets.py) — gap filler only.")
+
+    log(f"cataloged {len(characters)} GUI character entr(y/ies) -> {man_path.relative_to(ROOT)}")
     if not characters:
-        log("No generator outputs found. MANUAL STEPS (GUI generators cannot be automated):")
-        log("  1. Run the installers (with your approval): " +
-            "licensed_assets/limezu/modern_farm/original/'Farmer Generator Setup.exe' and " +
-            "licensed_assets/limezu/modern_interiors/original/'Character Generator 2.0 Setup.exe'.")
-        log("  2. In each generator, design characters and EXPORT the sprite sheet(s) / portrait(s).")
-        log("  3. Drop exported PNGs into licensed_assets/limezu/generator_outputs/"
-            "{player,npcs,portraits,characters}/.")
-        log("  4. Re-run this tool to (re)build the local manifest; GeneratorCharacterRegistry picks it up.")
+        log("No vendor GUI character exports found — that path is OPTIONAL. To use it: run the "
+            "Farmer/Character Generator .exe (with your approval), export sheets/portraits into "
+            "generator_outputs/{player,npcs,portraits,characters}/, and re-run this tool.")
+    if deriv_entries == 0 and inspired_entries == 0:
+        log("No derivative/inspired outputs yet. Generate local dev assets without any GUI installer:")
+        log("  python tools/art/limezu_style_analyzer.py --preview")
+        log("  python tools/art/limezu_derivative_generator.py --all   # licensed-pixel derivatives")
+        log("  python tools/art/limezu_inspired_generator.py --all      # Hearthvale-original, style-guided")
     if not HAVE_PIL:
         log("(PIL not installed: skipped the optional review contact sheet — manifest still written.)")
 

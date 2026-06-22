@@ -72,12 +72,20 @@ static func texture_path(logical_id: String) -> String:
 		var local := _resolve_local(String(_active[nid]))
 		if not local.is_empty():
 			return local
+	# Optional local generator outputs (derivative > inspired). Returns "" — and so
+	# is skipped — when the manifests/PNGs are absent (clean checkout), so the live
+	# game never depends on these dev/review outputs.
+	var generated := GeneratorAssetResolver.resolve(nid)
+	if not generated.is_empty():
+		return generated
 	return FALLBACK_PATH
 
 static func has_asset(logical_id: String) -> bool:
 	_ensure_loaded()
 	var nid := normalize_id(logical_id)
-	return _active.has(nid) and not _resolve_local(String(_active[nid])).is_empty()
+	if _active.has(nid) and not _resolve_local(String(_active[nid])).is_empty():
+		return true
+	return not GeneratorAssetResolver.resolve(nid).is_empty()
 
 static func resolve_texture(logical_id: String) -> Texture2D:
 	return load(texture_path(logical_id)) as Texture2D

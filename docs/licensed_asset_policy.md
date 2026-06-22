@@ -144,3 +144,25 @@ also writes `manifests/audio_inventory.json` and contact sheets under
 `contact_sheets/sorry/`. Those files are catalog-only. They do not add runtime
 audio, dungeon gameplay, enemies, combat, quests, economy, or player-created
 adventure plots.
+
+## LimeZu generator outputs (derivative + inspired) — local only
+
+Two local generators write under the gitignored `licensed_assets/limezu/`:
+
+- **Derivative** (`tools/art/limezu_derivative_generator.py`) →
+  `generator_outputs/derivatives/`. Uses **licensed LimeZu source pixels** directly
+  (crop/scale/recolor/outline/icon). These ARE licensed derivatives — local-only,
+  **never committed**, like any LimeZu media.
+- **Inspired** (`tools/art/limezu_inspired_generator.py`) →
+  `generator_outputs/inspired/`. NEW **Hearthvale-original** art drawn procedurally
+  from the LimeZu **style profile** (`generator_manifests/limezu_style_profile.json`,
+  written by `tools/art/limezu_style_analyzer.py`). It does not copy/slice any source
+  sprite. Kept local until a manual art/license review; **do not commit without
+  explicit approval.**
+
+Manifests live in `generator_manifests/` (also gitignored). Local asset safety:
+all writes are **additive** to `generator_outputs/`, `generator_manifests/`, and
+`review_screenshots/`; the tools never delete/move/flatten/rename source packs, and
+`--force` first makes a timestamped backup of the output folder. A clean checkout
+without the packs/outputs still boots — `GeneratorAssetResolver` returns "" for every
+id when the manifests/PNGs are absent.

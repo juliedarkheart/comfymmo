@@ -1187,6 +1187,58 @@ func _initialize() -> void:
 		push_error("LimeZu is installed + live but live_limezu_slice() is false")
 		quit(1)
 		return
+	# --- LimeZu generator tooling (style analyzer + derivative + inspired) ----------
+	# These run regardless of whether the live LimeZu opening art is installed.
+	for gen_tool in [
+		"res://tools/art/limezu_style_analyzer.py",
+		"res://tools/art/limezu_derivative_generator.py",
+		"res://tools/art/limezu_inspired_generator.py",
+		"res://tools/art/limezu_generator_catalog.py",
+		"res://systems/art/generator_asset_resolver.gd",
+	]:
+		if not FileAccess.file_exists(gen_tool):
+			push_error("Missing LimeZu generator tool/helper: %s" % gen_tool)
+			quit(1)
+			return
+	# The resolver must be SAFE whether or not the local manifests/PNGs exist: an
+	# unknown id always returns "" so a clean checkout never depends on dev outputs.
+	GeneratorAssetResolver.reload()
+	if GeneratorAssetResolver.resolve("__definitely_not_a_real_generator_id__") != "":
+		push_error("GeneratorAssetResolver must return \"\" for an unknown id")
+		quit(1)
+		return
+	if typeof(GeneratorAssetResolver.available()) != TYPE_BOOL:
+		push_error("GeneratorAssetResolver.available() must return a bool")
+		quit(1)
+		return
+	# If a derivative manifest is present, it must parse and its entries must resolve
+	# to existing local PNGs (priority: derivative before inspired).
+	if FileAccess.file_exists(GeneratorAssetResolver.DERIVATIVE_MANIFEST):
+		var deriv_parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(GeneratorAssetResolver.DERIVATIVE_MANIFEST))
+		if typeof(deriv_parsed) != TYPE_DICTIONARY or typeof((deriv_parsed as Dictionary).get("entries", null)) != TYPE_DICTIONARY:
+			push_error("Derivative manifest present but does not parse with an entries map")
+			quit(1)
+			return
+		var deriv_entries: Dictionary = (deriv_parsed as Dictionary)["entries"]
+		if not deriv_entries.is_empty():
+			var first_deriv_id: String = String(deriv_entries.keys()[0])
+			if GeneratorAssetResolver.resolve(first_deriv_id).is_empty():
+				push_error("Derivative manifest entry did not resolve to a present PNG: %s" % first_deriv_id)
+				quit(1)
+				return
+	# LimeZu registry must still fail safe (loadable path) for an unmapped logical id,
+	# and the resolver fallback must not break that.
+	if not FileAccess.file_exists(LimeZuArtRegistry.texture_path("__no_such_logical_id__")):
+		push_error("LimeZuArtRegistry must fail safe to a loadable path even with the generator fallback")
+		quit(1)
+		return
+	# Generator outputs + manifests live under the gitignored licensed_assets/ tree.
+	var gen_gitignore: String = FileAccess.get_file_as_string("res://.gitignore")
+	if not gen_gitignore.contains("licensed_assets/"):
+		push_error(".gitignore must ignore licensed_assets/ so generator outputs/manifests stay local")
+		quit(1)
+		return
+
 	# --- Hard no-mixed-assets guard: boot the live opening + audit its sprite sources ---
 	if LiveVisualPolicy.live_limezu_slice():
 		var ow_scene := load("res://scenes/world/overworld.tscn") as PackedScene

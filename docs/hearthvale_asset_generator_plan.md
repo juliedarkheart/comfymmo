@@ -71,8 +71,28 @@ or sibling tools. All draw from primitives — no traced/copied art.
    doc explicitly allows committing them (separate review of originality + licensing).
    Never co-mingle generated originals with LimeZu licensed art folders' tracked status.
 
+## Two generator families (both local + gitignored)
+
+- **Derivative** (`tools/art/limezu_derivative_generator.py`): uses licensed LimeZu
+  source pixels directly (crop/scale/recolor/outline/combine/icon). `source_type =
+  licensed_limezu_derivative`. Treat exactly like licensed art — local-only, do NOT
+  commit the PNGs.
+- **Inspired** (`tools/art/limezu_inspired_generator.py`): NEW Hearthvale-original art
+  drawn procedurally from the LimeZu **style profile**
+  (`tools/art/limezu_style_analyzer.py` → palette/outline/shadow/scale/clusters). It
+  does not copy source sprites. `source_type = hearthvale_limezu_inspired_original`.
+  Kept local until manual art/license review; do not commit without explicit approval.
+- **Simple original** (`hearthvale_icon_generator.py`, `generate_hearthvale_gap_assets.py`):
+  last-resort gap filler when no style/source reference exists.
+
+Runtime fallback order (see `systems/art/generator_asset_resolver.gd`):
+reviewed direct LimeZu → local derivative → local inspired → Hearthvale simple
+original → committed procedural/code fallback → glyph/text. Missing manifests/PNGs
+are always safe — every lookup returns "" and the clean checkout still boots.
+
 ## Never commit
 
-LimeZu licensed art, sliced derivatives, generator executables/outputs, local manifests,
-contact sheets, screenshots, the local style-analysis report, or any generated PNG. Commit
-only: tool code, the style profile template, schema templates, and docs.
+LimeZu licensed art, sliced/derivative outputs, inspired-original outputs (until
+reviewed/approved), generator executables/outputs, local manifests, contact sheets,
+screenshots, the local style-analysis profile, or any generated PNG. Commit only: tool
+code, the style profile template, schema templates, and docs.
