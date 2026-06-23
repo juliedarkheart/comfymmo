@@ -22,7 +22,7 @@ const GOOD: Color = Color("#5f9150")            # affordable / allowed
 const BAD: Color = Color("#b5563f")             # blocked / missing
 
 static func active_ui_source() -> String:
-	if LiveVisualPolicy.live_limezu_slice() and LimeZuArtRegistry.is_available():
+	if LiveVisualPolicy.live_limezu_slice() and LimeZuArtRegistry.has_asset("ui.panel"):
 		return "limezu_modern_ui"
 	return UIArtRegistry.active_source()
 

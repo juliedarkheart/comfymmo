@@ -53,7 +53,7 @@ static func registry_summary(mode: String = WorldProjection.DEFAULT_MODE) -> Dic
 
 ## How many ids in each registry still resolve to a GENERATED (dev/temporary) tier
 ## in the live projection — i.e. art the player sees that has no reviewed Sprout
-## option yet. Sprout-required play wants these to stay low and documented.
+## option yet. Optional Sprout comparisons want these to stay low and documented.
 static func generated_fallback_counts(mode: String = WorldProjection.DEFAULT_MODE) -> Dictionary:
 	var summary: Dictionary = registry_summary(mode)
 	return {
@@ -82,7 +82,7 @@ static func scene_summary(map: Node) -> Dictionary:
 			var sprite: Sprite2D = node as Sprite2D
 			if not _is_visible_canvas_item(sprite):
 				continue
-			var path: String = sprite.texture.resource_path if sprite.texture != null else ""
+			var path: String = _sprite_source_path(sprite)
 			if String(sprite.name).begins_with("TerrainArt"):
 				terrain_sprites += 1
 			elif String(sprite.name).begins_with("CharacterArt"):
@@ -131,7 +131,7 @@ static func live_opening_sources(map: Node) -> Dictionary:
 			var s := node as Sprite2D
 			if not _is_visible_canvas_item(s):
 				continue
-			var path: String = s.texture.resource_path if s.texture != null else ""
+			var path: String = _sprite_source_path(s)
 			var tier := classify_texture(path)
 			tiers[tier] = int(tiers.get(tier, 0)) + 1
 	return tiers
@@ -147,7 +147,7 @@ static func live_area_sources(map: Node, tile_bounds: Rect2i) -> Dictionary:
 		var s := node as Sprite2D
 		if not _is_visible_canvas_item(s) or not _node_in_tile_bounds(map, s, tile_bounds):
 			continue
-		var path: String = s.texture.resource_path if s.texture != null else ""
+		var path: String = _sprite_source_path(s)
 		var tier := classify_texture(path)
 		tiers[tier] = int(tiers.get(tier, 0)) + 1
 	for node in map.find_children("*", "Polygon2D", true, false):
@@ -159,6 +159,17 @@ static func live_area_sources(map: Node, tile_bounds: Rect2i) -> Dictionary:
 
 static func _is_visible_canvas_item(item: CanvasItem) -> bool:
 	return item != null and item.visible and (not item.is_inside_tree() or item.is_visible_in_tree())
+
+static func _sprite_source_path(sprite: Sprite2D) -> String:
+	if sprite == null:
+		return ""
+	if sprite.has_meta("visual_source_path"):
+		return String(sprite.get_meta("visual_source_path"))
+	if sprite.texture == null:
+		return ""
+	if sprite.texture.has_meta("source_path"):
+		return String(sprite.texture.get_meta("source_path"))
+	return sprite.texture.resource_path
 
 static func _node_in_tile_bounds(map: Node, node: Node, tile_bounds: Rect2i) -> bool:
 	var tile_variant: Variant = _node_tile(node)
@@ -189,22 +200,32 @@ static func print_report(map: Node = null, mode: String = WorldProjection.DEFAUL
 	print("[visual-source] object tiers=", r["objects"], " legacy_in_live=", r["object_legacy_in_live"])
 	print("[visual-source] ui tiers=", r["ui"])
 	print("[visual-source] actor tiers=", r["actors"])
-	# Sprout-required status: the live build expects the licensed pack to be active.
+	# Sprout is optional/reference-only; report readiness without blocking boot.
 	var sprout: Dictionary = SproutAssetRequirement.check()
-	print("[visual-source] sprout_required=", SproutAssetRequirement.REQUIRED,
+	print("[visual-source] sprout_optional_required=", SproutAssetRequirement.REQUIRED,
 		" status=", sprout["summary"])
+	var provider_status: Dictionary = ArtProviderRegistry.status()
+	print("[visual-source] selected_provider=", provider_status.get("selected_live_provider", ""),
+		" limezu_tier=", provider_status.get("limezu_readiness_tier", ""),
+		" limezu_resolved=", provider_status.get("limezu_resolved_live_count", 0), "/",
+		provider_status.get("limezu_required_live_count", 0),
+		" sprout_ready=", provider_status.get("sprout_ready", false))
+	if String(provider_status.get("selected_live_provider", "")) == ArtProviderRegistry.PROVIDER_GENERATED \
+			and not String(provider_status.get("limezu_missing_reason", "")).is_empty():
+		push_warning("[visual-source] generated fallback selected: %s" % String(provider_status.get("limezu_missing_reason", "")))
 	# Curated demo slice: opening view frames the composed homestead; the broad
 	# overworld visual layers (wilderness scatter, far connecting roads) are suppressed
 	# in normal play. The gameplay/data world is unchanged underneath.
 	print("[visual-source] curated_slice=", LiveVisualPolicy.CURATED_SLICE,
 		" opening_zoom=", LiveVisualPolicy.CURATED_SLICE_ZOOM if LiveVisualPolicy.CURATED_SLICE else LiveVisualPolicy.OVERWORLD_WIDE_ZOOM)
-	# Provider readiness: live stays on Sprout; LimeZu is an evaluation spike provider.
-	print("[visual-source] art_providers=", ArtProviderRegistry.status())
+	# Provider readiness: LimeZu is preferred when ready, otherwise generated/procedural
+	# fallbacks keep the world playable. Sprout remains optional/reference-only.
+	print("[visual-source] art_providers=", provider_status)
 	print("[visual-source] limezu_spike active_ids=", LimeZuArtRegistry.list_active_ids().size(),
 		" by_category=", LimeZuArtRegistry.list_active_ids_by_category().keys())
 	if not bool(sprout["ok"]):
-		push_warning("[visual-source] Sprout assets missing/inactive: %s" % str(sprout["missing"]))
-	print("[visual-source] generated_dev_fallback (temporary, no reviewed Sprout yet)=",
+		push_warning("[visual-source] Optional Sprout assets missing/inactive: %s" % str(sprout["missing"]))
+	print("[visual-source] generated_dev_fallback (used only when LimeZu is absent/incomplete)=",
 		generated_fallback_counts(mode))
 	if not is_clean(mode):
 		push_warning("[visual-source] LIVE sprout_topdown is resolving LEGACY old art for some ids (see lists)")

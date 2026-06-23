@@ -1,19 +1,16 @@
 extends RefCounted
 class_name SproutAssetRequirement
 
-## Sprout-required gate for the LIVE visual build.
+## Optional Sprout readiness report for reference/fallback visuals.
 ##
 ## The cozy top-down presentation is designed around the licensed Sprout Lands pack
-## (Cup Nooble) which lives local-only under gitignored licensed_assets/. A clean
-## checkout WITHOUT Sprout is NO LONGER a playable visual target: when the pack is
-## absent (or not activated) the game shows a clear missing-assets screen instead of
-## silently rendering the old generated/procedural fallback. The generated Hearthvale
-## art that still exists in the repo is a diagnostic/dev fallback, never the intended
-## live look. See systems/visual/live_visual_policy.gd and docs/world_art_direction.md.
+## (Cup Nooble) which lives local-only under gitignored licensed_assets/. It is no
+## longer required for runtime boot: missing/corrupt Sprout should only reduce visual
+## quality or reference coverage, while LimeZu/generated/procedural fallbacks keep the
+## game playable. See systems/visual/live_visual_policy.gd and docs/world_art_direction.md.
 
-## Live visual mode requires the Sprout pack. WorldRegionManager checks this before
-## mounting the overworld; tools/validate_project.gd asserts the gate is wired.
-const REQUIRED := true
+## Kept as a discoverable policy flag for validation and reports.
+const REQUIRED := false
 
 const LICENSED_MANIFEST_PATH := "res://licensed_assets/sprout_lands/sprout_active_manifest.json"
 const UI_MANIFEST_PATH := "res://licensed_assets/sprout_lands/sprout_ui_manifest.json"
@@ -71,16 +68,16 @@ static func check() -> Dictionary:
 	#    enough; a representative terrain/object/UI id has to resolve to Sprout.
 	for terrain_id in REQUIRED_TERRAIN_IDS:
 		var terrain_src: String = TerrainArtRegistry.source_of(
-			TerrainArtRegistry.texture_path(terrain_id, WorldProjection.MODE_SPROUT_TOPDOWN)
+			TerrainArtRegistry.texture_path(terrain_id, WorldProjection.MODE_SPROUT_TOPDOWN, true)
 		)
 		if terrain_src != "licensed" and terrain_src != "licensed_modified":
 			missing.append("Active Sprout terrain '%s' (resolved: %s)" % [terrain_id, terrain_src])
 	for object_id in REQUIRED_OBJECT_IDS:
-		var object_src: String = ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(object_id))
+		var object_src: String = ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(object_id, true))
 		if object_src != "licensed" and object_src != "licensed_modified":
 			missing.append("Active Sprout object '%s' (resolved: %s)" % [object_id, object_src])
 	for ui_id in REQUIRED_UI_IDS:
-		if not UIArtRegistry.has_licensed(ui_id):
+		if not UIArtRegistry.has_licensed(ui_id, true):
 			missing.append("Active Sprout UI '%s'" % ui_id)
 
 	var ok: bool = missing.is_empty()
@@ -88,7 +85,7 @@ static func check() -> Dictionary:
 		"ok": ok,
 		"missing": missing,
 		"summary": "Sprout assets installed and active" if ok
-			else "Missing %d required Sprout asset(s) — live world will not load" % missing.size(),
+			else "Missing %d optional Sprout asset(s); using other visual fallbacks" % missing.size(),
 	}
 
 static func is_satisfied() -> bool:
@@ -102,7 +99,7 @@ static func pack_present() -> bool:
 static func describe_missing() -> String:
 	var result: Dictionary = check()
 	if bool(result["ok"]):
-		return "All required Sprout assets are installed and active."
+		return "All optional Sprout assets are installed and active."
 	var lines: Array[String] = []
 	for item in result["missing"] as Array:
 		lines.append("· %s" % String(item))

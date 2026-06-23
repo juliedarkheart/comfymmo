@@ -83,8 +83,8 @@ office packs that cover far more of Hearthvale's scope.
 - **Curated start slice** — rebuild the live curated opening slice with LimeZu art
   (the spike is the prototype for this).
 - **Validation** — extend live checks to assert LimeZu live ids resolve (mirroring the
-  current Sprout-required checks).
-
+- **Validation** - extend live checks to assert LimeZu live ids resolve while
+  keeping clean-checkout fallback boot intact.
 Live polish update: `ui.button`, `ui.button_hover`, `ui.close`, `ui.close_hover`,
 and `ui.tab` are now sliced/mapped locally in addition to panel and slot frames. The
 opening also hides old farm-plot soil marks, the old rest-marker doormat diamond,
@@ -165,8 +165,8 @@ All generator outputs are licensed-local (see docs/limezu_generator_workflow.md)
 ## Risks
 
 - **License handling** — LimeZu forbids redistribution; every derivative/screenshot
-  stays gitignored. A clean checkout must still run (missing-assets path), like Sprout.
-- **Too many raw files / Godot import bloat** — packs hold 8k–53k files; only sliced
+- **License handling** - LimeZu forbids redistribution; every derivative/screenshot
+  stays gitignored. A clean checkout must still run through committed fallbacks.
   `normalized/` derivatives may be imported (`.gdignore` guards `extracted/`).
 - **Generator outputs need review** before use; never beauty-shot raw dumps.
 - **Mixed tile sizes** (16/32/48) — normalize display scale per id.

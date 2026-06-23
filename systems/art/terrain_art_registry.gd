@@ -22,8 +22,9 @@ const LEGACY_TILE_ROOT := "res://art/tiles/"
 ## Resolve a mapped art path through the preference order. Always returns a path
 ## that exists (falls back to the obvious-but-safe missing placeholder). Used for
 ## transitions; terrain ids go through texture_path (which also prefers top-down).
-static func resolve_path(mapped_path: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> String:
-	var allow_licensed: bool = WorldProjection.is_sprout_compatible(projection_mode)
+static func resolve_path(mapped_path: String, projection_mode: String = WorldProjection.DEFAULT_MODE, force_allow_sprout: bool = false) -> String:
+	var allow_licensed: bool = WorldProjection.is_sprout_compatible(projection_mode) \
+		and (force_allow_sprout or LiveVisualPolicy.should_auto_use_sprout_visuals())
 	var override_path: String = ArtActivation.override_for(mapped_path, allow_licensed)
 	if not override_path.is_empty():
 		return override_path
@@ -103,11 +104,12 @@ static func required_ids() -> Array[String]:
 static func normalize_id(terrain_id: String) -> String:
 	return String(terrain_id).strip_edges().to_lower()
 
-static func texture_path(terrain_id: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> String:
+static func texture_path(terrain_id: String, projection_mode: String = WorldProjection.DEFAULT_MODE, force_allow_sprout: bool = false) -> String:
 	var nid: String = normalize_id(terrain_id)
 	var mapped: String = String(TERRAIN_PATHS.get(nid, FALLBACK_PATH))
 	# 1. Licensed (Sprout) / licensed_modified override — only in sprout-compatible modes.
-	var allow_licensed: bool = WorldProjection.is_sprout_compatible(projection_mode)
+	var allow_licensed: bool = WorldProjection.is_sprout_compatible(projection_mode) \
+		and (force_allow_sprout or LiveVisualPolicy.should_auto_use_sprout_visuals())
 	var override_path: String = ArtActivation.override_for(mapped, allow_licensed)
 	if not override_path.is_empty():
 		return override_path
@@ -120,16 +122,16 @@ static func texture_path(terrain_id: String, projection_mode: String = WorldProj
 		return mapped
 	return FALLBACK_PATH
 
-static func texture(terrain_id: String, projection_mode: String = WorldProjection.DEFAULT_MODE) -> Texture2D:
-	return load(texture_path(terrain_id, projection_mode)) as Texture2D
+static func texture(terrain_id: String, projection_mode: String = WorldProjection.DEFAULT_MODE, force_allow_sprout: bool = false) -> Texture2D:
+	return load(texture_path(terrain_id, projection_mode, force_allow_sprout)) as Texture2D
 
 static func variation_index(terrain_id: String, tile: Vector2i) -> int:
 	var hash_value: int = hash("%s:%d:%d" % [normalize_id(terrain_id), tile.x, tile.y])
 	return absi(hash_value) % 4
 
-static func visual_for(terrain_id: String, tile: Vector2i = Vector2i.ZERO, projection_mode: String = WorldProjection.DEFAULT_MODE) -> Dictionary:
+static func visual_for(terrain_id: String, tile: Vector2i = Vector2i.ZERO, projection_mode: String = WorldProjection.DEFAULT_MODE, force_allow_sprout: bool = false) -> Dictionary:
 	var normalized_id: String = normalize_id(terrain_id)
-	var path: String = texture_path(normalized_id, projection_mode)
+	var path: String = texture_path(normalized_id, projection_mode, force_allow_sprout)
 	var projection: Dictionary = WorldProjection.visual_hints(projection_mode)
 	var source: String = source_of(path)
 	return {

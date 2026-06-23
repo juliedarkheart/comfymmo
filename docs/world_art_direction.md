@@ -72,19 +72,17 @@ fallback. Never commit generator executables, outputs, or manifests. See
 
 Sprout remains integrated as a secondary/comparison provider, and its local licensed
 files still stay gitignored under `licensed_assets/`. This branch's current live
-playtest target is LimeZu, not the older Sprout-required opening. A clean checkout
-without required local licensed assets should show a clear missing-assets screen
-rather than silently falling back to generated/procedural art:
+playtest target is LimeZu when the local pack is available, while Sprout is optional
+and must not block boot.
 
-- When Sprout is missing/inactive the game shows a clear missing-assets screen
-  (`ui/missing_assets_screen.gd`) instead of mounting the overworld — it does
-  **not** silently render the generated/procedural fallback as the live look.
-- The boot gate lives in `systems/world_region_manager.gd`; the installed/active
-  check lives in `systems/visual/sprout_asset_requirement.gd`; the policy flag is
-  `LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE`.
-- The original Hearthvale generated art that still ships in the repo is a
-  **temporary diagnostic/dev fallback**, not the intended live style. Prefer a
-  missing-assets report over shipping ugly fallback as the live game.
+- When Sprout is missing/inactive the game logs a visual-fallback warning and still
+  mounts the overworld.
+- The boot policy lives in `systems/world_region_manager.gd`; the optional readiness
+  check lives in `systems/visual/sprout_asset_requirement.gd`; the policy flag
+  `LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE` must remain `false`.
+- The original Hearthvale generated/procedural art that ships in the repo is the
+  safe fallback for clean checkouts and smoke tests. It is lower-fidelity than the
+  preferred licensed look, but it keeps the game playable.
 
 ## Curated demo slice (opening view)
 
@@ -114,8 +112,9 @@ flowers, a cow + chicken, and props over the **unchanged gameplay grid** (placem
 colliders, spawn, farming data, movement are all preserved; LimeZu art is drawn at x2
 to fill the 32px cells). Live human actors (player + NPCs) use the LimeZu farmer
 sprite. **Sprout remains fully integrated as a secondary/comparison provider** and is
-not removed. LimeZu local licensed assets are **required** for the live visual
-prototype (a missing pack shows a clear missing-assets screen, not ugly fallback).
+not removed. LimeZu local licensed assets are preferred for the live visual
+prototype when the mapped core slice is present; missing local packs fall back to
+safe generated/procedural visuals instead of blocking boot.
 
 Live polish note: the LimeZu opening hides the old farm-plot soil/highlight
 polygons plus the old rest-marker doormat diamond, and suppresses the generated
@@ -285,12 +284,11 @@ along screen axes in top-down mode (the iso skew is legacy-only), and the parcel
 tool + world-builder overlay previews expand their footprints by half a tile in
 top-down so they cover the visible cells rather than stopping at tile centers.
 
-No-Sprout behavior is intentional, not boring-but-playable: with the pack absent
-the live world refuses to mount and the missing-assets screen explains why (see
-the Sprout-required visual policy above). The logical grid, worldbuilder, minimap,
-and build tools still operate on the same tile positions when Sprout is present;
-the generated fallback tiles exist only for diagnostics/dev, never as the shipped
-live style.
+No-Sprout behavior is intentionally playable: with the pack absent, the live world
+still mounts and logs visual-fallback warnings. The logical grid, worldbuilder,
+minimap, and build tools continue to operate on the same tile positions; the
+generated fallback tiles are safe lower-fidelity visuals until local licensed art is
+available.
 
 ### Terrain source split (Sprout / modified / Hearthvale generated)
 
@@ -362,12 +360,12 @@ terrain-paint overrides, road tiles, and the minimap continue to share
 `TerrainArtRegistry`, `terrain_color`, and `minimap` tints, so painted/authored
 terrain matches the world.
 
-The Sprout-first live policy is centralized in
-`systems/visual/live_visual_policy.gd`: primary scale is 32x32 terrain, generated
-actor canvases render scaled down against that grid, broad procedural scenery is
-off in normal play, and old market/fountain/border slabs stay deferred until
-they have sprite replacements. Connecting roads/plazas render as tile sprites,
-not broad ribbons.
+The top-down live policy is centralized in
+`systems/visual/live_visual_policy.gd`: primary scale is 32x32 terrain, LimeZu is
+the preferred live provider when usable, generated actor canvases render scaled
+down against that grid, broad procedural scenery is off in normal play, and old
+market/fountain/border slabs stay deferred until they have sprite replacements.
+Connecting roads/plazas render as tile sprites, not broad ribbons.
 
 ## Terrain composition (screenshot cleanup)
 

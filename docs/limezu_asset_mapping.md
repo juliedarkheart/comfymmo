@@ -22,9 +22,9 @@ visual spike scene for focused review. All LimeZu media is **local-only** under 
 3. A human reviews the contact sheets + candidates, copies/normalizes the chosen
    cells into `<pack>/normalized/...`, and maps logical ids in the **local**
    `limezu_active_manifest.json` (gitignored).
-4. `systems/art/limezu_art_registry.gd` resolves logical ids → local files; the spike
-   scene (`scenes/visual_spikes/limezu_homestead_slice.tscn`) renders them. Missing
-   ids show a clear missing-assets marker instead of crashing.
+4. `systems/art/limezu_art_registry.gd` resolves logical ids to local files; the
+   spike scene (`scenes/visual_spikes/limezu_homestead_slice.tscn`) renders them.
+   Missing ids fail safe instead of crashing, and live boot falls back to committed visuals.
 
 ## Manifest format (local, gitignored)
 
@@ -85,5 +85,5 @@ fits the UI.
 - Never commit LimeZu zips, `.exe` generators, extracted PNGs/GIFs, normalized or
   modified derivatives, contact sheets, or the local activation manifest.
 - Never write LimeZu media into `art/`, `scenes/`, or any tracked path.
-- A clean checkout without LimeZu must not crash; live boot shows the missing-assets
-  path instead of silently falling back to generated/procedural visuals.
+- A clean checkout without LimeZu must not crash; live boot falls back to committed
+  generated/procedural visuals.

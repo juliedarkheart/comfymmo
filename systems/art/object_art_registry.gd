@@ -62,8 +62,11 @@ static func _hearthvale_object_path(mapped_path: String) -> String:
 		return candidate
 	return ""
 
-static func resolve_path(mapped_path: String) -> String:
-	var override_path: String = ArtActivation.override_for(mapped_path)
+static func resolve_path(mapped_path: String, force_allow_sprout: bool = false) -> String:
+	var override_path: String = ArtActivation.override_for(
+		mapped_path,
+		force_allow_sprout or LiveVisualPolicy.should_auto_use_sprout_visuals()
+	)
 	if not override_path.is_empty():
 		return override_path
 	var hearthvale_path: String = _hearthvale_object_path(mapped_path)
@@ -189,11 +192,11 @@ static func normalize_id(object_id: String) -> String:
 static func has_art_id(object_id: String) -> bool:
 	return OBJECT_PATHS.has(normalize_id(object_id))
 
-static func texture_path(object_id: String) -> String:
-	return resolve_path(String(OBJECT_PATHS.get(normalize_id(object_id), FALLBACK_PATH)))
+static func texture_path(object_id: String, force_allow_sprout: bool = false) -> String:
+	return resolve_path(String(OBJECT_PATHS.get(normalize_id(object_id), FALLBACK_PATH)), force_allow_sprout)
 
-static func texture(object_id: String) -> Texture2D:
-	return load(texture_path(object_id)) as Texture2D
+static func texture(object_id: String, force_allow_sprout: bool = false) -> Texture2D:
+	return load(texture_path(object_id, force_allow_sprout)) as Texture2D
 
 static func generated_icon_path_for_item(item_id: String) -> String:
 	var path: String = String(HEARTHVALE_GENERATED_ICON_PATHS.get(normalize_id(item_id), ""))

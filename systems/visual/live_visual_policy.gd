@@ -1,16 +1,15 @@
 extends RefCounted
 class_name LiveVisualPolicy
 
-## Sprout-first presentation guardrails for normal gameplay. Gameplay/data systems
+## Live visual presentation guardrails for normal gameplay. Gameplay/data systems
 ## still own the logical grid; this file only states how the live screen should be
 ## composed so old prototype visuals stay quarantined.
 
-## The live visual build is Sprout-required: a clean checkout without the licensed
-## Sprout pack is not a playable visual target. When Sprout is missing the game shows
-## a missing-assets screen rather than the old generated/procedural fallback. The
-## actual installed/active check + the boot gate live in SproutAssetRequirement and
-## WorldRegionManager; this flag is the single discoverable source of the policy.
-const SPROUT_REQUIRED_FOR_LIVE := true
+## Sprout is optional/reference-only. A clean checkout, missing Sprout pack, or
+## corrupted local Sprout manifest must still boot the playable overworld through
+## LimeZu if ready, then generated/procedural fallbacks. Sprout readiness is still
+## reported for diagnostics, but it is never a runtime boot gate.
+const SPROUT_REQUIRED_FOR_LIVE := false
 
 ## Curated demo slice: normal play opens in a small, hand-composed cozy homestead
 ## area instead of the full procedural overworld. The gameplay/data world is intact
@@ -37,15 +36,23 @@ const LIMEZU_DISPLAY_SCALE := 2.0
 const INTERACTION_RADIUS := 78.0
 
 ## True when the live game should render the LimeZu curated slice: provider is LimeZu
-## AND the local LimeZu assets actually resolve. If LimeZu is selected but absent, the
-## boot gate shows a missing-assets screen instead (see WorldRegionManager).
+## AND local LimeZu assets are at least partially usable. Full normalized live slices
+## are ideal, but existing derivative/inspired/generated outputs or read-only raw
+## extracted pack files are good enough to keep the current visual direction active.
+## Only fall to committed generated/procedural art when LimeZu is genuinely absent.
 static func live_limezu_slice() -> bool:
 	return ArtProviderRegistry.LIVE_PROVIDER == ArtProviderRegistry.PROVIDER_LIMEZU \
-		and LimeZuArtRegistry.is_available()
+		and LimeZuArtRegistry.is_usable_for_live()
 
 ## True when LimeZu is the selected live provider (regardless of local availability).
 static func limezu_is_live_provider() -> bool:
 	return ArtProviderRegistry.LIVE_PROVIDER == ArtProviderRegistry.PROVIDER_LIMEZU
+
+## Sprout is manual/reference-only unless the live provider is explicitly switched
+## to Sprout. The LimeZu live path must never auto-mix Sprout just because local
+## Sprout manifests exist.
+static func should_auto_use_sprout_visuals() -> bool:
+	return ArtProviderRegistry.LIVE_PROVIDER == ArtProviderRegistry.PROVIDER_SPROUT
 
 const PRIMARY_PROJECTION := WorldProjection.MODE_SPROUT_TOPDOWN
 const TILE_SIZE := Vector2i(32, 32)

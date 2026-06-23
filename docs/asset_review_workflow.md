@@ -5,12 +5,10 @@ human looks at it.** Nothing imported is wired automatically; unlabeled terrain
 sheets are explicitly **not auto-wired**. The cozy generated placeholders stay
 active until you choose otherwise.
 
-> **Note on the live build:** the playable visual prototype is now Sprout-required
-> (the licensed Sprout Lands pack must be installed/active or the game shows the
-> missing-assets screen — see docs/licensed_asset_policy.md and
-> docs/world_art_direction.md). This review pipeline is how *additional* reviewed
-> assets get wired; the generated placeholders it falls back to are diagnostic/dev
-> only, not the shipped live look.
+> **Note on the live build:** licensed packs are local-only visual enhancements,
+> not hard runtime dependencies. A clean checkout must still boot using committed
+> generated/procedural fallback visuals. This review pipeline is how additional
+> reviewed assets get wired without committing licensed media.
 
 > **LimeZu evaluation:** the LimeZu "Modern" packs are being tested as a possible new
 > main visual ecosystem via a separate spike. Their review flow mirrors this one —

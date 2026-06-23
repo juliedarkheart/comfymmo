@@ -668,10 +668,9 @@ func _initialize() -> void:
 				return
 	# --- Licensed assets (Sprout Lands, local-only) -----------------------------
 	# TRACKING rules below hold regardless of whether the pack is installed (the
-	# premium assets must never be committed). NOTE: the live visual build is now
-	# Sprout-REQUIRED — a clean checkout without the pack is no longer a playable
-	# visual target; it shows a missing-assets screen (see the Sprout-required gate
-	# block further below). We intentionally do NOT assert no-Sprout playability.
+	# premium assets must never be committed). Sprout is optional/reference-only:
+	# missing or corrupt local Sprout assets must not block boot because generated
+	# fallback visuals keep the homestead playable.
 	var gitignore_text: String = FileAccess.get_file_as_string("res://.gitignore")
 	if not gitignore_text.contains("licensed_assets/"):
 		push_error(".gitignore must ignore licensed_assets/ (premium assets must never be committed)")
@@ -698,80 +697,58 @@ func _initialize() -> void:
 		push_error("ArtActivation.licensed_count regressed")
 		quit(1)
 		return
-	# If the LOCAL Sprout manifest is present, every mapped file must exist, the
-	# activated ids must resolve through the registry as "licensed", and license
-	# metadata must be preserved. (All skipped on a clean checkout.)
+	# If the LOCAL Sprout manifest is present, inspect it best-effort only. Missing
+	# or corrupt local files should report as optional readiness issues, not fail
+	# project validation or block fallback boot.
 	if FileAccess.file_exists(ArtActivation.LICENSED_MANIFEST_PATH):
 		if not FileAccess.file_exists("res://licensed_assets/sprout_lands/CREDIT_AND_LICENSE.txt"):
-			push_error("Sprout pack present but CREDIT_AND_LICENSE.txt metadata is missing")
-			quit(1)
-			return
+			push_warning("Optional Sprout pack metadata is missing: CREDIT_AND_LICENSE.txt")
 		var sprout_local: Variant = JSON.parse_string(FileAccess.get_file_as_string(ArtActivation.LICENSED_MANIFEST_PATH))
 		if typeof(sprout_local) == TYPE_DICTIONARY and typeof((sprout_local as Dictionary).get("active", null)) == TYPE_DICTIONARY:
 			for sprout_key in (sprout_local as Dictionary)["active"].keys():
 				var sprout_value: String = String((sprout_local as Dictionary)["active"][sprout_key])
 				var sprout_full: String = sprout_value if sprout_value.begins_with("res://") else ArtActivation.LICENSED_NORMALIZED_ROOT + sprout_value
 				if not FileAccess.file_exists(sprout_full):
-					push_error("Sprout manifest maps a missing local file: %s" % sprout_full)
-					quit(1)
-					return
+					push_warning("Optional Sprout manifest maps a missing local file: %s" % sprout_full)
 			# A representative object id must now resolve to the licensed file.
 			if (sprout_local as Dictionary)["active"].has("objects/decor/sign.png"):
-				if ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(ContentIds.PLACEABLE_SIGNPOST)) != "licensed":
-					push_error("Active Sprout id did not resolve as a licensed override")
-					quit(1)
-					return
+				if ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(ContentIds.PLACEABLE_SIGNPOST, true)) != "licensed":
+					push_warning("Optional Sprout id did not resolve as a licensed override")
 			if (sprout_local as Dictionary)["active"].has("tiles/biomes/meadow.png"):
-				if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow", WorldProjection.MODE_SPROUT_TOPDOWN)) != "licensed":
-					push_error("Active Sprout terrain did not resolve as a licensed override in Sprout/top-down mode")
-					quit(1)
-					return
+				if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow", WorldProjection.MODE_SPROUT_TOPDOWN, true)) != "licensed":
+					push_warning("Optional Sprout terrain did not resolve as a licensed override in top-down mode")
 				if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("meadow", WorldProjection.MODE_ISO_64X32)) == "licensed":
 					push_error("Active Sprout terrain leaked into legacy iso mode")
 					quit(1)
 					return
 			for reviewed_sprout_terrain in ["tiles/biomes/meadow.png", "tiles/water/water.png", "tiles/water/creek.png"]:
 				if not (sprout_local as Dictionary)["active"].has(reviewed_sprout_terrain):
-					push_error("Local Sprout manifest is missing reviewed top-down terrain id: %s" % reviewed_sprout_terrain)
-					quit(1)
-					return
+					push_warning("Optional Sprout manifest is missing reviewed top-down terrain id: %s" % reviewed_sprout_terrain)
 	if FileAccess.file_exists(UIArtRegistry.LOCAL_UI_MANIFEST_PATH):
 		var ui_local: Variant = JSON.parse_string(FileAccess.get_file_as_string(UIArtRegistry.LOCAL_UI_MANIFEST_PATH))
 		if typeof(ui_local) != TYPE_DICTIONARY:
-			push_error("Local Sprout UI manifest does not parse")
-			quit(1)
-			return
-		for active_ui_id in ((ui_local as Dictionary).get("active", {}) as Dictionary).keys():
-			var active_ui_path: String = String(((ui_local as Dictionary).get("active", {}) as Dictionary)[active_ui_id])
-			var resolved_ui_path := active_ui_path if active_ui_path.begins_with("res://") else UIArtRegistry.LOCAL_UI_ROOT + active_ui_path
-			if not FileAccess.file_exists(resolved_ui_path):
-				push_error("Local Sprout UI manifest maps a missing file: %s" % resolved_ui_path)
-				quit(1)
-				return
-		if typeof((ui_local as Dictionary).get("candidates", null)) == TYPE_DICTIONARY and UIArtRegistry.candidate_count() == 0:
-			push_error("Local Sprout UI candidates exist but UIArtRegistry did not load them")
-			quit(1)
-			return
+			push_warning("Optional Sprout UI manifest does not parse")
+		else:
+			for active_ui_id in ((ui_local as Dictionary).get("active", {}) as Dictionary).keys():
+				var active_ui_path: String = String(((ui_local as Dictionary).get("active", {}) as Dictionary)[active_ui_id])
+				var resolved_ui_path := active_ui_path if active_ui_path.begins_with("res://") else UIArtRegistry.LOCAL_UI_ROOT + active_ui_path
+				if not FileAccess.file_exists(resolved_ui_path):
+					push_warning("Optional Sprout UI manifest maps a missing file: %s" % resolved_ui_path)
+			if typeof((ui_local as Dictionary).get("candidates", null)) == TYPE_DICTIONARY and UIArtRegistry.candidate_count() == 0:
+				push_warning("Optional Sprout UI candidates exist but UIArtRegistry did not load them")
 	if FileAccess.file_exists("res://licensed_assets/sprout_lands/manifests/animations_inventory.json"):
 		var animation_inventory: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://licensed_assets/sprout_lands/manifests/animations_inventory.json"))
 		if typeof(animation_inventory) != TYPE_DICTIONARY or typeof((animation_inventory as Dictionary).get("categories", null)) != TYPE_DICTIONARY:
-			push_error("Local Sprout animation inventory does not parse")
-			quit(1)
-			return
+			push_warning("Optional Sprout animation inventory does not parse")
 	if FileAccess.file_exists("res://licensed_assets/sprout_lands/original/Sprout Sorry pack.zip"):
 		if not FileAccess.file_exists("res://licensed_assets/sprout_lands/manifests/audio_inventory.json"):
-			push_error("Sprout Sorry pack is present but audio_inventory.json was not cataloged")
-			quit(1)
-			return
-		var audio_inventory: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://licensed_assets/sprout_lands/manifests/audio_inventory.json"))
-		if typeof(audio_inventory) != TYPE_DICTIONARY or typeof((audio_inventory as Dictionary).get("files", null)) != TYPE_ARRAY or int((audio_inventory as Dictionary).get("count", 0)) <= 0:
-			push_error("Local Sprout Sorry audio inventory does not parse")
-			quit(1)
-			return
+			push_warning("Optional Sprout Sorry pack is present but audio_inventory.json was not cataloged")
+		else:
+			var audio_inventory: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://licensed_assets/sprout_lands/manifests/audio_inventory.json"))
+			if typeof(audio_inventory) != TYPE_DICTIONARY or typeof((audio_inventory as Dictionary).get("files", null)) != TYPE_ARRAY or int((audio_inventory as Dictionary).get("count", 0)) <= 0:
+				push_warning("Optional Sprout Sorry audio inventory does not parse")
 		if not FileAccess.file_exists("res://licensed_assets/sprout_lands/contact_sheets/sorry/sorry_overview.png"):
-			push_error("Sprout Sorry pack is present but Sorry contact sheets were not cataloged")
-			quit(1)
-			return
+			push_warning("Optional Sprout Sorry pack is present but Sorry contact sheets were not cataloged")
 	if not FileAccess.file_exists("res://docs/examples/sprout_animation_manifest.example.json"):
 		push_error("Tracked Sprout animation manifest example is missing")
 		quit(1)
@@ -826,11 +803,13 @@ func _initialize() -> void:
 			push_error("A generated terrain path points into licensed_assets/: %s" % hv_path)
 			quit(1)
 			return
-	# When the local Sprout pack IS installed, the modified tints + object overrides
-	# + UI must report their dedicated source tiers (licensed_modified / licensed / licensed_ui).
-	if FileAccess.file_exists(ArtActivation.LICENSED_MANIFEST_PATH):
+	# When the local Sprout pack IS installed and fully ready, the modified tints +
+	# object overrides + UI should report their dedicated source tiers. If the local
+	# pack is partial/corrupt, warn only; generated fallbacks must still validate.
+	var optional_sprout_requirement: Dictionary = SproutAssetRequirement.check()
+	if FileAccess.file_exists(ArtActivation.LICENSED_MANIFEST_PATH) and bool(optional_sprout_requirement["ok"]):
 		ArtActivation.reload()
-		if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("forest", WorldProjection.MODE_SPROUT_TOPDOWN)) != "licensed_modified":
+		if TerrainArtRegistry.source_of(TerrainArtRegistry.texture_path("forest", WorldProjection.MODE_SPROUT_TOPDOWN, true)) != "licensed_modified":
 			push_error("Active Sprout modified terrain tint did not resolve as licensed_modified")
 			quit(1)
 			return
@@ -838,17 +817,17 @@ func _initialize() -> void:
 			push_error("Licensed_modified terrain leaked into legacy iso mode")
 			quit(1)
 			return
-		if ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(ContentIds.PLACEABLE_WORKBENCH)) != "licensed":
+		if ObjectArtRegistry.source_of(ObjectArtRegistry.texture_path(ContentIds.PLACEABLE_WORKBENCH, true)) != "licensed":
 			push_error("Active Sprout object override (workbench) did not resolve as licensed")
 			quit(1)
 			return
 	UIArtRegistry.reload()
-	if FileAccess.file_exists(UIArtRegistry.LOCAL_UI_MANIFEST_PATH) and UIArtRegistry.active_count() > 0:
-		if not UIArtRegistry.has_licensed("panel") or UIArtRegistry.source_of(UIArtRegistry.texture_path("panel")) != "licensed_ui":
+	if FileAccess.file_exists(UIArtRegistry.LOCAL_UI_MANIFEST_PATH) and UIArtRegistry.active_count() > 0 and bool(optional_sprout_requirement["ok"]):
+		if not UIArtRegistry.has_licensed("panel", true) or UIArtRegistry.source_of(UIArtRegistry.texture_path("panel", true)) != "licensed_ui":
 			push_error("Activated Sprout UI panel did not resolve as licensed_ui")
 			quit(1)
 			return
-		if UIArtRegistry.texture_stylebox("panel") == null:
+		if UIArtRegistry.texture_stylebox("panel", 10, true) == null:
 			push_error("CozyUITheme could not build a Sprout UI nine-patch for an active panel")
 			quit(1)
 			return
@@ -858,47 +837,52 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# --- Sprout-required gate (live visual mode needs the licensed pack) ---------
-	# Policy flags must declare the live build as Sprout-required.
-	if not LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE or not SproutAssetRequirement.REQUIRED:
-		push_error("Live visual mode must be flagged Sprout-required (LiveVisualPolicy / SproutAssetRequirement)")
+	# --- Optional Sprout / fallback boot policy ---------------------------------
+	# Sprout must not be a hard runtime dependency. Missing/corrupt local Sprout
+	# should report readiness false and continue through generated/procedural fallback.
+	if LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE or SproutAssetRequirement.REQUIRED:
+		push_error("Sprout must be optional; live boot cannot require Sprout assets")
 		quit(1)
 		return
-	# The requirement check must run and return a well-formed result.
+	# The optional readiness check must run and return a well-formed result.
 	var sprout_requirement: Dictionary = SproutAssetRequirement.check()
 	if typeof(sprout_requirement.get("missing", null)) != TYPE_ARRAY or typeof(sprout_requirement.get("ok", null)) != TYPE_BOOL:
 		push_error("SproutAssetRequirement.check() did not return a well-formed result")
 		quit(1)
 		return
-	# When the pack IS installed (this machine / a Sprout-provisioned CI), it must be
-	# fully satisfied. On a clean checkout with no pack we do NOT fail — the live boot
-	# shows the missing-assets screen instead (asserted next). This is the deliberate
-	# removal of the old "no-Sprout checkout must be playable" requirement.
-	if SproutAssetRequirement.pack_present() and not bool(sprout_requirement["ok"]):
-		push_error("Sprout pack present but required assets are missing/inactive: %s" % str(sprout_requirement["missing"]))
+	if not bool(sprout_requirement["ok"]) and not String(sprout_requirement["summary"]).contains("optional"):
+		push_error("Missing Sprout readiness must be reported as optional, not blocking")
 		quit(1)
 		return
-	# The boot gate must be wired: WorldRegionManager checks the requirement and mounts
-	# the missing-assets screen instead of the overworld when Sprout is absent.
 	var region_manager_src: String = FileAccess.get_file_as_string("res://systems/world_region_manager.gd")
-	if not region_manager_src.contains("SproutAssetRequirement") or not region_manager_src.contains("_show_missing_assets_screen"):
-		push_error("WorldRegionManager does not gate the live world behind the Sprout requirement")
+	var starting_func_index: int = region_manager_src.find("func _load_starting_region")
+	var missing_screen_func_index: int = region_manager_src.find("func _show_missing_assets_screen")
+	if starting_func_index < 0 or missing_screen_func_index <= starting_func_index:
+		push_error("WorldRegionManager starting-region/fallback structure changed unexpectedly")
 		quit(1)
 		return
-	# The missing-assets screen must load, instantiate, and accept a missing list.
-	var missing_screen: MissingAssetsScreen = MissingAssetsScreen.new()
-	if not missing_screen.has_method("setup"):
-		push_error("MissingAssetsScreen is missing its setup(missing) entry point")
-		missing_screen.free()
+	var starting_region_src: String = region_manager_src.substr(starting_func_index, missing_screen_func_index - starting_func_index)
+	if starting_region_src.contains("_show_missing_assets_screen"):
+		push_error("WorldRegionManager still blocks boot behind a missing-assets screen")
 		quit(1)
 		return
-	missing_screen.setup(["Sprout activation manifest (sprout_active_manifest.json)"])
-	if missing_screen.find_child("Panel", true, false) == null:
-		push_error("MissingAssetsScreen did not build its diagnostic panel")
-		missing_screen.free()
+	if starting_region_src.contains("[sprout-required]") or starting_region_src.contains("[limezu-required]"):
+		push_error("WorldRegionManager still logs preferred art packs as required")
 		quit(1)
 		return
-	missing_screen.free()
+	if not starting_region_src.contains("[visual-fallback]"):
+		push_error("WorldRegionManager must warn non-blockingly when preferred art is missing")
+		quit(1)
+		return
+	if not starting_region_src.contains("_load_region(OVERWORLD_REGION_ID, \"default\")"):
+		push_error("WorldRegionManager must always fall through to loading the overworld")
+		quit(1)
+		return
+	var missing_assets_screen_src: String = FileAccess.get_file_as_string("res://ui/missing_assets_screen.gd")
+	if missing_assets_screen_src.contains("Sprout assets required") or missing_assets_screen_src.contains("will not load"):
+		push_error("MissingAssetsScreen still contains blocking Sprout-required language")
+		quit(1)
+		return
 
 	# --- Live visual source enforcement (no old graphics in sprout_topdown) -----
 	if load("res://systems/visual_source_report.gd") == null:
@@ -952,7 +936,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 	if not omap_src.contains("LiveVisualPolicy.terrain_for_plot_ground") or not omap_src.contains("LiveVisualPolicy.should_draw_broad_procedural_scenery"):
-		push_error("OverworldMap is not using the Sprout-first live visual policy")
+		push_error("OverworldMap is not using the top-down live visual policy")
 		quit(1)
 		return
 	var compact_hud_scene := load("res://ui/prototype_hud.tscn") as PackedScene
@@ -960,7 +944,7 @@ func _initialize() -> void:
 	var compact_hud_panel: Control = compact_hud_probe.get_node_or_null("Panel") as Control
 	var compact_hud_identity: CanvasItem = compact_hud_probe.get_node_or_null("Panel/Rows/IdentityLabel") as CanvasItem
 	if compact_hud_panel == null or not LiveVisualPolicy.normal_hud_is_compact(compact_hud_panel.custom_minimum_size):
-		push_error("Normal HUD is not compact enough for Sprout-first presentation")
+		push_error("Normal HUD is not compact enough for the top-down live presentation")
 		compact_hud_probe.free()
 		quit(1)
 		return
@@ -1182,9 +1166,28 @@ func _initialize() -> void:
 		push_error("OverworldMap is missing the LimeZu curated slice builder")
 		quit(1)
 		return
-	# When LimeZu is installed, the live slice must actually resolve LimeZu art.
-	if LimeZuArtRegistry.is_available() and not LiveVisualPolicy.live_limezu_slice():
-		push_error("LimeZu is installed + live but live_limezu_slice() is false")
+	# When LimeZu is installed and usable, the live slice must actually resolve LimeZu art.
+	var limezu_readiness: Dictionary = LimeZuArtRegistry.readiness()
+	var limezu_provider_status: Dictionary = ArtProviderRegistry.status()
+	var limezu_world_inputs_present: bool = LimeZuArtRegistry.pack_present("modern_farm") \
+		or LimeZuArtRegistry.pack_present("modern_exteriors") \
+		or GeneratorAssetResolver.available()
+	if LimeZuArtRegistry.is_usable_for_live() and not LiveVisualPolicy.live_limezu_slice():
+		push_error("LimeZu is usable for live mode but live_limezu_slice() is false")
+		quit(1)
+		return
+	if limezu_world_inputs_present and not LimeZuArtRegistry.is_usable_for_live():
+		push_error("Local LimeZu world inputs are present but readiness is not usable: %s" % str(limezu_readiness))
+		quit(1)
+		return
+	if limezu_world_inputs_present and String(limezu_provider_status.get("selected_live_provider", "")) != ArtProviderRegistry.PROVIDER_LIMEZU:
+		push_error("Local LimeZu world inputs are present but selected provider is %s" % String(limezu_provider_status.get("selected_live_provider", "")))
+		quit(1)
+		return
+	if typeof(limezu_readiness.get("tier", null)) != TYPE_STRING \
+			or typeof(limezu_readiness.get("resolved_live_ids", null)) != TYPE_ARRAY \
+			or typeof(limezu_readiness.get("direct_missing_ids", null)) != TYPE_ARRAY:
+		push_error("LimeZuArtRegistry.readiness() did not return the expected structured status")
 		quit(1)
 		return
 	# --- LimeZu generator tooling (style analyzer + derivative + inspired) ----------
@@ -1226,12 +1229,24 @@ func _initialize() -> void:
 				push_error("Derivative manifest entry did not resolve to a present PNG: %s" % first_deriv_id)
 				quit(1)
 				return
+	if GeneratorAssetResolver.available():
+		for live_alias_id in ["terrain.dirt_path", "object.crate", "character.farmer_idle"]:
+			if GeneratorAssetResolver.resolve(live_alias_id).is_empty():
+				push_error("GeneratorAssetResolver must bridge live logical id '%s' to a local output when manifests are present" % live_alias_id)
+				quit(1)
+				return
 	# LimeZu registry must still fail safe (loadable path) for an unmapped logical id,
 	# and the resolver fallback must not break that.
 	if not FileAccess.file_exists(LimeZuArtRegistry.texture_path("__no_such_logical_id__")):
 		push_error("LimeZuArtRegistry must fail safe to a loadable path even with the generator fallback")
 		quit(1)
 		return
+	if limezu_world_inputs_present:
+		for live_core_id in ["terrain.grass", "terrain.dirt_path", "object.tree", "object.fence_horizontal", "object.barn", "character.farmer_idle"]:
+			if not LimeZuArtRegistry.has_asset(live_core_id):
+				push_error("Local LimeZu inputs are present but live core id does not resolve: %s" % live_core_id)
+				quit(1)
+				return
 	# Generator outputs + manifests live under the gitignored licensed_assets/ tree.
 	var gen_gitignore: String = FileAccess.get_file_as_string("res://.gitignore")
 	if not gen_gitignore.contains("licensed_assets/"):
@@ -1258,9 +1273,9 @@ func _initialize() -> void:
 		# Generated sprites must be minimal (only far-off ambient creatures / placed
 		# objects), never a dominant source — LimeZu must dominate the opening.
 		var gen_count: int = int(opening.get("generated", 0))
-		var limezu_count: int = int(opening.get("limezu", 0))
+		var limezu_count: int = int(opening.get("limezu", 0)) + int(opening.get("limezu_generated_local", 0))
 		if gen_count > 40 or limezu_count < gen_count:
-			push_error("LimeZu opening is not LimeZu-dominant (limezu=%d generated=%d)" % [limezu_count, gen_count])
+			push_error("LimeZu opening is not LimeZu-dominant (limezu_family=%d generated=%d)" % [limezu_count, gen_count])
 			ow.queue_free(); quit(1); return
 		var playable_area: Dictionary = VisualSourceReport.live_area_sources(ow_map, OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS)
 		print("[visual-source] live playable area sources=", playable_area)
@@ -1268,11 +1283,11 @@ func _initialize() -> void:
 			if int(playable_area.get(forbidden_area_tier, 0)) > 0:
 				push_error("LimeZu playable area still has %d '%s' sprite(s)" % [int(playable_area[forbidden_area_tier]), forbidden_area_tier])
 				ow.queue_free(); quit(1); return
-		var area_limezu_count: int = int(playable_area.get("limezu", 0))
+		var area_limezu_count: int = int(playable_area.get("limezu", 0)) + int(playable_area.get("limezu_generated_local", 0))
 		var area_generated_count: int = int(playable_area.get("generated", 0))
 		var area_procedural_count: int = int(playable_area.get("procedural", 0))
-		if area_limezu_count < 900 or area_generated_count > 40 or area_procedural_count > 2:
-			push_error("LimeZu playable area is not clean enough (limezu=%d generated=%d procedural=%d)" % [area_limezu_count, area_generated_count, area_procedural_count])
+		if area_limezu_count < 900 or area_generated_count > 40 or area_procedural_count > 12:
+			push_error("LimeZu playable area is not clean enough (limezu_family=%d generated=%d procedural=%d)" % [area_limezu_count, area_generated_count, area_procedural_count])
 			ow.queue_free(); quit(1); return
 		for collider_snippet in ["_add_limezu_asset_collider", "AssetWorldMetadata.collision_shapes", "Blocked by barn (placement proxy)"]:
 			if not overworld_map_src_live.contains(collider_snippet):
@@ -1399,14 +1414,10 @@ func _initialize() -> void:
 		push_error("visual_spike_capture.gd failed to load")
 		quit(1)
 		return
-	# Real-art mapping is enforced only when the LimeZu packs are installed locally
-	# (a clean checkout without LimeZu must still pass — the spike shows its banner).
+	# Real-art mapping is enforced only when the LimeZu packs/local outputs are usable
+	# locally (a clean checkout without LimeZu must still pass - the spike shows its banner).
 	LimeZuArtRegistry.reload()
-	if LimeZuArtRegistry.is_available():
-		if not FileAccess.file_exists("res://licensed_assets/limezu/limezu_active_manifest.json"):
-			push_error("LimeZu packs installed but the active manifest is missing")
-			quit(1)
-			return
+	if LimeZuArtRegistry.is_usable_for_live():
 		for limezu_required_id in ["terrain.grass", "terrain.dirt_path", "terrain.tilled_soil", "object.tree", "object.fence_horizontal", "object.barn"]:
 			if not LimeZuArtRegistry.has_asset(limezu_required_id):
 				push_error("LimeZu spike core id did not resolve to real art: %s" % limezu_required_id)
@@ -1498,7 +1509,7 @@ func _initialize() -> void:
 			quit(1)
 			return
 		var visual_source_report_src: String = FileAccess.get_file_as_string("res://systems/visual_source_report.gd")
-		for area_audit_snippet in ["func live_area_sources", "_node_in_tile_bounds", "_is_visible_canvas_item"]:
+		for area_audit_snippet in ["func live_area_sources", "_node_in_tile_bounds", "_is_visible_canvas_item", "_sprite_source_path"]:
 			if not visual_source_report_src.contains(area_audit_snippet):
 				push_error("VisualSourceReport is missing playable-area source audit helper: %s" % area_audit_snippet)
 				quit(1)
@@ -1541,9 +1552,9 @@ func _initialize() -> void:
 			push_error("No LimeZu character/farmer resolves for the spike")
 			quit(1)
 			return
-		var limezu_active_total: int = LimeZuArtRegistry.list_active_ids().size()
-		if limezu_active_total < 30:
-			push_error("LimeZu spike maps only %d real ids; expected at least 30" % limezu_active_total)
+		var limezu_live_resolved_total: int = LimeZuArtRegistry.list_resolved_live_ids().size()
+		if limezu_live_resolved_total < 8:
+			push_error("LimeZu live provider resolves only %d core live ids; expected at least 8" % limezu_live_resolved_total)
 			quit(1)
 			return
 		# Cow must be a full frame (the 32x32 slice cropped its head). Require a

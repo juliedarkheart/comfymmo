@@ -239,13 +239,10 @@ never crash — they fall through to the code-drawn theme. The local mapping liv
 in the gitignored `licensed_assets/sprout_lands/sprout_ui_manifest.json`; the
 committed template `art/sprout_ui_manifest.template.json` has no active paths.
 
-**Sprout-required live build.** The Sprout UI manifest is one of the assets the
-boot-time Sprout requirement checks (`systems/visual/sprout_asset_requirement.gd`):
-with it absent the live game shows the missing-assets screen, so the activated
-Sprout UI — not the code-drawn fallback — is the intended live UI skin. The
-code-drawn `CozyUITheme` boxes now serve diagnostics (including the missing-assets
-screen itself, which must not depend on the Sprout UI it reports as missing) and
-non-visual tests, rather than being a parallel shipped UI style.
+**Optional licensed UI.** The Sprout UI manifest is an optional local enhancement
+reported by `systems/visual/sprout_asset_requirement.gd`; it must not gate boot.
+When it is absent, the live game uses the committed code-drawn `CozyUITheme`
+fallback so clean checkouts remain playable and testable.
 
 ### How the live wiring works
 
@@ -256,9 +253,8 @@ activated for that id they return a nine-patch `StyleBoxTexture` (with content
 margins so labels stay off the border); otherwise they return the existing
 code-drawn box. So a single switch point reskins the system menu, inventory,
 build menu, land panel, admin/worldbuilder panel, edit toolbar, terrain-paint
-controls, and quick tools at once. (With Sprout absent the live world does not
-mount at all — see the Sprout-required note above — so this skinning is the live
-UI, not an optional layer.)
+controls, and quick tools at once. With Sprout absent, these controls still use
+the committed `CozyUITheme` fallback so the live world can boot normally.
 
 What is activated locally is deliberately reviewed and normalized under the
 gitignored `licensed_assets/sprout_lands/normalized/ui/`: panel, button,

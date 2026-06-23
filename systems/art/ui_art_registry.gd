@@ -91,10 +91,11 @@ static func _resolve_local(value: String) -> String:
 ## Resolution order: 1. activated licensed Sprout UI -> 2. generated Hearthvale UI
 ## shape -> 3. generated icon stand-in -> 4. missing placeholder. The cozy
 ## code-drawn theme is the runtime default and is NOT a file (see CozyUITheme).
-static func texture_path(ui_id: String) -> String:
+static func texture_path(ui_id: String, force_allow_sprout: bool = false) -> String:
 	_ensure_loaded()
 	var normalized_id := String(ui_id).strip_edges().to_lower()
-	if _active.has(normalized_id):
+	var allow_sprout_ui := force_allow_sprout or LiveVisualPolicy.should_auto_use_sprout_visuals()
+	if allow_sprout_ui and _active.has(normalized_id):
 		var local_path := _resolve_local(String(_active[normalized_id]))
 		if not local_path.is_empty():
 			return local_path
@@ -107,8 +108,8 @@ static func texture_path(ui_id: String) -> String:
 			return object_path
 	return FALLBACK_PATH
 
-static func texture(ui_id: String) -> Texture2D:
-	return load(texture_path(ui_id)) as Texture2D
+static func texture(ui_id: String, force_allow_sprout: bool = false) -> Texture2D:
+	return load(texture_path(ui_id, force_allow_sprout)) as Texture2D
 
 static func source_of(resolved_path: String) -> String:
 	if resolved_path == FALLBACK_PATH:
@@ -119,8 +120,8 @@ static func source_of(resolved_path: String) -> String:
 
 ## True when a licensed Sprout UI texture is active for this id — the only case
 ## where CozyUITheme swaps its code-drawn box for a nine-patch texture stylebox.
-static func has_licensed(ui_id: String) -> bool:
-	var path := texture_path(ui_id)
+static func has_licensed(ui_id: String, force_allow_sprout: bool = false) -> bool:
+	var path := texture_path(ui_id, force_allow_sprout)
 	return source_of(path) in ["licensed_ui", "licensed_modified"]
 
 static func _margin_for(ui_id: String) -> int:
@@ -134,10 +135,10 @@ static func _margin_for(ui_id: String) -> int:
 ## A nine-patch StyleBoxTexture for an activated licensed Sprout UI id, or null.
 ## Null means "no licensed art — keep the cozy code-drawn style." content_margin
 ## keeps text/children off the textured border so labels stay readable.
-static func texture_stylebox(ui_id: String, content_margin: int = 10) -> StyleBoxTexture:
-	if not has_licensed(ui_id):
+static func texture_stylebox(ui_id: String, content_margin: int = 10, force_allow_sprout: bool = false) -> StyleBoxTexture:
+	if not has_licensed(ui_id, force_allow_sprout):
 		return null
-	var tex := load(texture_path(ui_id)) as Texture2D
+	var tex := load(texture_path(ui_id, force_allow_sprout)) as Texture2D
 	if tex == null:
 		return null
 	var box := StyleBoxTexture.new()

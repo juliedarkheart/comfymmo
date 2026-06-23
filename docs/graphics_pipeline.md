@@ -280,14 +280,11 @@ and `BuildingPlacementSystem` both delegate to it, so placed objects use the sam
 collision as curated ones (metadata preferred; a conservative placement proxy is kept only for
 buildables with no mapped asset). This is commit-safe code; no licensed pixels are committed.
 
-**Sprout-required live build.** The resolver still *technically* falls through to
-generated art when Sprout is absent, but the live game no longer ships that
-fallback as the playable look: `WorldRegionManager` checks
-`SproutAssetRequirement` at boot and mounts the missing-assets screen
-(`ui/missing_assets_screen.gd`) instead of the overworld when the pack is
-missing/inactive. The generated tier is therefore a diagnostic/dev fallback and a
-non-visual smoke-test prop, not the intended live presentation. Policy flag:
-`LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE`.
+**Optional licensed-pack fallback boot.** The resolver may use LimeZu or Sprout
+assets when local licensed manifests are installed, but missing licensed packs must
+not block gameplay. `WorldRegionManager` logs visual-fallback warnings and still
+loads the overworld, using generated/procedural fallback visuals where needed.
+Policy flag: `LiveVisualPolicy.SPROUT_REQUIRED_FOR_LIVE` remains `false`.
 
 ## Original Hearthvale top-down gap-fill (`art/generated/hearthvale/`)
 
@@ -297,12 +294,10 @@ cursor/check fallbacks, object sprites, and actor sprites under
 `art/generated/hearthvale/`. In the live `sprout_topdown` mode the terrain
 registry prefers these over the legacy 64x48 isometric diamonds. They resolve as
 the `generated` source tier and are **not** derived from Sprout (or any
-third-party) media — the script draws them procedurally. Licensed Sprout art, when
-installed locally, wins over them per the order above. **These generated tiles are
-now a diagnostic/dev fallback only** — they are not the shipped live look, because
-the live build is Sprout-required (a no-Sprout boot shows the missing-assets
-screen rather than this fallback). They still back the registries for non-visual
-validation/smoke tests and for inspecting source tiers.
+third-party) media - the script draws them procedurally. Licensed Sprout art, when
+installed locally, wins over them per the order above. These generated tiles are
+the committed safe fallback for clean checkouts, validation/smoke tests, fallback
+boot, and for inspecting source tiers.
 
 The same script also renders **original top-down OBJECT sprites** (96x96,
 bottom-anchored) under `art/generated/hearthvale/objects/{nature,building,decor}/`
@@ -340,7 +335,7 @@ Normal play keeps broad biome/region debug overlays off. Admin/world-builder
 overlays remain explicit tools (F7 or `/overlay`) and may show plot/parcel/marker
 information, but they are separate from the calm default render path.
 
-The current Sprout-first pass tightens that further through
+The current top-down live pass tightens that further through
 `systems/visual/live_visual_policy.gd`: broad procedural border scenery,
 market/fountain slabs, and biome rectangle carpets stay out of normal play.
 Connecting roads/plazas render as tile sprites; plot ground is meadow-first with
@@ -410,7 +405,7 @@ its assets resolve (`LiveVisualPolicy.live_limezu_slice()`):
   interaction radius.
 
 **Sprout stays fully integrated as a secondary/comparison provider** (registries, the
-Sprout-required helper, the Sprout spike, and docs are NOT removed). Extraction is
+optional Sprout readiness helper, the Sprout spike, and docs are NOT removed). Extraction is
 `tools/art/limezu_integrate.py`; spike/live slicing is
 `tools/art/limezu_slice_spike_assets.py` (both write `.gdignore` into raw `extracted/`
 trees so Godot never imports the ~120k licensed PNGs — only reviewed `normalized/`

@@ -141,28 +141,21 @@ func _load_starting_region() -> void:
 	# future instances (dungeons, caves, interiors) will use region swapping. Any
 	# legacy outdoor current_region_id resolves to the overworld.
 	#
-	# Live-provider gate: the live visual build needs the PRIMARY provider's licensed
-	# assets. LimeZu is now primary, so a missing/inactive LimeZu pack mounts a clear
-	# missing-assets screen instead of rendering ugly generated/procedural fallback.
-	# (Sprout stays integrated as a secondary/comparison provider and is not required
-	# to be present for the LimeZu live build.)
+	# Visual provider readiness is advisory, not a boot gate. Preferred local packs
+	# may be missing/corrupt; the registries fall through to generated/procedural
+	# assets so the playable homestead always boots.
 	if LiveVisualPolicy.limezu_is_live_provider():
-		if not LimeZuArtRegistry.is_available():
-			var reason := LimeZuArtRegistry.missing_reason()
-			push_warning("[limezu-required] %s" % reason)
-			_show_missing_assets_screen([
-				"LimeZu local licensed assets are required for the live visual prototype.",
-				reason,
-				"Run: python tools/art/limezu_slice_spike_assets.py --root licensed_assets/limezu --all",
-			])
-			return
-	elif SproutAssetRequirement.REQUIRED:
-		# Sprout is the live provider (fallback selection): keep the Sprout gate.
-		var requirement: Dictionary = SproutAssetRequirement.check()
-		if not bool(requirement["ok"]):
-			push_warning("[sprout-required] %s" % String(requirement["summary"]))
-			_show_missing_assets_screen(requirement["missing"] as Array)
-			return
+		var limezu_status := LimeZuArtRegistry.readiness()
+		var limezu_tier := String(limezu_status.get("tier", LimeZuArtRegistry.READINESS_ABSENT))
+		var reason := LimeZuArtRegistry.missing_reason()
+		if bool(limezu_status.get("usable_for_live", false)):
+			if limezu_tier != LimeZuArtRegistry.READINESS_FULL_LIVE_SLICE and not reason.is_empty():
+				push_warning("[visual-provider] %s" % reason)
+		elif not reason.is_empty():
+			push_warning("[visual-fallback] LimeZu live assets unavailable: %s" % reason)
+	var sprout_requirement: Dictionary = SproutAssetRequirement.check()
+	if not bool(sprout_requirement["ok"]):
+		push_warning("[visual-fallback] %s" % String(sprout_requirement["summary"]))
 	_load_region(OVERWORLD_REGION_ID, "default")
 
 func _show_missing_assets_screen(missing: Array) -> void:

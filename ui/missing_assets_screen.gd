@@ -1,13 +1,12 @@
 extends CanvasLayer
 class_name MissingAssetsScreen
 
-## Shown by WorldRegionManager INSTEAD of the live overworld when the required
-## Sprout Lands pack is missing/inactive (see systems/visual/sprout_asset_requirement.gd).
-## Intentionally plain and code-drawn: it is a diagnostic, not part of the cozy live
-## visual style, so it must never depend on the Sprout UI it is reporting as absent.
+## Diagnostic screen kept for manual/debug use only. Missing licensed art packs are
+## no longer allowed to block runtime boot; WorldRegionManager logs non-blocking
+## fallback warnings and mounts the playable overworld.
 
-const TITLE := "Sprout assets required"
-const BODY := "Hearthvale's live visual build is designed around the licensed Sprout Lands pack (local-only, never committed). It is missing or not activated, so the cozy top-down world will not load.\n\nInstall and activate the Sprout pack under licensed_assets/sprout_lands/ (see docs/licensed_asset_policy.md), then relaunch. A clean checkout without Sprout is no longer a playable visual target — this screen is intentional, not a crash."
+const TITLE := "Optional visual assets missing"
+const BODY := "Some preferred local licensed art packs are missing or inactive. Hearthvale should still boot with LimeZu when ready, then generated/procedural fallback visuals.\n\nLicensed packs remain local-only under licensed_assets/ and are never committed. Missing packs may reduce visual quality, but they must not block the playable homestead."
 
 var _missing: Array[String] = []
 var _built := false

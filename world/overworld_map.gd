@@ -1148,6 +1148,7 @@ func _limezu_should_draw_soil(tile: Vector2i) -> bool:
 func _limezu_ground(logical_id: String, tile: Vector2i, z: int) -> void:
 	if not LimeZuArtRegistry.has_asset(logical_id):
 		return
+	var source_path: String = LimeZuArtRegistry.texture_path(logical_id)
 	var s := Sprite2D.new()
 	s.name = "LimeZuGround_%s_%d_%d" % [logical_id.replace(".", "_"), tile.x, tile.y]
 	s.texture = LimeZuArtRegistry.resolve_texture(logical_id)
@@ -1158,12 +1159,14 @@ func _limezu_ground(logical_id: String, tile: Vector2i, z: int) -> void:
 	s.z_index = z
 	s.set_meta("ground_role", logical_id)
 	s.set_meta("tile", tile)
+	s.set_meta("visual_source_path", source_path)
 	ground_layer.add_child(s)
 
 ## A LimeZu object/animal, bottom-anchored to base_tile and y-sorted via its feet.
 func _limezu_object(logical_id: String, base_tile: Vector2i) -> void:
 	if not LimeZuArtRegistry.has_asset(logical_id):
 		return
+	var source_path: String = LimeZuArtRegistry.texture_path(logical_id)
 	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(logical_id)
 	if tex == null:
 		return
@@ -1172,6 +1175,7 @@ func _limezu_object(logical_id: String, base_tile: Vector2i) -> void:
 	holder.position = grid_to_world(base_tile) + Vector2(0, 16)
 	holder.set_meta("limezu_logical_id", logical_id)
 	holder.set_meta("tile", base_tile)
+	holder.set_meta("visual_source_path", source_path)
 	gameplay_layer.add_child(holder)
 	var s := Sprite2D.new()
 	s.texture = tex
@@ -1181,6 +1185,7 @@ func _limezu_object(logical_id: String, base_tile: Vector2i) -> void:
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	s.set_meta("limezu_logical_id", logical_id)
 	s.set_meta("tile", base_tile)
+	s.set_meta("visual_source_path", source_path)
 	holder.add_child(s)
 
 func _build_overworld_bounds() -> void:

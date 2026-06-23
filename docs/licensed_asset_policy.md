@@ -5,12 +5,10 @@ Some Hearthvale art is **premium, paid, non-redistributable** and must stay
 CC0/CC-BY "external" pipeline (docs/asset_review_workflow.md), which *can* be
 committed.
 
-> **Licensed-assets-required live build.** The playable visual prototype on this
-> branch targets LimeZu, with Sprout kept as a secondary/comparison provider.
-> With required local licensed assets absent, the live world refuses to mount and
-> shows a missing-assets screen (`ui/missing_assets_screen.gd`) — the generated
-> fallback is no longer the shipped live look, only a diagnostic/dev and
-> non-visual-smoke-test prop.
+> **Licensed assets are optional local enhancements.** The playable visual
+> prototype targets LimeZu when mapped local packs are present, with Sprout kept
+> as a secondary/comparison provider. A clean checkout with no licensed assets
+> must still boot using committed generated/procedural fallback visuals.
 
 ## LimeZu (Modern ecosystem) — premium, local only, live provider on this branch
 
@@ -86,11 +84,9 @@ licensed_assets/sprout_lands/
 
 Source tiers reported by `source_of`: `licensed`, `licensed_modified`,
 `external`, `generated`, `missing` (UI adds `licensed_ui`). A clean checkout (no
-`licensed_assets/`) still resolves the registries to the generated
-Hearthvale/legacy art for non-visual smoke tests and validation
-(`tools/validate_project.gd` stays green), but the **live visual build is
-Sprout-required**: it boots to the missing-assets screen rather than presenting
-that fallback as the game. Validation does not demand no-Sprout playability.
+`licensed_assets/`) still resolves the registries to generated Hearthvale/legacy
+art for validation, smoke tests, and playable fallback boot. Validation now
+requires Sprout to remain optional rather than a hard boot gate.
 
 ## What is wired from Sprout (this pass)
 
