@@ -43,9 +43,13 @@ const HEARTHVALE_GENERATED_ICON_PATHS := {
 	ItemIds.TOOL_BASIC_SHOVEL: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_shovel_16px.png",
 	ResourceIds.COMPONENT_SEED_PACKET: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_generic_seed_16px.png",
 	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_generic_seed_16px.png",
+	ContentIds.ITEM_TURNIP: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_turnip_16px.png",
 	ContentIds.ITEM_BERRY: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_berry_16px.png",
 	ResourceIds.MATERIAL_WOOD: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_log_16px.png",
 	ResourceIds.MATERIAL_STONE: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_stone_16px.png",
+	ResourceIds.MATERIAL_FIBER: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_leaf_16px.png",
+	ResourceIds.MATERIAL_CLAY: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_clay_16px.png",
+	ItemIds.WEARABLE_LEAF_CLIP: HEARTHVALE_GENERATED_ICON_ROOT + "item_icon_wearable_leaf_clip_16px.png",
 }
 
 static func _hearthvale_object_path(mapped_path: String) -> String:

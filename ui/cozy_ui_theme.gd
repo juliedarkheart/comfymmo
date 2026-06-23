@@ -167,7 +167,7 @@ static func apply_hud_panel(panel: Control) -> void:
 	if LiveVisualPolicy.live_limezu_slice():
 		panel.add_theme_stylebox_override("panel", LimeZuUITheme.hud_panel_texture_style())
 	else:
-		panel.add_theme_stylebox_override("panel", _ui_box("panel", hud_panel_style(), 12))
+		panel.add_theme_stylebox_override("panel", hud_panel_style())
 
 static func apply_slot(panel: Control, selected: bool = false, blocked: bool = false) -> void:
 	if panel == null:

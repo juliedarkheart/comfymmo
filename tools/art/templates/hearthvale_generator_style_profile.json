@@ -56,6 +56,7 @@
     "leaf_mid": "#5d9a4f",
     "leaf_light": "#8fc46a",
     "soil": "#6b4a2e",
+    "clay": "#b46f52",
     "stone": "#8d8a82",
     "water": "#4f86b8",
     "berry": "#b8434f",
@@ -72,8 +73,12 @@
   },
   "categories": {
     "item_icon": {"cell_px": 16, "template": "centered_silhouette", "out_dir": "hearthvale_generated/item_icons"},
+    "seed_packet": {"cell_px": 16, "template": "paper_packet_with_crop_accent", "out_dir": "hearthvale_generated/item_icons"},
+    "crop_stage_sprite": {"cell_px": 16, "template": "soil_plus_growth_stage", "out_dir": "hearthvale_generated/crops"},
     "crop_resource_icon": {"cell_px": 16, "template": "stacked_or_clustered", "out_dir": "hearthvale_generated/resource_icons"},
+    "wearable_icon": {"cell_px": 16, "template": "accessory_silhouette", "out_dir": "hearthvale_generated/wearables"},
     "furniture_prop": {"cell_px": 32, "template": "bottom_anchored_prop", "out_dir": "hearthvale_generated/props"},
+    "avatar_part_placeholder": {"cell_px": 48, "template": "body_part_sheet_cell", "out_dir": "hearthvale_generated/avatar_parts"},
     "ui_badge": {"cell_px": 16, "template": "framed_glyph", "out_dir": "hearthvale_generated/ui_badges"},
     "portrait_placeholder": {"cell_px": 48, "template": "bust_silhouette", "out_dir": "hearthvale_generated/portraits"},
     "color_variant": {"cell_px": 16, "template": "palette_swap_of_original_source", "out_dir": "hearthvale_generated/variants"}

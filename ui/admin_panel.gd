@@ -101,6 +101,7 @@ func _ready() -> void:
 	_row_button(terrain_row, "Brush", func() -> void: _call("admin_paint_terrain_brush", [_picked_terrain()]), "Paint one tile")
 	_row_button(terrain_row, "Fill", func() -> void: _call("admin_paint_terrain_fill", [_picked_terrain()]), "Fill area")
 	_row_button(terrain_row, "Reset", func() -> void: _call("admin_reset_terrain_here", []), "Reset terrain here")
+	_add_button("Grow Crops", func() -> void: _call("admin_grow_crops", []))
 
 	# --- Visual parcel tool: stake two corners, see a preview, confirm ---------
 	_add_heading("Visual Parcel Tool")
