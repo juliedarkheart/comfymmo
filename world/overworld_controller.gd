@@ -183,6 +183,7 @@ func _refresh_quick_tools() -> void:
 		_quick_tools.call("refresh")
 
 func _on_quick_tool_selected(selected_hotbar_index: int, selected_item_id: String, held_visual_id: String) -> void:
+	set_selected_farming_item(selected_item_id)
 	var player: AvatarController = _find_player()
 	if player != null and player.has_method("set_selected_hotbar_tool"):
 		player.call("set_selected_hotbar_tool", selected_hotbar_index, selected_item_id, held_visual_id)
@@ -2009,7 +2010,8 @@ func _show_welcome_if_first_boot() -> void:
 		"Welcome to Hearthvale",
 		"Gather wood, stone, fiber, and clay from the piles around your homestead (walk up, press F). "
 		+ "Build with B - Tab switches items and shows their cost - and edit with E. "
-		+ "Tend the farm plots, check the mailbox, and rest at the cottage door at dusk. "
+		+ "Farm with quickbar tools: Hoe tills, Seed Packet plants, Watering Can waters, then harvest mature crops with F. "
+		+ "Check the mailbox, and rest at the cottage door at dusk. "
 		+ "Inventory is I, the minimap is M, help is H, Esc/Start opens the menu, and F11 switches fullscreen/windowed. "
 		+ "The mirror by the cottage opens your wardrobe (F9 works too). "
 		+ "F8 opens multiplayer, F10 opens dev tools."

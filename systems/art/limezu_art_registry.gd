@@ -29,6 +29,20 @@ const PACK_IDS: Array[String] = [
 	"rpg_arsenal",
 ]
 
+const LIVE_REQUIRED_IDS: Array[String] = [
+	"terrain.grass",
+	"terrain.dirt_path",
+	"terrain.tilled_soil",
+	"object.barn",
+	"object.tree",
+	"object.fence_horizontal",
+	"crop.carrot",
+	"animal.chicken",
+	"character.farmer_idle",
+	"ui.panel",
+	"ui.slot",
+]
+
 static var _loaded := false
 static var _active: Dictionary = {}
 
@@ -147,6 +161,15 @@ static func missing_ids(ids: Array) -> Array[String]:
 			out.append(String(id))
 	return out
 
+static func live_required_ids() -> Array[String]:
+	return LIVE_REQUIRED_IDS.duplicate()
+
+static func live_missing_ids() -> Array[String]:
+	return missing_ids(LIVE_REQUIRED_IDS)
+
+static func live_ready() -> bool:
+	return live_missing_ids().is_empty()
+
 ## Candidate source files per logical id, aggregated from each pack's local
 ## manifests/candidates.json (written by limezu_integrate.py). Best-effort review aid.
 static func list_candidates() -> Array:
@@ -164,10 +187,11 @@ static func list_candidates() -> Array:
 				out.append({"pack": pack_id, "id": String(logical_id), "sources": (cands as Dictionary)[logical_id]})
 	return out
 
-## True when the local pack is installed AND at least one id resolves to a real file.
+## True when the manifest resolves enough core ids for the live LimeZu world slice.
+## A UI-only manifest is useful for menus, but must not enable the world renderer.
 static func is_available() -> bool:
 	_ensure_loaded()
-	return not list_active_ids().is_empty()
+	return live_ready()
 
 ## True when a pack's extracted/ folder exists locally (raw pack present).
 static func pack_present(pack_id: String) -> bool:
@@ -178,6 +202,9 @@ static func missing_reason() -> String:
 	_ensure_loaded()
 	if not FileAccess.file_exists(ACTIVE_MANIFEST_PATH):
 		return "LimeZu activation manifest not found. Run: python tools/art/limezu_integrate.py --all"
+	var missing_live_ids: Array[String] = live_missing_ids()
+	if not missing_live_ids.is_empty():
+		return "LimeZu manifest is partial; missing live slice ids: %s" % ", ".join(missing_live_ids)
 	if list_active_ids().is_empty():
 		return "LimeZu manifest has no resolvable assets yet — review the contact sheets in licensed_assets/limezu/**/contact_sheets and map logical ids in limezu_active_manifest.json."
 	return ""

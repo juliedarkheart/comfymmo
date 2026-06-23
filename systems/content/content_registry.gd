@@ -15,6 +15,7 @@ static func items() -> Dictionary:
 		ContentIds.ITEM_CARROT: {"id": ContentIds.ITEM_CARROT, "display_name": "Carrot", "category": "crop", "icon_id": "", "stackable": true},
 		ContentIds.ITEM_TURNIP: {"id": ContentIds.ITEM_TURNIP, "display_name": "Turnip", "category": "crop", "icon_id": "", "stackable": true},
 		ContentIds.ITEM_BERRY: {"id": ContentIds.ITEM_BERRY, "display_name": "Berry", "category": "crop", "icon_id": "", "stackable": true},
+		ContentIds.ITEM_PLACEHOLDER_SEED_PACKET: {"id": ContentIds.ITEM_PLACEHOLDER_SEED_PACKET, "display_name": "Seed Packet", "category": "seed", "icon_id": "icon.seed", "stackable": true},
 	}
 
 # --- Crops ---------------------------------------------------------------------

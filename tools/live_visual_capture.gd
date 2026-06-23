@@ -89,6 +89,13 @@ const EDIT_SELECTED_ASSET_FILE := OUT_DIR + "/live_limezu_edit_selected_asset.pn
 const ADMIN_SAFE_PANEL_FILE := OUT_DIR + "/live_limezu_admin_safe_panel_position.png"
 const VISIBLE_FARM_PATCH_FILE := OUT_DIR + "/live_limezu_visible_farm_patch.png"
 const FARM_PROMPT_VISIBLE_PATCH_FILE := OUT_DIR + "/live_limezu_farm_prompt_visible_patch.png"
+const FARM_BEFORE_HOE_FILE := OUT_DIR + "/live_limezu_farm_before_hoe.png"
+const FARM_AFTER_HOE_TILLED_FILE := OUT_DIR + "/live_limezu_farm_after_hoe_tilled.png"
+const FARM_PLANTED_STAGE1_FILE := OUT_DIR + "/live_limezu_farm_planted_stage1.png"
+const FARM_CROP_STAGE_UPDATE_FILE := OUT_DIR + "/live_limezu_farm_crop_stage_update.png"
+const FARM_HARVEST_READY_FILE := OUT_DIR + "/live_limezu_farm_harvest_ready.png"
+const BUILD_CATALOG_REAL_ASSETS_FILE := OUT_DIR + "/live_limezu_build_catalog_real_assets.png"
+const GENERATED_COMMON_ITEMS_REVIEW_FILE := OUT_DIR + "/live_limezu_generated_common_items_review.png"
 
 func _initialize() -> void:
 	var scene: PackedScene = load("res://scenes/main.tscn") as PackedScene
@@ -214,6 +221,11 @@ func _initialize() -> void:
 				print("[live-capture] saved ", PLAYABILITY_FARM_PROMPT_FILE); farm_img.save_png(STARDEW_PROMPT_FILE); farm_img.save_png(POLISH_PROMPT_FILE); farm_img.save_png(POLISH_FARM_FILE); farm_img.save_png(COLLISION_FARM_FILE); farm_img.save_png(FARM_META_FILE); farm_img.save_png(PIXEL_FARM_PROMPT_FILE); farm_img.save_png(FARM_PROMPT_VISIBLE_PATCH_FILE); print("[live-capture] saved ", STARDEW_PROMPT_FILE)
 			else:
 				push_warning("[live-capture] failed to save farm prompt screenshot")
+		await _capture_farm_state(player, FarmingSystem.STAGE_EMPTY, "carrot", false, FARM_BEFORE_HOE_FILE)
+		await _capture_farm_state(player, FarmingSystem.STAGE_TILLED_SOIL, "carrot", false, FARM_AFTER_HOE_TILLED_FILE)
+		await _capture_farm_state(player, FarmingSystem.STAGE_PLANTED_SEED, "carrot", false, FARM_PLANTED_STAGE1_FILE)
+		await _capture_farm_state(player, FarmingSystem.STAGE_CROP_STAGE_2, "carrot", true, FARM_CROP_STAGE_UPDATE_FILE)
+		await _capture_farm_state(player, FarmingSystem.STAGE_CROP_STAGE_3, "carrot", false, FARM_HARVEST_READY_FILE)
 	_close_review_overlays()
 	for _i in range(4):
 		await process_frame
@@ -418,6 +430,7 @@ func _capture_build_asset_proofs(player: Node2D) -> void:
 		await process_frame
 	var placed_img: Image = _grab_image()
 	if placed_img != null and placed_img.save_png(PLACED_ASSET_VISUAL_FILE) == OK:
+		placed_img.save_png(BUILD_CATALOG_REAL_ASSETS_FILE)
 		print("[live-capture] saved ", PLACED_ASSET_VISUAL_FILE)
 	if not proof_nodes.is_empty() and proof_nodes[0].has_method("set_selected"):
 		proof_nodes[0].call("set_selected", true)
@@ -515,9 +528,57 @@ func _copy_generated_icon_review() -> void:
 		push_warning("[live-capture] failed to load generated icon review sheet")
 		return
 	if img.save_png(GENERATED_TOOL_ICONS_REVIEW_FILE) == OK:
+		img.save_png(GENERATED_COMMON_ITEMS_REVIEW_FILE)
 		print("[live-capture] saved ", GENERATED_TOOL_ICONS_REVIEW_FILE)
 	else:
 		push_warning("[live-capture] failed to save generated icon review screenshot")
+
+func _capture_farm_state(player: Node2D, stage: String, crop_id: String, watered: bool, file_path: String) -> void:
+	var map := _find_map()
+	if map == null or not map.has_method("grid_to_world"):
+		return
+	for plot in _find_farm_plot_nodes():
+		if plot.has_method("set_plot_state"):
+			plot.call("set_plot_state", {
+				"stage": FarmingSystem.STAGE_EMPTY,
+				"crop_id": "carrot",
+				"watered": false,
+				"is_nearby": false,
+			})
+	var target_plot := _find_farm_plot_node("FarmPlotCarrot")
+	if target_plot != null and target_plot.has_method("set_plot_state"):
+		target_plot.call("set_plot_state", {
+			"stage": stage,
+			"crop_id": crop_id,
+			"watered": watered,
+			"is_nearby": true,
+		})
+	var farm_tile: Vector2i = OverworldMap.LIMEZU_TILLED_SOIL_RECT.position
+	player.global_position = (map.call("grid_to_world", farm_tile + Vector2i(1, 1)) as Vector2) + Vector2(0, -56)
+	_reset_player_camera(player)
+	for _i in range(14):
+		await process_frame
+	var img: Image = _grab_image()
+	if img != null and img.save_png(file_path) == OK:
+		print("[live-capture] saved ", file_path)
+	else:
+		push_warning("[live-capture] failed to save farm-state screenshot: %s" % file_path)
+
+func _find_farm_plot_nodes() -> Array[Node]:
+	var root := get_root()
+	if root == null:
+		return []
+	var plots: Array[Node] = []
+	for node in root.find_children("FarmPlot*", "Node2D", true, false):
+		if node.has_method("set_plot_state"):
+			plots.append(node)
+	return plots
+
+func _find_farm_plot_node(node_name: String) -> Node:
+	for plot in _find_farm_plot_nodes():
+		if String(plot.name) == node_name:
+			return plot
+	return null
 
 func _reset_player_camera(player: Node2D) -> void:
 	if player == null:

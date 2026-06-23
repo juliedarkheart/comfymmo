@@ -8,6 +8,14 @@ const DEFAULT_MOOD: String = "morning"
 const DEFAULT_DAY_COUNT: int = 1
 const QUICKBAR_SLOT_COUNT: int = 9
 
+var _save_path_override: String = ""
+
+func set_save_path_for_tests(path: String) -> void:
+	_save_path_override = path.strip_edges()
+
+func _active_save_path() -> String:
+	return _save_path_override if not _save_path_override.is_empty() else HOMESTEAD_SAVE_PATH
+
 func get_current_region_id() -> String:
 	var save_data: Dictionary = load_save_data()
 	var world_data: Dictionary = _get_dictionary_section(save_data, "world")
@@ -143,6 +151,7 @@ static func default_quickbar_slots() -> Array[String]:
 		ItemIds.TOOL_WATERING_CAN,
 		ItemIds.TOOL_SIMPLE_HAMMER,
 		ItemIds.TOOL_BASIC_SHOVEL,
+		ContentIds.ITEM_PLACEHOLDER_SEED_PACKET,
 	]:
 		slots.append(String(item_id))
 	while slots.size() < QUICKBAR_SLOT_COUNT:
@@ -258,10 +267,11 @@ func set_instance_state(instance_id: String, instance_state: Dictionary) -> void
 	save_save_data(save_data)
 
 func load_save_data() -> Dictionary:
-	if not FileAccess.file_exists(HOMESTEAD_SAVE_PATH):
+	var active_save_path: String = _active_save_path()
+	if not FileAccess.file_exists(active_save_path):
 		return _create_default_save_data()
 
-	var save_file: FileAccess = FileAccess.open(HOMESTEAD_SAVE_PATH, FileAccess.READ)
+	var save_file: FileAccess = FileAccess.open(active_save_path, FileAccess.READ)
 	if save_file == null:
 		return _create_default_save_data()
 
@@ -371,9 +381,10 @@ func set_region_flag(region_id: String, key: String, value: Variant) -> void:
 
 func save_save_data(save_data: Dictionary) -> void:
 	var payload: Dictionary = _migrate_save_data(save_data)
-	var save_file: FileAccess = FileAccess.open(HOMESTEAD_SAVE_PATH, FileAccess.WRITE)
+	var active_save_path: String = _active_save_path()
+	var save_file: FileAccess = FileAccess.open(active_save_path, FileAccess.WRITE)
 	if save_file == null:
-		push_warning("Unable to open save file: %s" % HOMESTEAD_SAVE_PATH)
+		push_warning("Unable to open save file: %s" % active_save_path)
 		return
 
 	save_file.store_string(JSON.stringify(payload, "\t"))

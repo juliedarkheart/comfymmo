@@ -631,13 +631,18 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 			_announce("This plot needs attention later.")
 			return
 
+	# Clear success feedback for each action (the no-op / wrong-tool cases above
+	# already toast; the player should also hear when an action lands).
 	match String(interaction_result.get("action", "")):
 		"till":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
+			_announce("Tilled the soil. Select a Seed Packet to plant.")
 		"plant":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
+			_announce("Planted %s." % _crop_label(_plot_crop_id(interactable_id)))
 		"water":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
+			_announce("Watered the crop. Rest or use Grow Crops (F7) to advance it.")
 		"harvest":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 5, 2)
 	if not bool(interaction_result.get("changed", false)):
@@ -650,6 +655,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 		if object_registry.get_item_definition(harvested_crop_id).is_empty():
 			harvested_crop_id = CARROT_ITEM_ID
 		inventory_system.add_item(harvested_crop_id, 1)
+		_announce("Harvested %s! (now %d)" % [_crop_label(harvested_crop_id), inventory_system.get_quantity(harvested_crop_id)])
 		if task_integration_system.mark_message_completed(
 			TaskIntegrationSystem.HARVEST_CARROT_TASK_ID
 		):
@@ -679,6 +685,16 @@ func _plot_crop_id(plot_id: String) -> String:
 	if ContentRegistry.crops().has(crop_id):
 		return crop_id
 	return CARROT_ITEM_ID
+
+## Readable name for a crop/item id (crops registry -> items registry -> capitalize).
+func _crop_label(crop_id: String) -> String:
+	var crop: Variant = ContentRegistry.crops().get(crop_id, {})
+	if typeof(crop) == TYPE_DICTIONARY and (crop as Dictionary).has("display_name"):
+		return String((crop as Dictionary)["display_name"])
+	var item: Variant = ContentRegistry.items().get(crop_id, {})
+	if typeof(item) == TYPE_DICTIONARY and (item as Dictionary).has("display_name"):
+		return String((item as Dictionary)["display_name"])
+	return crop_id.capitalize()
 
 func admin_grow_crops() -> void:
 	var changed_count: int = farming_system.advance_all_plots(true)

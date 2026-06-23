@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hearthvale Icon Recipe Manifest",
+  "description": "Metadata for procedurally generated Hearthvale item icons. Maps recipe IDs to visual specs and runtime usage. Local/gitignored generated PNGs stay under licensed_assets/limezu/generator_outputs/ until commit policy is established.",
+  "version": "1.0.0",
+  "recipes": [
+    {
+      "id": "hoe",
+      "category": "tool",
+      "output_size_px": 16,
+      "palette_group": "wood_stone",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon",
+      "fallback_id": "generic_tool",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "axe",
+      "category": "tool",
+      "output_size_px": 16,
+      "palette_group": "wood_stone",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon",
+      "fallback_id": "generic_tool",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "pickaxe",
+      "category": "tool",
+      "output_size_px": 16,
+      "palette_group": "wood_stone",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon",
+      "fallback_id": "generic_tool",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "shovel",
+      "category": "tool",
+      "output_size_px": 16,
+      "palette_group": "wood_stone",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon",
+      "fallback_id": "generic_tool",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "watering_can",
+      "category": "tool",
+      "output_size_px": 16,
+      "palette_group": "water_metal",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon",
+      "fallback_id": "generic_tool",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "carrot_seed_packet",
+      "category": "seed",
+      "output_size_px": 16,
+      "palette_group": "parchment_leaf",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon_inventory",
+      "fallback_id": "generic_seed",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "turnip_seed_packet",
+      "category": "seed",
+      "output_size_px": 16,
+      "palette_group": "parchment_leaf",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon_inventory",
+      "fallback_id": "generic_seed",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "berry_seed_packet",
+      "category": "seed",
+      "output_size_px": 16,
+      "palette_group": "parchment_berry",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon_inventory",
+      "fallback_id": "generic_seed",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "wood",
+      "category": "material",
+      "output_size_px": 16,
+      "palette_group": "wood",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "inventory_icon",
+      "fallback_id": "generic_material",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "stone",
+      "category": "material",
+      "output_size_px": 16,
+      "palette_group": "stone",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "inventory_icon",
+      "fallback_id": "generic_material",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "clay",
+      "category": "material",
+      "output_size_px": 16,
+      "palette_group": "clay_earth",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "inventory_icon",
+      "fallback_id": "generic_material",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "fiber",
+      "category": "material",
+      "output_size_px": 16,
+      "palette_group": "leaf",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "inventory_icon",
+      "fallback_id": "generic_material",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "carrot_crop",
+      "category": "crop",
+      "output_size_px": 16,
+      "palette_group": "wood_leaf",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "inventory_icon",
+      "fallback_id": "generic_crop",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "turnip_crop",
+      "category": "crop",
+      "output_size_px": 16,
+      "palette_group": "parchment_leaf",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "inventory_icon",
+      "fallback_id": "generic_crop",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "berry_crop",
+      "category": "crop",
+      "output_size_px": 16,
+      "palette_group": "berry_leaf",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "inventory_icon",
+      "fallback_id": "generic_crop",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "crate",
+      "category": "prop",
+      "output_size_px": 16,
+      "palette_group": "wood",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "build_menu_icon",
+      "fallback_id": "generic_furniture",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "sign",
+      "category": "prop",
+      "output_size_px": 16,
+      "palette_group": "wood",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "build_menu_icon",
+      "fallback_id": "generic_furniture",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "fence",
+      "category": "prop",
+      "output_size_px": 16,
+      "palette_group": "wood",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "build_menu_icon",
+      "fallback_id": "generic_furniture",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "simple_chair",
+      "category": "furniture",
+      "output_size_px": 16,
+      "palette_group": "wood",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "build_menu_icon",
+      "fallback_id": "generic_furniture",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "simple_table",
+      "category": "furniture",
+      "output_size_px": 16,
+      "palette_group": "wood",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "build_menu_icon",
+      "fallback_id": "generic_furniture",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "simple_chest",
+      "category": "furniture",
+      "output_size_px": 16,
+      "palette_group": "wood_metal",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "build_menu_icon",
+      "fallback_id": "generic_furniture",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "workbench",
+      "category": "furniture",
+      "output_size_px": 16,
+      "palette_group": "wood_stone",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "build_menu_icon",
+      "fallback_id": "generic_furniture",
+      "commit_status": "local_only"
+    },
+    {
+      "id": "empty_hands",
+      "category": "tool",
+      "output_size_px": 16,
+      "palette_group": "skin",
+      "outline_rule": "1px_darker_shade",
+      "shadow_rule": "1px_down_contact_dot",
+      "runtime_use": "quickbar_icon",
+      "fallback_id": "generic_tool",
+      "commit_status": "local_only"
+    }
+  ],
+  "fallback_chain": {
+    "tool": ["generic_tool", "procedural_glyph"],
+    "seed": ["generic_seed", "procedural_glyph"],
+    "material": ["generic_material", "procedural_glyph"],
+    "crop": ["generic_crop", "procedural_glyph"],
+    "prop": ["generic_furniture", "procedural_glyph"],
+    "furniture": ["generic_furniture", "procedural_glyph"],
+    "wearable": ["generic_wearable", "procedural_glyph"]
+  },
+  "notes": [
+    "All generated outputs remain under licensed_assets/limezu/generator_outputs/ (gitignored).",
+    "Runtime systems should check for generated asset → LimeZu mapped asset → fallback → glyph.",
+    "No generated PNG should ever be committed until docs/hearthvale_asset_generator_plan.md declares commit policy.",
+    "Style profile at tools/art/templates/hearthvale_generator_style_profile.json defines palette and rules."
+  ]
+}

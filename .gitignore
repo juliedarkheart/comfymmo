@@ -40,3 +40,13 @@ licensed_assets/**/modified/
 licensed_assets/**/contact_sheets/
 licensed_assets/**/manifests/
 
+
+# Local licensed asset packs - never commit
+licensed_assets/
+
+
+# Local agent/codegen backup files
+*_backup.patch
+*.tmp
+*.bak
+

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hearthvale Wearable & Cosmetic Recipe Manifest",
+  "description": "Metadata for character customization icon scaffolds. These are UI preview icons only; actual character sprites come from LimeZu Character Generator or future Hearthvale animation sheets. All generated outputs are gitignored until commit policy is set.",
+  "version": "1.0.0",
+  "wearable_categories": [
+    {
+      "category": "tops",
+      "display_name": "Tops & Shirts",
+      "recipes": [
+        {
+          "id": "shirt_icon",
+          "visual_note": "Simple tunic/shirt silhouette",
+          "palette_group": "cloth_neutral",
+          "runtime_use": "wardrobe_picker_icon",
+          "fallback_id": "generic_wearable",
+          "commit_status": "local_only"
+        }
+      ]
+    },
+    {
+      "category": "bottoms",
+      "display_name": "Pants & Skirts",
+      "recipes": [
+        {
+          "id": "pants_icon",
+          "visual_note": "Simple pants silhouette",
+          "palette_group": "cloth_dark",
+          "runtime_use": "wardrobe_picker_icon",
+          "fallback_id": "generic_wearable",
+          "commit_status": "local_only"
+        }
+      ]
+    },
+    {
+      "category": "dresses",
+      "display_name": "Dresses & Robes",
+      "recipes": [
+        {
+          "id": "dress_icon",
+          "visual_note": "Simple dress silhouette",
+          "palette_group": "cloth_accent",
+          "runtime_use": "wardrobe_picker_icon",
+          "fallback_id": "generic_wearable",
+          "commit_status": "local_only"
+        }
+      ]
+    },
+    {
+      "category": "footwear",
+      "display_name": "Shoes & Boots",
+      "recipes": [
+        {
+          "id": "shoes_icon",
+          "visual_note": "Simple shoe/boot silhouette",
+          "palette_group": "leather_dark",
+          "runtime_use": "wardrobe_picker_icon",
+          "fallback_id": "generic_wearable",
+          "commit_status": "local_only"
+        }
+      ]
+    },
+    {
+      "category": "headwear",
+      "display_name": "Hats & Caps",
+      "recipes": [
+        {
+          "id": "hat_icon",
+          "visual_note": "Simple hat/cap silhouette",
+          "palette_group": "cloth_accent",
+          "runtime_use": "wardrobe_picker_icon",
+          "fallback_id": "generic_wearable",
+          "commit_status": "local_only"
+        }
+      ]
+    },
+    {
+      "category": "hair",
+      "display_name": "Hairstyles",
+      "recipes": [
+        {
+          "id": "hair_icon",
+          "visual_note": "Simple hair silhouette",
+          "palette_group": "hair_natural",
+          "runtime_use": "wardrobe_picker_icon",
+          "fallback_id": "generic_wearable",
+          "commit_status": "local_only"
+        }
+      ]
+    },
+    {
+      "category": "accessories",
+      "display_name": "Accessories",
+      "recipes": [
+        {
+          "id": "accessory_icon",
+          "visual_note": "Simple earrings/jewelry silhouette",
+          "palette_group": "metal_accent",
+          "runtime_use": "wardrobe_picker_icon",
+          "fallback_id": "generic_wearable",
+          "commit_status": "local_only"
+        },
+        {
+          "id": "wearable_leaf_clip",
+          "visual_note": "Decorative leaf hair clip",
+          "palette_group": "leaf_gold",
+          "runtime_use": "wardrobe_picker_icon",
+          "fallback_id": "generic_wearable",
+          "commit_status": "local_only"
+        }
+      ]
+    }
+  ],
+  "implementation_notes": {
+    "current_system": "dev_character_creator_panel.gd uses CharacterAppearance.gd model + AvatarVisual.gd rebuild",
+    "sprite_source": "LimeZu Character Generator (current) or future Hearthvale animation sheets",
+    "icon_purpose": "These recipes generate UI picker icons only, not the actual character sprites",
+    "palette_variants": "Each wearable type should support palette variants (e.g., shirt in red/blue/green)",
+    "animation_requirements": "Future character sprites need walk/idle animations in 4 directions (down/up/left/right)",
+    "held_tool_attachment": "Character sprites must support held tool overlay at correct hand position",
+    "body_part_customization": "Full customization includes: skin tone, body type, hair style, hair color, outfit, accessories",
+    "limezu_intake": "LimeZu Character Generator config can be exported as JSON and imported here",
+    "future_direction": "Eventually migrate to Hearthvale-original character generator following same visual style"
+  },
+  "fallback_chain": ["specific_wearable_icon", "generic_wearable", "procedural_glyph"],
+  "notes": [
+    "All generated wearable icons are local/gitignored until commit policy is set.",
+    "Character sprites themselves come from external generators (LimeZu or future Hearthvale).",
+    "These icons are for wardrobe panel UI only.",
+    "Runtime should check: specific icon → generic wearable → glyph.",
+    "See docs/character_customization.md for full customization architecture."
+  ]
+}

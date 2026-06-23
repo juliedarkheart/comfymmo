@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hearthvale Crop Stage Recipe Manifest",
+  "description": "Visual recipes for farming system crop stages. Each crop has 4 stages: tilled_soil → stage_1 (sprouting) → stage_2 (growing) → stage_3 (harvest-ready). Generated outputs are gitignored until commit policy is set.",
+  "version": "1.0.0",
+  "crop_recipes": [
+    {
+      "crop_id": "carrot",
+      "display_name": "Carrot",
+      "stages": [
+        {
+          "stage": "tilled_soil",
+          "recipe_id": "tilled_soil",
+          "visual_note": "Diamond-shaped tilled soil, no crop visible",
+          "palette_group": "soil",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "planted_seed",
+          "recipe_id": "carrot_stage_1",
+          "visual_note": "First green sprouts emerging from soil",
+          "palette_group": "soil_leaf",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_1",
+          "recipe_id": "carrot_stage_1",
+          "visual_note": "Small green leaves",
+          "palette_group": "soil_leaf",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_2",
+          "recipe_id": "carrot_stage_2",
+          "visual_note": "Larger leafy greens, carrot top visible",
+          "palette_group": "soil_leaf",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_3",
+          "recipe_id": "carrot_stage_3",
+          "visual_note": "Full bushy greens, orange carrot partially visible",
+          "palette_group": "soil_leaf_carrot",
+          "runtime_use": "farm_plot_sprite"
+        }
+      ]
+    },
+    {
+      "crop_id": "turnip",
+      "display_name": "Turnip",
+      "stages": [
+        {
+          "stage": "tilled_soil",
+          "recipe_id": "tilled_soil",
+          "visual_note": "Diamond-shaped tilled soil, no crop visible",
+          "palette_group": "soil",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "planted_seed",
+          "recipe_id": "turnip_stage_1",
+          "visual_note": "First sprouts, pale green",
+          "palette_group": "soil_leaf",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_1",
+          "recipe_id": "turnip_stage_1",
+          "visual_note": "Small leafy sprouts",
+          "palette_group": "soil_leaf",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_2",
+          "recipe_id": "turnip_stage_2",
+          "visual_note": "Larger leaves, turnip top emerging",
+          "palette_group": "soil_leaf",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_3",
+          "recipe_id": "turnip_stage_3",
+          "visual_note": "Full leaves, white/cream turnip bulb visible",
+          "palette_group": "soil_leaf_turnip",
+          "runtime_use": "farm_plot_sprite"
+        }
+      ]
+    },
+    {
+      "crop_id": "berry",
+      "display_name": "Berry Bush",
+      "stages": [
+        {
+          "stage": "tilled_soil",
+          "recipe_id": "tilled_soil",
+          "visual_note": "Diamond-shaped tilled soil, no crop visible",
+          "palette_group": "soil",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "planted_seed",
+          "recipe_id": "berry_stage_1",
+          "visual_note": "First tiny bush sprout",
+          "palette_group": "soil_leaf",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_1",
+          "recipe_id": "berry_stage_1",
+          "visual_note": "Small bushy leaves",
+          "palette_group": "soil_leaf",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_2",
+          "recipe_id": "berry_stage_2",
+          "visual_note": "Larger bush, first berries appearing",
+          "palette_group": "soil_leaf_berry",
+          "runtime_use": "farm_plot_sprite"
+        },
+        {
+          "stage": "crop_stage_3",
+          "recipe_id": "berry_stage_3",
+          "visual_note": "Full berry bush with multiple ripe berries",
+          "palette_group": "soil_leaf_berry",
+          "runtime_use": "farm_plot_sprite"
+        }
+      ]
+    }
+  ],
+  "watering_state": {
+    "recipe_id": "watered_soil",
+    "visual_note": "Tilled soil with water tint/shimmer",
+    "palette_group": "water_soil",
+    "runtime_use": "farm_plot_sprite_overlay_or_alternate"
+  },
+  "fallback_stages": {
+    "tilled_soil": "procedural_diamond_soil",
+    "planted_seed": "generic_crop_stage_1",
+    "crop_stage_1": "generic_crop_stage_1",
+    "crop_stage_2": "generic_crop_stage_2",
+    "crop_stage_3": "generic_crop_stage_3"
+  },
+  "notes": [
+    "farm_plot.gd should resolve visuals in this order: crop-specific stage → generic crop stage → procedural fallback → glyph.",
+    "All crop stage outputs are local/gitignored until commit policy allows them.",
+    "FarmingSystem already has the full stage model; this manifest just maps stages to generated visual IDs.",
+    "Watered state can be rendered as a modulate tint or alternate sprite depending on farm_plot implementation."
+  ]
+}
