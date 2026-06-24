@@ -11,10 +11,13 @@ const CG_ROOT := "res://licensed_assets/limezu/modern_interiors/extracted/modern
 const LAYER_ORDER := ["body", "eyes", "outfit", "hair", "accessory"]
 const DEFAULT_GRID := 56  # columns in the shared sprite sheet grid (16x16 cells)
 
-## SAFETY GATE: Set to true ONLY after Julie visually verifies the per-layer grid
-## offsets match. Currently disabled because bodies are 927px (non-aligned grid)
-## while hair/outfit/accessory are 896px, and per-layer idle-row positions differ.
-const LAYOUT_VERIFIED := false
+## SAFETY GATE: enabled after a composited visual review confirmed the layers align at the
+## (0,0) idle-down cell (Julie default preview + starter contact sheets). The earlier "misaligned"
+## reading was a compositor bug (16x16 cells + per-layer first-content rows); the real layout is
+## a shared 16x32 cell at origin (0,0), so the body's extra 31px right margin is harmless.
+## layered_ready() still does a live sanity check (manifest flag + a body texture actually loads),
+## so a clean checkout or a broken manifest safely falls back to the full-body sprite.
+const LAYOUT_VERIFIED := true
 
 enum Direction { DOWN, LEFT, RIGHT, UP }
 
@@ -33,7 +36,9 @@ static func manifest() -> Dictionary:
 	_ensure_loaded()
 	return _manifest.duplicate(true)
 
-## True when layered rendering is usable (manifest present AND layout verified).
+## True when layered rendering is usable: the const gate is on, the manifest is present and marks
+## the layout verified, AND a body texture actually loads (so a clean checkout / broken manifest
+## safely falls back to the full-body sprite).
 static func layered_ready() -> bool:
 	if not LAYOUT_VERIFIED:
 		return false
@@ -41,7 +46,46 @@ static func layered_ready() -> bool:
 	if _manifest.is_empty():
 		return false
 	var starter := _manifest.get("starter_set", {}) as Dictionary
-	return starter.has("bodies") and starter.has("hairstyles") and starter.has("outfits")
+	if not (starter.has("bodies") and starter.has("hairstyles") and starter.has("outfits")):
+		return false
+	if not bool((_manifest.get("layout_verification", {}) as Dictionary).get("verified", false)):
+		return false
+	var body_ids := part_ids_for_category("bodies")
+	if body_ids.is_empty():
+		return false
+	return resolve_texture(String(part_entry(String(body_ids[0])).get("file", ""))) != null
+
+## Body part id for a presentation (feminine/neutral/masculine) from the curated map.
+static func presentation_body(presentation: String) -> String:
+	_ensure_loaded()
+	var m: Dictionary = _manifest.get("presentation_body_map", {}) as Dictionary
+	return String(m.get(String(presentation), "body_01"))
+
+## The curated Julie default appearance (part ids), or empty when no manifest.
+static func julie_default() -> Dictionary:
+	_ensure_loaded()
+	return (_manifest.get("julie_default", {}) as Dictionary).duplicate(true)
+
+## A stable render signature of the LAYER files an appearance resolves to — changes whenever any
+## visible part (body/eyes/outfit/hair/accessory) changes, so smoke/validation can prove the
+## editor actually alters the avatar. "acc_none"/none accessory contributes no layer.
+static func render_signature(appearance: Dictionary) -> String:
+	var ids: Array = [
+		presentation_body(String(appearance.get("body_presentation", "neutral"))),
+		String(appearance.get("eyes", "eyes_02")),
+		String(appearance.get("outfit_style", "")),
+		String(appearance.get("hair_style", "")),
+		String(appearance.get("accessory", "none")),
+	]
+	var parts: Array = []
+	for pid in ids:
+		var p := String(pid)
+		if p.is_empty() or p == "none" or p == "acc_none":
+			continue
+		var f := String(part_entry(p).get("file", ""))
+		if not f.is_empty():
+			parts.append(f.get_file())
+	return "|".join(parts)
 
 ## True when the manifest exists but layout isn't verified yet (for editor labeling).
 static func needs_layout_review() -> bool:

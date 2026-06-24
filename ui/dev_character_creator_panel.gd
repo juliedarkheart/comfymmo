@@ -90,14 +90,17 @@ func _build_rows() -> void:
 
 	for slot in SLOTS:
 		var key: String = String(slot["key"])
-		# Override availability: hair/outfit/accessory become real when layered parts exist
+		# Availability: in LAYERED mode body/hair/outfit/accessory are real (they swap layers);
+		# the palette tint is disabled because tinting a layered composite would recolour skin too
+		# (colour comes from the chosen outfit/hair part). In full-body fallback mode, keep the
+		# SLOTS defaults (only body_presentation + outfit_color tint are real).
 		var available: bool = bool(slot.get("available", true))
-		if not available and layered_ready:
+		if layered_ready:
 			match key:
-				"hair_style", "outfit_style", "accessory":
+				"body_presentation", "hair_style", "outfit_style", "accessory":
 					available = true
-				"hair_color", "skin_tone":
-					pass  # still unavailable — palette handled via color variants
+				"outfit_color", "hair_color", "skin_tone":
+					available = false
 		var reason: String = String(slot.get("reason", ""))
 		var row: HBoxContainer = HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
@@ -175,7 +178,8 @@ func _slot_option_ids(key: String) -> Array:
 		"outfit_style":
 			return CharacterAppearanceRegistry.outfit_styles().keys()
 		"accessory":
-			return CharacterAppearanceRegistry.accessories().keys()
+			# Only renderable accessories (layered parts) so no control does nothing.
+			return CharacterAppearanceRegistry.layered_accessory_ids()
 		_:
 			return []
 

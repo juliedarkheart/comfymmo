@@ -1,5 +1,24 @@
 # Playtest Readiness
 
+## Layered avatar customization — F9 actually works (2026-06-25)
+
+The player avatar now renders as composited LimeZu Modern Interiors layers (body + eyes + outfit +
+hair + accessory) so the F9 wardrobe genuinely changes the visible character. Julie defaults to a
+neutral-feminine cozy look (Body_03 / Hairstyle_22_04 / Outfit_14_03 / Eyes_02 / Ladybug).
+
+- **How to test:** open **F9** (the cottage mirror, "Press F to open wardrobe"). Cycle **Body**,
+  **Hair**, **Outfit**, **Accessory** with `<`/`>` — the avatar updates immediately. Set
+  **Accessory → None** and the accessory disappears. **Close → reopen** shows the current look;
+  **quit → relaunch** keeps it (saved in `player.appearance`).
+- **What's real:** Body / Hair / Outfit / Accessory. **Disabled (greyed, no fake controls):**
+  Palette tint, separate Hair/Skin colour, Eyes selector (fixed Eyes_02) — deferred.
+- **Confirm:** no huge head/body block; no farmer fallback sprite underneath the layers;
+  Rowan/Hazel/villagers are unchanged when you customise; walking down shows front-facing
+  movement; tools still attach to the hand; UI readable. See
+  [docs/character_customization.md](character_customization.md) for the full policy.
+- **Clean checkout:** with no licensed pack/manifest the avatar falls back to the full-body LimeZu
+  farmer sheet (still distinct from NPCs) — layered mode is local-only.
+
 ## Animation, facing, tool sockets, terrain & collision (2026-06-24)
 
 - **Character facing/animation:** the player body now uses the LimeZu sheet with a region rect

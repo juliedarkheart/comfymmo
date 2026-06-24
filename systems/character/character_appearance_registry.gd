@@ -97,15 +97,12 @@ static func outfit_styles() -> Dictionary:
 		"gardener_jacket": {"display_name": "Gardener Jacket"},
 	}
 
-## Layer-friendly accessory ids mapped from CharacterPartLibrary if available.
+## All VALID accessory appearance ids = the legacy wearable-crafting accessories (kept so the
+## wearable system + save migration still validate) PLUS the layered Character_Generator
+## accessories when available. The F9 editor only exposes the RENDERABLE layered ones
+## (layered_accessory_ids) so it never shows a control that does nothing.
 static func accessories() -> Dictionary:
-	if CharacterPartLibrary.layered_ready():
-		var layered: Dictionary = {"none": {"display_name": "None"}}
-		for pid in CharacterPartLibrary.part_ids_for_category("accessories"):
-			if pid != "acc_none":
-				layered[pid] = {"display_name": pid.capitalize().replace("_", " ")}
-		return layered
-	return {
+	var base: Dictionary = {
 		"none": {"display_name": "None"},
 		"leaf_clip": {"display_name": "Leaf Clip"},
 		"tiny_hat": {"display_name": "Tiny Hat"},
@@ -113,6 +110,32 @@ static func accessories() -> Dictionary:
 		"round_glasses": {"display_name": "Round Glasses"},
 		"acorn_cap": {"display_name": "Acorn Cap"},
 	}
+	if CharacterPartLibrary.layered_ready():
+		for pid in CharacterPartLibrary.part_ids_for_category("accessories"):
+			if pid != "acc_none":
+				base[pid] = {"display_name": String(pid).capitalize().replace("_", " ")}
+	return base
+
+## Renderable accessory ids for the layered editor: None + the curated Character_Generator
+## accessory parts (each maps to a real layer). Falls back to the legacy set when not layered.
+static func layered_accessory_ids() -> Array:
+	if not CharacterPartLibrary.layered_ready():
+		return accessories().keys()
+	var ids: Array = ["none"]
+	for pid in CharacterPartLibrary.part_ids_for_category("accessories"):
+		if pid != "acc_none":
+			ids.append(pid)
+	return ids
+
+## Eye options from the curated layered parts (when available), else a single default.
+static func eyes() -> Dictionary:
+	if CharacterPartLibrary.layered_ready():
+		var layered: Dictionary = {}
+		for pid in CharacterPartLibrary.part_ids_for_category("eyes"):
+			layered[pid] = {"display_name": String(pid).capitalize().replace("_", " ")}
+		if not layered.is_empty():
+			return layered
+	return {"eyes_02": {"display_name": "Default Eyes"}}
 
 ## The LimeZu base sheet id mapped from a body_presentation option.
 ## Falls back to Farmer_2 when the presentation id is unknown or missing.

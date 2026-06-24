@@ -35,6 +35,11 @@ cataloged read-only by `tools/audit_limezu_animations.gd` into a gitignored mani
 resolves to a reviewed LimeZu grass tile (no derivative path-tile ground). Cows/signs now block at a
 small base collider. Full per-direction walk cycles + animal animation remain cataloged deferrals.
 
+The PLAYER avatar renders as composited LimeZu Modern Interiors Character_Generator layers
+(body/eyes/outfit/hair/accessory at a shared 16×32 (0,0) cell) so the F9 wardrobe really changes
+the look; NPCs keep full-body farmer sheets and a clean checkout falls back to the full-body
+player. See [docs/character_customization.md](character_customization.md).
+
 ## Visual Target
 
 Hearthvale should read as a cozy Sprout-compatible top-down / gentle 3/4 village

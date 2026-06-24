@@ -112,4 +112,5 @@ func _opt_for_slot(slot: String) -> Dictionary:
 		"outfit_color": return CharacterAppearanceRegistry.palette()
 		"accessory": return CharacterAppearanceRegistry.accessories()
 		"face_style": return CharacterAppearanceRegistry.face_styles()
+		"eyes": return CharacterAppearanceRegistry.eyes()
 	return {}

@@ -98,6 +98,41 @@ Character Generator (GUI tool) to produce composited character outputs.
 - `tools/smoke_avatar_customization.gd` — body_presentation presets, palette changes, save/load round-trip, NPC isolation, animation frames
 - `tools/smoke_homestead_loop.gd` — farming save/load with customization preserved
 
+## Layered avatar customization — REAL (2026-06-25)
+
+The F9 wardrobe now actually changes the visible player. The player avatar renders as composited
+**layers** from the LimeZu Modern Interiors **Character_Generator** (body + eyes + outfit + hair +
+accessory), so changing a field swaps a real layer.
+
+- **Compositor rule:** every layer is region-cropped at the SAME 16×32 cell pasted at origin
+  **(0,0)**. Body sheets are 927×656 (an extra 31px right margin); other layers are 896×656 — the
+  margin is ignored (the crop is 16px wide), so layers line up. The earlier "blob" was a
+  compositor bug (16×16 cells + per-layer first-content rows), not bad assets.
+- **Curated starter set** (local, gitignored
+  `licensed_assets/limezu/generator_manifests/hearthvale_curated_avatar_parts_manifest.json`):
+  3 bodies (skin tones), 6 hairstyles, 6 outfits, 4 accessories + None, 3 eyes. **Julie default**
+  is a neutral-feminine cozy look (Body_03 + Hairstyle_22_04 + Outfit_14_03 + Eyes_02 +
+  Ladybug) — never forced masculine.
+- **Real F9 controls:** Body (presentation → skin/body), Hair, Outfit, Accessory (incl. **None**,
+  which removes the accessory layer). **Deferred/disabled:** Palette tint (would recolour skin on
+  a layered composite — colour comes from the chosen part), Eyes selector (fixed Eyes_02), Hair/Skin
+  separate colour pickers. Disabled controls are greyed out — no fake controls.
+- **Bodies are skin tones, not gendered;** presentation comes from hair/outfit/accessory.
+- **Fallback:** on a clean checkout (no manifest/pack) `CharacterPartLibrary.layered_ready()` is
+  false and the avatar falls back to the full-body LimeZu farmer sheet + presentation/tint. The
+  full-body fallback is preserved; layered mode never renders a fallback sprite underneath.
+- **Save/load:** the selected body/hair/outfit/accessory persist in `player.appearance`; restart
+  keeps the look. **NPCs are unaffected** — Rowan/Hazel/villagers keep their farmer-sheet profiles.
+- **Animation:** the layered player uses the verified interiors idle-down (0,0)/idle-up (1,0)
+  frames with a 2-frame **down** walk step (fixes downward animation); up/side reuse the facing
+  idle + bob (full directional walk cycles deferred). Tool sockets/facing/flip unchanged.
+- **How to test F9:** open F9 by the cottage mirror → cycle Body/Hair/Outfit/Accessory → the avatar
+  changes immediately; set Accessory to None → the accessory disappears; Close, reopen, restart →
+  the look persists. Walking down shows front-facing movement.
+- **Verification:** `tools/smoke_avatar_layered_parts.gd`, `tools/smoke_avatar_customization.gd`,
+  and `tools/validate_project.gd` assert every editor field changes the render signature, None
+  removes a layer, the default isn't masculine, and player changes never touch NPC signatures.
+
 ## Actor visual identity & uniqueness (LimeZu, 2026-06-24)
 
 The LimeZu graphics repair made all actors render the SAME `Farmer_1` idle frame

@@ -1375,6 +1375,50 @@ func _initialize() -> void:
 			quit(1)
 			return
 
+		# --- Layered avatar customization: editor controls must change the rendered avatar -----
+		# When the curated layered manifest is present it must be enabled (verified) and every
+		# editable field must change the render signature; accessory None must remove a layer; the
+		# default must not be forced masculine; player changes must not touch NPC profiles.
+		if CharacterPartLibrary.is_available():
+			if not CharacterPartLibrary.layered_ready():
+				push_error("Curated avatar manifest present but layered_ready() is false (layout not verified / textures missing)")
+				quit(1)
+				return
+			var jd: Dictionary = CharacterAppearance.default_appearance()
+			if String(jd.get("body_presentation", "")) == "masculine":
+				push_error("Default player (Julie) is forced masculine — must be feminine/neutral")
+				quit(1)
+				return
+			var base_render_sig: String = CharacterPartLibrary.render_signature(jd)
+			if base_render_sig.split("|").size() < 4:
+				push_error("Layered Julie default does not composite enough layers: %s" % base_render_sig)
+				quit(1)
+				return
+			# Each editable field changes the render signature (no fake controls).
+			for field_change in [["body_presentation", "masculine"], ["hair_style", "hair_28_01"], ["outfit_style", "outfit_05_01"], ["accessory", "acc_beanie_01"]]:
+				var changed: Dictionary = jd.duplicate()
+				changed[field_change[0]] = field_change[1]
+				if CharacterPartLibrary.render_signature(changed) == base_render_sig:
+					push_error("Editor field '%s' does not change the rendered avatar (fake control)" % field_change[0])
+					quit(1)
+					return
+			# Accessory None removes exactly one layer.
+			var none_look: Dictionary = jd.duplicate()
+			none_look["accessory"] = "none"
+			if CharacterPartLibrary.render_signature(none_look).split("|").size() != base_render_sig.split("|").size() - 1:
+				push_error("Accessory None does not remove the accessory layer")
+				quit(1)
+				return
+			# Player customization must not leak into NPC profiles.
+			var rowan_sig_pre: String = CharacterProfileRegistry.signature("rowan")
+			CharacterProfileRegistry.apply_player_appearance(jd)
+			var rowan_sig_post: String = CharacterProfileRegistry.signature("rowan")
+			CharacterProfileRegistry.clear_player_appearance()
+			if rowan_sig_pre != rowan_sig_post:
+				push_error("Player customization leaked into Rowan's profile")
+				quit(1)
+				return
+
 		# --- Animation / facing / held-tool socket (animation pass) ---------------------
 		for anim_sheet in ["character.farmer_idle", "character.farmer2_idle", "character.body2_idle"]:
 			if not CharacterAnimationRegistry.has_sheet(anim_sheet):
@@ -1472,13 +1516,13 @@ func _initialize() -> void:
 			ow.queue_free(); quit(1); return
 		var player_audit: Dictionary = categories.get("player avatar", {}) as Dictionary
 		var rowan_audit: Dictionary = categories.get("Farmer Rowan", {}) as Dictionary
-		# Player + Rowan render a raw LimeZu CHARACTER sheet (Farmer_1/Farmer_2/Body_2), and they
-		# must NOT render the identical sheet — that identical-Farmer_1-for-everyone state was the
-		# actor-cloning bug. (Palette-only differences are caught by the deterministic signature
-		# check below; player/Rowan are differentiated by base sheet so this stays robust.)
+		# Player + Rowan render raw LimeZu CHARACTER art and must NOT be identical (the
+		# Farmer_1-for-everyone state was the actor-cloning bug). The PLAYER may render either the
+		# farmer fallback sheet (Characters_16x16/) OR the layered Modern Interiors Character_Generator
+		# parts (when layered customization is enabled); Rowan stays on the farmer sheet.
 		if _audit_count(player_audit, "limezu_raw") < 1 \
-				or not _audit_paths_contain(player_audit, "Characters_16x16/"):
-			push_error("Player avatar is not rendering from a raw LimeZu character sheet: %s" % str(player_audit))
+				or not (_audit_paths_contain(player_audit, "Characters_16x16/") or _audit_paths_contain(player_audit, "Character_Generator/")):
+			push_error("Player avatar is not rendering from a raw LimeZu character source: %s" % str(player_audit))
 			ow.queue_free(); quit(1); return
 		if _audit_count(rowan_audit, "limezu_raw") < 1 \
 				or not _audit_paths_contain(rowan_audit, "Characters_16x16/"):
@@ -3325,13 +3369,13 @@ func _initialize() -> void:
 	var junk_appearance: Dictionary = CharacterAppearance.normalized({
 		"hair_style": "not_a_style",
 		"outfit_color": "not_a_color",
-		"accessory": "tiny_hat",
+		"accessory": String(CharacterAppearanceRegistry.accessories().keys().back()),
 	})
 	if String(junk_appearance.get("hair_style", "")) != String(default_appearance["hair_style"]):
 		push_error("Unknown hair_style id did not fall back to the default")
 		quit(1)
 		return
-	if String(junk_appearance.get("accessory", "")) != "tiny_hat":
+	if String(junk_appearance.get("accessory", "")) != String(CharacterAppearanceRegistry.accessories().keys().back()):
 		push_error("Valid accessory id was not preserved through normalization")
 		quit(1)
 		return
@@ -3418,10 +3462,10 @@ func _initialize() -> void:
 
 	# New customization ids must all survive normalization (registry + builder).
 	var expanded_appearance: Dictionary = CharacterAppearance.normalized({
-		"hair_style": "leafy_pigtails", "hair_color": "berry_red", "skin_tone": "umber",
-		"outfit_style": "mushroom_sweater", "outfit_color": "pond_blue", "accessory": "acorn_cap",
+		"hair_style": String(CharacterAppearanceRegistry.hair_styles().keys().back()), "hair_color": "berry_red", "skin_tone": "umber",
+		"outfit_style": "mushroom_sweater", "outfit_color": "pond_blue", "accessory": String(CharacterAppearanceRegistry.accessories().keys().back()),
 	})
-	if String(expanded_appearance["hair_style"]) != "leafy_pigtails" or String(expanded_appearance["accessory"]) != "acorn_cap":
+	if String(expanded_appearance["hair_style"]) != String(CharacterAppearanceRegistry.hair_styles().keys().back()) or String(expanded_appearance["accessory"]) != String(CharacterAppearanceRegistry.accessories().keys().back()):
 		push_error("Expanded customization ids did not survive normalization")
 		quit(1)
 		return

@@ -95,8 +95,9 @@ func rebuild(appearance: Dictionary) -> void:
 ## Maps appearance slots (outfit_style, hair_style, accessory) to layer textures.
 ## Falls back to full-body rendering if any required layer is missing.
 func _build_layered_sprites(appearance: Dictionary) -> void:
-	# Map appearance fields to layer part ids
-	var body_part_id := _body_part_for(appearance.get("body_presentation", "neutral"))
+	# Map appearance fields to curated layer part ids (body = skin/body via presentation map).
+	var body_part_id := CharacterPartLibrary.presentation_body(String(appearance.get("body_presentation", "neutral")))
+	var eyes_part_id := String(appearance.get("eyes", "eyes_02"))
 	var hair_part_id := String(appearance.get("hair_style", ""))
 	var outfit_part_id := String(appearance.get("outfit_style", ""))
 	var acc_part_id := String(appearance.get("accessory", ""))
@@ -107,7 +108,7 @@ func _build_layered_sprites(appearance: Dictionary) -> void:
 	# Build layer sprites (z_index: body=0, eyes=1, outfit=2, hair=3, accessory=4)
 	var part_map := {
 		"body": [body_part_id, 0],
-		"eyes": ["eyes_01", 1],
+		"eyes": [eyes_part_id, 1],
 		"outfit": [outfit_part_id, 2],
 		"hair": [hair_part_id, 3],
 		"accessory": [acc_part_id, 4],
@@ -141,17 +142,23 @@ func _build_layered_sprites(appearance: Dictionary) -> void:
 		sprite.region_enabled = true
 		sprite.z_index = z
 		sprite.scale = Vector2(2, 2)  # 16px → 32px display
+		# Tag with the LimeZu source path + actor category so the visual audit/validation
+		# classify the layered player as limezu_raw (a LimeZu-family actor), not procedural.
+		sprite.set_meta("visual_source_path", CharacterPartLibrary.CG_ROOT + String(entry.get("file", "")))
+		sprite.set_meta("visual_category", "actor")
+		sprite.set_meta("visual_id", CharacterArtRegistry.PLAYER)  # categorized as "player avatar"
+		sprite.set_meta("limezu_logical_id", "character.layered.%s" % pid)
 		add_child(sprite)
 		_layer_sprites[layer_name] = sprite
 		any_ok = true
 
 	if any_ok:
 		_layered_mode = true
-		# Feet at origin: center sits half the scaled frame height above
-		var sprite := _layer_sprites.get("body", null) as Sprite2D
-		if sprite != null:
-			var h := 16.0 * 2.0  # frame_h * scale
-			sprite.position = Vector2(0, -h * 0.5)
+		# Feet at origin: every layer is centred and sits half the scaled 16x32 frame above (0,0)
+		# so they line up exactly (all share the same cell, pasted at the same spot).
+		var frame_h := 32.0 * 2.0  # 16x32 frame * x2 display scale
+		for layer_sprite in _layer_sprites.values():
+			(layer_sprite as Sprite2D).position = Vector2(0, -frame_h * 0.5)
 
 ## Map body_presentation value to a layer part id from the curated set.
 func _body_part_for(presentation: String) -> String:
@@ -210,18 +217,12 @@ func _apply_frame() -> void:
 	var frame_index: int = int(_walk_phase) if _animation_state.begins_with("walk") else 0
 	_sprite.region_rect = Rect2(CharacterAnimationRegistry.region_for(_sheet_id, _animation_state, frame_index))
 
-## Get the shared grid rect for the current facing/animation state in layered mode.
+## Get the shared 16x32 cell for the current facing/animation state in layered mode. All layers
+## use this SAME region (pasted at origin), so they stay composited. Cells are the reviewed
+## interiors-generator frames (idle down=(0,0), up=(1,0); down walk = a 2-frame front step).
 func _layered_frame_rect() -> Rect2i:
-	var facing := facing_direction
-	var dir_int := CharacterPartLibrary.Direction.DOWN
-	match facing:
-		"up": dir_int = CharacterPartLibrary.Direction.UP
-		"side": dir_int = CharacterPartLibrary.Direction.DOWN  # side mirrors front
-	var col := CharacterPartLibrary.direction_grid_col(dir_int)
-	var row := CharacterPartLibrary.idle_grid_row(dir_int)
-	if _animation_state.begins_with("walk"):
-		row += clampi(int(_walk_phase) % 2, 1, 2)  # 2-frame walk
-	return CharacterPartLibrary.grid_rect(col, row)
+	var idx: int = int(_walk_phase) if _animation_state.begins_with("walk") else 0
+	return CharacterAnimationRegistry.generator_region_for(_animation_state, idx)
 
 func set_held_tool_contract(hotbar_index: int, item_id: String, visual_id: String = "") -> void:
 	selected_hotbar_index = hotbar_index

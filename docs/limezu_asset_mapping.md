@@ -54,6 +54,20 @@ explicit debug mode — they must not appear in the opening view when LimeZu is 
   legacy planks, and save-restored placements stay visible (`BuildingPlacementSystem` no longer
   hides LimeZu-mapped objects). Collision + interaction are rebuilt from the saved `object_id`.
 
+## Layered player avatar — Character_Generator (2026-06-25)
+
+- The player renders as composited layers from the **Modern Interiors Character_Generator**
+  (`2_Characters/Character_Generator/{Bodies,Eyes,Outfits,Hairstyles,Accessories}/16x16`), order
+  **body → eyes → outfit → hair → accessory**, every layer region-cropped at the shared 16×32
+  idle cell pasted at **(0,0)**. Body sheets are 927×656 (extra 31px right margin, ignored);
+  others are 896×656. All layers classify as `limezu_raw`.
+- Curated starter parts + Julie default live in the gitignored
+  `generator_manifests/hearthvale_curated_avatar_parts_manifest.json`; `CharacterPartLibrary`
+  reads it and gates layered mode behind `LAYOUT_VERIFIED` + a live texture-load sanity check.
+  `licensed_assets/limezu/review_screenshots/layered_avatar_*` hold the local composite previews.
+- NPCs stay on the Modern Farm farmer sheets (Farmer_1/Farmer_2/Body_2); only the player uses the
+  layered generator. Clean checkout (no pack) falls back to the full-body farmer sheet.
+
 ## Animation + terrain completion (2026-06-24)
 
 - **Terrain:** `terrain.grass` → reviewed solid grass cell `1_Terrains_16x16.png` rect `[48,32,16,16]`

@@ -21,6 +21,15 @@ const DEFAULT := {
 }
 
 static func default_appearance() -> Dictionary:
+	# In layered mode the default is the curated Julie look (a neutral-feminine cozy avatar,
+	# never forced masculine). Falls back to the legacy full-body default on a clean checkout.
+	if CharacterPartLibrary.layered_ready():
+		var jd: Dictionary = CharacterPartLibrary.julie_default()
+		if not jd.is_empty():
+			var merged: Dictionary = DEFAULT.duplicate()
+			for k in jd.keys():
+				merged[k] = jd[k]
+			return merged
 	return DEFAULT.duplicate()
 
 ## Returns a complete appearance dict: every slot present, every id valid.
@@ -42,6 +51,7 @@ static func normalized(data: Dictionary) -> Dictionary:
 		"outfit_color": CharacterAppearanceRegistry.palette(),
 		"accessory": CharacterAppearanceRegistry.accessories(),
 		"face_style": CharacterAppearanceRegistry.face_styles(),
+		"eyes": CharacterAppearanceRegistry.eyes(),
 	}
 	for slot in validators.keys():
 		var options: Dictionary = validators[slot] as Dictionary
