@@ -43,6 +43,17 @@ explicit debug mode — they must not appear in the opening view when LimeZu is 
   collapse onto one shared texture (the bad-generic-mapping guard). `tools/audit_live_visuals.gd`
   prints the per-id source-tier audit.
 
+## Object contracts + placed-object art (2026-06-24)
+
+- Each live asset id also has a behavior contract in `systems/world/asset_world_metadata.gd`
+  (category, collision, F interaction). The crate is now a SOLID storage prop (blocks + "The
+  crate is empty."), not pass-through decor — see [docs/playtest_readiness.md](playtest_readiness.md).
+- **Placed build objects** (`PlaceableCrate`) render the LimeZu sprite for any placeable that
+  maps to a reviewed LimeZu asset (`AssetWorldMetadata.PLACEABLE_TO_ASSET`), anchored exactly
+  like the curated world prop. So a placed crate/sign/fence matches the world instead of showing
+  legacy planks, and save-restored placements stay visible (`BuildingPlacementSystem` no longer
+  hides LimeZu-mapped objects). Collision + interaction are rebuilt from the saved `object_id`.
+
 ## How it works
 
 1. The licensed packs live under `licensed_assets/limezu/<pack>/original/` (zips +

@@ -80,6 +80,7 @@ func _ready() -> void:
 	_gather_rng.randomize()
 	var player: AvatarController = _find_player()
 	_network_player = player
+	_apply_player_customization(player)
 	_refresh_inventory_hud()
 	_setup_land_panel()
 	_setup_overworld_ui()
@@ -90,6 +91,7 @@ func _ready() -> void:
 	_setup_dev_overlay(player)
 	_setup_wardrobe()
 	_setup_cottage_sign()
+	_register_limezu_world_props()   # F prompts/actions for contracted props (crate, etc.)
 	_setup_landing_area()
 	_load_runtime_plots()       # restore in-game-authored plots BEFORE drawing markers
 	_setup_plot_markers()
@@ -487,6 +489,19 @@ func _spawn_forest_content(player: AvatarController) -> void:
 # creatures were registered with bound callbacks via register_world_interactable, so
 # HomesteadController._on_interaction_requested's default branch dispatches them
 # after the same four panel/mode guards this controller previously duplicated.
+
+## Apply the player's saved CharacterAppearance customization to the live avatar: the player
+## profile's palette/outfit/hair derive from it (CharacterProfileRegistry), then the avatar's
+## Body visual is rebuilt so the saved look shows immediately. Missing/default customization
+## falls back to the default Julie profile, so a clean checkout still renders a distinct player.
+func _apply_player_customization(player: AvatarController) -> void:
+	if player == null:
+		return
+	var appearance: Dictionary = save_system.get_player_appearance()
+	CharacterProfileRegistry.apply_player_appearance(appearance)
+	var body: Node2D = player.get_node_or_null("Body") as Node2D
+	if body != null and body.has_method("rebuild"):
+		body.call("rebuild", appearance)
 
 func _talk_villager(interactable_id: String) -> void:
 	var data: Dictionary = _villager_data.get(interactable_id, {})
@@ -1640,6 +1655,30 @@ func _read_cottage_sign() -> void:
 		"Cottage Door",
 		"\"Inside coming soon!\" For now, all of Hearthvale's coziness lives outdoors — the door stays shut while the interior is being furnished (a future update)."
 	)
+
+## F prompts + actions for the map's contracted LimeZu props (e.g. the apple crate). The
+## prompt text and the response both come from AssetWorldMetadata, so a visible SOLID prop is
+## never a silent walk-through object. Only props whose contract is a self-contained toast
+## interaction (crate/well/workbench/mailbox kinds) are auto-registered here; signs, plots,
+## villagers, and creatures keep their own dedicated handlers, so no fake or doubled prompts.
+func _register_limezu_world_props() -> void:
+	if map == null or not map.has_method("get_limezu_interactable_props"):
+		return
+	for inst in map.get_limezu_interactable_props():
+		var entry: Dictionary = inst as Dictionary
+		var logical_id: String = String(entry.get("logical_id", ""))
+		var node: Node2D = entry.get("node", null) as Node2D
+		if node == null or not AssetWorldMetadata.has_toast_interaction(logical_id):
+			continue
+		var tile: Vector2i = entry.get("tile", Vector2i.ZERO) as Vector2i
+		var prop_id: String = "limezu_prop_%s_%d_%d" % [logical_id.replace(".", "_"), tile.x, tile.y]
+		var response: String = AssetWorldMetadata.interaction_response(logical_id)
+		node.set_meta("interaction_point_offset", AssetWorldMetadata.interaction_point_offset(logical_id))
+		register_world_interactable(
+			prop_id, node, ContentIds.INTERACTION_GENERIC,
+			AssetWorldMetadata.interaction_prompt(logical_id),
+			func() -> void: _announce(response)
+		)
 
 # --- Network bridge (client side) ------------------------------------------------
 

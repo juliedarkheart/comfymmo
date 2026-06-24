@@ -106,6 +106,14 @@ const RAW_PACK_FALLBACKS := {
 		"path": "modern_farm/extracted/16x16/Characters_16x16/Farmer_1_16x16.png",
 		"rect": [16, 32, 16, 32],
 	},
+	"character.farmer2_idle": {
+		"path": "modern_farm/extracted/16x16/Characters_16x16/Farmer_2_16x16.png",
+		"rect": [16, 32, 16, 32],
+	},
+	"character.body2_idle": {
+		"path": "modern_farm/extracted/16x16/Characters_16x16/Body_2_16x16.png",
+		"rect": [16, 32, 16, 32],
+	},
 	"icon.carrot": {
 		"path": "modern_farm/extracted/Icons/Icons_16x16/Icons_16x16_Singles/Icons_16x16_Crops_ Carrot.png",
 	},

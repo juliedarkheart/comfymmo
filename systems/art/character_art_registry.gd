@@ -116,21 +116,30 @@ static func make_sprite(visual_id: String) -> Sprite2D:
 	sprite.set_meta("visual_source_path", String(visual.get("path", "")))
 	return sprite
 
-## In LimeZu live mode, returns a bottom-anchored LimeZu farmer sprite for human
+## In LimeZu live mode, returns a bottom-anchored LimeZu character sprite for human
 ## character ids; null otherwise (creatures + non-LimeZu fall through to generated).
+##
+## UNIQUENESS: the base SHEET (Farmer_1 / Farmer_2 / Body_2) and the palette TINT come from
+## CharacterProfileRegistry per actor id, so player/Rowan/villagers are visibly distinct instead
+## of all rendering the same Farmer_1 idle frame (the actor-cloning bug this pass fixes).
 static func _limezu_actor_sprite(visual_id: String) -> Sprite2D:
 	if not LiveVisualPolicy.live_limezu_slice():
 		return null
 	var normalized_id := normalize_id(visual_id)
 	if not REQUIRED_CHARACTER_IDS.has(normalized_id):
 		return null
-	if not LimeZuArtRegistry.has_asset("character.farmer_idle"):
+	# Resolve the profile's base sheet, gracefully degrading to Farmer_1 when a partial pack
+	# lacks Farmer_2/Body_2 (the palette tint still differentiates actors in that case).
+	var sheet_id: String = CharacterProfileRegistry.sheet_id(normalized_id)
+	if not LimeZuArtRegistry.has_asset(sheet_id):
+		sheet_id = CharacterProfileRegistry.SHEET_FARMER_1
+	if not LimeZuArtRegistry.has_asset(sheet_id):
 		return null
-	var source_path: String = LimeZuArtRegistry.texture_path("character.farmer_idle")
-	var tex: Texture2D = LimeZuArtRegistry.resolve_texture("character.farmer_idle")
+	var source_path: String = LimeZuArtRegistry.texture_path(sheet_id)
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(sheet_id)
 	if tex == null:
 		return null
-	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
+	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE * CharacterProfileRegistry.scale_mult(normalized_id)
 	var sprite := Sprite2D.new()
 	sprite.name = "CharacterArt_limezu_%s" % normalized_id
 	sprite.texture = tex
@@ -139,14 +148,20 @@ static func _limezu_actor_sprite(visual_id: String) -> Sprite2D:
 	sprite.position = Vector2(0, -tex.get_height() * scale_f * 0.5)
 	sprite.scale = Vector2(scale_f, scale_f)
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# Per-actor palette tint (pale, near-white) so a shared base sheet still reads as a
+	# different person. The player's tint comes from saved CharacterAppearance customization.
+	sprite.modulate = CharacterProfileRegistry.palette_color(normalized_id)
 	# z 0 so the actor Y-SORTS with the LimeZu gameplay objects (trees/barn/fence are z 0 in
 	# the gameplay layer). The old z 2 forced actors to always draw on top, which broke
 	# walk-behind depth. The gameplay layer's y_sort_enabled handles front/behind by feet.
 	sprite.z_index = 0
 	sprite.set_meta("visual_id", normalized_id)
 	sprite.set_meta("visual_category", "actor")
-	sprite.set_meta("limezu_logical_id", "character.farmer_idle")
+	sprite.set_meta("limezu_logical_id", sheet_id)
 	sprite.set_meta("visual_source_path", source_path)
+	sprite.set_meta("actor_profile_id", normalized_id)
+	sprite.set_meta("actor_signature", CharacterProfileRegistry.signature(normalized_id))
+	sprite.set_meta("actor_palette", CharacterProfileRegistry.palette_color(normalized_id).to_html(false))
 	return sprite
 
 static func apply_sprite(parent: Node2D, visual_id: String) -> bool:

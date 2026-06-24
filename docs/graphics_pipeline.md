@@ -20,6 +20,15 @@ order (reviewed raw beats unreviewed generator slices — the fence-post-scatter
 and actor requirements, and the documented ground/farm-plot deferrals. Enforced by
 `tools/validate_project.gd`; audited by `tools/audit_live_visuals.gd`.
 
+Visible props also carry a behavior contract (collision + interaction) in
+`systems/world/asset_world_metadata.gd`, and placed build objects render LimeZu art rather than
+legacy planks — see [docs/limezu_asset_mapping.md](limezu_asset_mapping.md) and
+[docs/playtest_readiness.md](playtest_readiness.md).
+
+Actors get distinct LimeZu-family looks (different base character sheet + palette tint per
+profile) from `systems/character/character_profile_registry.gd`, so the player and NPCs are not
+the same farmer clone — see [docs/character_customization.md](character_customization.md).
+
 ## Visual Target
 
 Hearthvale should read as a cozy Sprout-compatible top-down / gentle 3/4 village

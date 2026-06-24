@@ -17,6 +17,35 @@ Appearance precedence (see also docs/profile_and_accounts.md): explicit
 save `player.appearance` wins at boot; otherwise the active profile seeds it;
 the wardrobe/F9 panel writes both thereafter.
 
+## Actor visual identity & uniqueness (LimeZu, 2026-06-24)
+
+The LimeZu graphics repair made all actors render the SAME `Farmer_1` idle frame
+(`CharacterArtRegistry._limezu_actor_sprite` ignored the actor id) — player and every NPC
+looked identical. Fixed with a central profile layer:
+
+- `systems/character/character_profile_registry.gd` (`CharacterProfileRegistry`) — one VISUAL
+  PROFILE per actor id: a base LimeZu **sheet** (`Farmer_1` / `Farmer_2` / `Body_2`), a pale
+  palette **tint**, display name/role, and descriptive hair/outfit/accessory tags. A
+  `signature()` (sheet + palette) proves uniqueness. Player uses **Farmer_2**, Rowan **Farmer_1**,
+  villagers vary by sheet + tint, so no two named actors share a signature and the player is
+  never the Rowan/NPC clone.
+- In LimeZu live mode, `_limezu_actor_sprite` reads the profile: it resolves the sheet (falling
+  back to `Farmer_1` on a partial pack) and applies the tint as `modulate`. Clean-checkout safe:
+  profiles only NAME LimeZu logical ids; a checkout without the packs still boots the generated
+  `art/generated/hearthvale/characters/` art.
+- **Player customization → live look:** `CharacterProfileRegistry.apply_player_appearance()`
+  derives the player's tint from the saved `outfit_color`; `OverworldController._apply_player_customization`
+  applies it on boot and rebuilds the avatar visual, so the F9 Wardrobe choices show in the world.
+  Missing/default customization falls back to the default Julie profile.
+- **Testing uniqueness:** `tools/smoke_character_identity.gd` (profiles load, player≠Rowan,
+  NPCs varied, customization round-trips + falls back) and `tools/audit_live_visuals.gd`
+  (`ACTOR IDENTITIES` table + duplicate-signature flag). `tools/validate_project.gd` fails on
+  missing/blank actor art, a player==Rowan signature, all-named-actors-identical, a non-LimeZu
+  actor tier, a missing required profile, or a missing customization default.
+- **Temporary vs. future:** palette-tint + base-sheet swaps are the lightweight FOUNDATION. A
+  full layered character creator (per-part hair/outfit/skin sprites composited over a LimeZu
+  body) is future scope — the appearance data model + F9 panel already exist to grow into it.
+
 ## Pieces
 
 - `systems/character/character_appearance_registry.gd` — all options as

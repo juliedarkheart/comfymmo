@@ -266,7 +266,13 @@ func _on_interaction_requested(interactable_id: String, interaction_type: String
 			# Everything registered through register_world_interactable (creatures,
 			# rest, and the overworld's villagers/notice/shrine) dispatches via its
 			# bound callback. The guards above ran first, exactly as before.
-			_dispatch_world_interactable(interactable_id)
+			if _dispatch_world_interactable(interactable_id):
+				return
+			# Fallback: a placed contract prop (e.g. a crate) registered directly with the
+			# interactable system shows its contract response — so its prompt is never silent.
+			var placed_response: String = building_placement_system.placed_contract_response(interactable_id)
+			if not placed_response.is_empty():
+				_announce(placed_response)
 
 func _on_inventory_changed() -> void:
 	_save_inventory_state()

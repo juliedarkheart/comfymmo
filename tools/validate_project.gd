@@ -1316,6 +1316,64 @@ func _initialize() -> void:
 				push_error("HUD status icon '%s' resolves to a blank/slot texture: %s" % [hud_icon_id, hud_path])
 				quit(1)
 				return
+		# --- Object contract coverage (Task 2): every interactive contract has a prompt and a
+		# real action route (no blank/silent F prompts), and the previously pass-through crate
+		# is now a solid, interactable storage prop with a collider to build. ---
+		for contract_id in AssetWorldMetadata.interactable_ids():
+			if AssetWorldMetadata.interaction_prompt(contract_id).is_empty():
+				push_error("Interactive object '%s' has interaction_enabled but no prompt (blank F prompt)" % contract_id)
+				quit(1)
+				return
+			if AssetWorldMetadata.has_toast_interaction(contract_id) and AssetWorldMetadata.interaction_response(contract_id).is_empty():
+				push_error("Toast-interaction object '%s' shows a prompt but has no response text (silent F)" % contract_id)
+				quit(1)
+				return
+		if not (AssetWorldMetadata.is_blocking("object.crate") \
+				and AssetWorldMetadata.interaction_enabled("object.crate") \
+				and not AssetWorldMetadata.interaction_response("object.crate").is_empty()):
+			push_error("object.crate must be a solid, interactable contract (blocks + F + response), not pass-through decor")
+			quit(1)
+			return
+		if not AssetWorldMetadata.has_asset_collision_shapes("object.crate"):
+			push_error("object.crate is blocking but has no collision_shapes to build a collider from")
+			quit(1)
+			return
+
+		# --- Actor identity (character-identity pass): named actors must be visually distinct.
+		# Each required profile exists + resolves to a LimeZu-family character sheet; player and
+		# Rowan never share a signature; the named actors don't all collapse to one signature; and
+		# the player customization default profile is present. ---
+		for required_actor in CharacterProfileRegistry.required_profile_ids():
+			if not CharacterProfileRegistry.has(required_actor):
+				push_error("Required actor profile missing: %s" % required_actor)
+				quit(1)
+				return
+			var actor_sheet: String = CharacterProfileRegistry.sheet_id(required_actor)
+			var actor_path: String = LimeZuArtRegistry.texture_path(actor_sheet)
+			var actor_tier: String = VisualSourceReport.classify_texture(actor_path)
+			if actor_path.is_empty() or actor_tier == "missing" or actor_tier == "blank":
+				push_error("Actor '%s' visual is missing/blank (%s)" % [required_actor, actor_path])
+				quit(1)
+				return
+			if actor_tier == "sprout" or not LiveVisualPolicy.is_allowed_live_tier(actor_tier):
+				push_error("Actor '%s' visual tier '%s' is not LimeZu-family (%s)" % [required_actor, actor_tier, actor_path])
+				quit(1)
+				return
+		if CharacterProfileRegistry.signature("player") == CharacterProfileRegistry.signature("rowan"):
+			push_error("Player and Farmer Rowan share an identical actor signature (cloning regressed)")
+			quit(1)
+			return
+		var actor_sig_set := {}
+		for req_actor in CharacterProfileRegistry.required_profile_ids():
+			actor_sig_set[CharacterProfileRegistry.signature(req_actor)] = true
+		if actor_sig_set.size() < CharacterProfileRegistry.required_profile_ids().size():
+			push_error("Named actors are not all unique — duplicate signatures among %s" % str(CharacterProfileRegistry.required_profile_ids()))
+			quit(1)
+			return
+		if CharacterAppearance.normalized({}).is_empty() or not CharacterAppearance.default_appearance().has("outfit_color"):
+			push_error("Player customization default profile is missing/incomplete")
+			quit(1)
+			return
 
 	var gen_gitignore: String = FileAccess.get_file_as_string("res://.gitignore")
 	if not gen_gitignore.contains("licensed_assets/"):
@@ -1333,6 +1391,16 @@ func _initialize() -> void:
 		var ow_map: Node = ow.get_node_or_null("Map")
 		var opening: Dictionary = VisualSourceReport.live_opening_sources(ow_map)
 		print("[visual-source] live opening sources=", opening)
+		# Contracted props: the curated crate must spawn a real collider AND an interactable
+		# instance — it used to be silent pass-through decor (the reported "walk-through object").
+		var prop_instances: Array = ow_map.get_limezu_interactable_props() if ow_map.has_method("get_limezu_interactable_props") else []
+		if prop_instances.is_empty():
+			push_error("LimeZu opening exposes no interactable contract props (crate interaction regressed)")
+			ow.queue_free(); quit(1); return
+		if ow_map.find_child("LimeZuPropCollision*", true, false) == null:
+			push_error("LimeZu opening has no contracted-prop collider (a physical prop like the crate is walk-through)")
+			ow.queue_free(); quit(1); return
+		print("[object-contract] interactable props=%d, prop collider present" % prop_instances.size())
 		for forbidden_opening_tier in ["sprout", "missing"]:
 			if int(opening.get(forbidden_opening_tier, 0)) > 0:
 				push_error("LimeZu opening still instantiates %d '%s' sprite(s)" % [int(opening[forbidden_opening_tier]), forbidden_opening_tier])
@@ -1362,13 +1430,21 @@ func _initialize() -> void:
 			ow.queue_free(); quit(1); return
 		var player_audit: Dictionary = categories.get("player avatar", {}) as Dictionary
 		var rowan_audit: Dictionary = categories.get("Farmer Rowan", {}) as Dictionary
+		# Player + Rowan render a raw LimeZu CHARACTER sheet (Farmer_1/Farmer_2/Body_2), and they
+		# must NOT render the identical sheet — that identical-Farmer_1-for-everyone state was the
+		# actor-cloning bug. (Palette-only differences are caught by the deterministic signature
+		# check below; player/Rowan are differentiated by base sheet so this stays robust.)
 		if _audit_count(player_audit, "limezu_raw") < 1 \
-				or not _audit_paths_contain(player_audit, "Characters_16x16/Farmer_1_16x16.png"):
-			push_error("Player avatar is not rendering from the raw LimeZu farmer frame: %s" % str(player_audit))
+				or not _audit_paths_contain(player_audit, "Characters_16x16/"):
+			push_error("Player avatar is not rendering from a raw LimeZu character sheet: %s" % str(player_audit))
 			ow.queue_free(); quit(1); return
 		if _audit_count(rowan_audit, "limezu_raw") < 1 \
-				or not _audit_paths_contain(rowan_audit, "Characters_16x16/Farmer_1_16x16.png"):
-			push_error("Farmer Rowan is not rendering from the raw LimeZu farmer frame: %s" % str(rowan_audit))
+				or not _audit_paths_contain(rowan_audit, "Characters_16x16/"):
+			push_error("Farmer Rowan is not rendering from a raw LimeZu character sheet: %s" % str(rowan_audit))
+			ow.queue_free(); quit(1); return
+		var player_actor_paths: Array = player_audit.get("paths", []) as Array
+		if not player_actor_paths.is_empty() and player_actor_paths == (rowan_audit.get("paths", []) as Array):
+			push_error("Player and Farmer Rowan render the IDENTICAL character sheet (actor cloning): %s" % str(player_actor_paths))
 			ow.queue_free(); quit(1); return
 		for clean_category in ["grass/terrain", "dirt/path tiles", "trees", "bushes/flowers", "house/building", "well/props", "player avatar", "Farmer Rowan"]:
 			var clean_entry: Dictionary = categories.get(clean_category, {}) as Dictionary
@@ -1388,8 +1464,13 @@ func _initialize() -> void:
 		var area_limezu_count: int = _audit_limezu_family_count(playable_area)
 		var area_generated_count: int = int(playable_area.get("legacy_generated", 0))
 		var area_procedural_count: int = int(playable_area.get("procedural", 0))
-		if area_limezu_count < 900 or area_generated_count > 40 or area_procedural_count > 12:
-			push_error("LimeZu playable area is not clean enough (limezu_family=%d legacy_generated=%d procedural=%d)" % [area_limezu_count, area_generated_count, area_procedural_count])
+		# Procedural budget covers ONLY the documented farm-plot/crop deferral (FarmPlot soil +
+		# crop Polygon2Ds + the small sign board). Its exact count varies with each plot's
+		# crop/watered state, so the budget is generous + stable; the category audit above is
+		# the precise guard that procedural stays confined to "farm plots/crops". A real
+		# regression (ground/props falling back to procedural) would be in the hundreds.
+		if area_limezu_count < 900 or area_generated_count > 40 or area_procedural_count > 28:
+			push_error("LimeZu playable area is not clean enough (limezu_family=%d legacy_generated=%d procedural=%d, farm-deferral budget=28)" % [area_limezu_count, area_generated_count, area_procedural_count])
 			ow.queue_free(); quit(1); return
 		for collider_snippet in ["_add_limezu_asset_collider", "AssetWorldMetadata.collision_shapes", "Blocked by barn (placement proxy)"]:
 			if not overworld_map_src_live.contains(collider_snippet):

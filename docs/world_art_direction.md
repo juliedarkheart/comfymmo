@@ -18,6 +18,25 @@ ground fill is a `limezu_derivative` tile (no flat-grass single in the packs yet
 draws procedural soil/crop polygons until a reviewed LimeZu farm-plot asset replaces them. Full
 policy + tiers: [docs/limezu_asset_mapping.md](limezu_asset_mapping.md).
 
+## Actor identity (no clones)
+
+Each named actor has a visual profile in `systems/character/character_profile_registry.gd`: a
+distinct LimeZu base sheet (`Farmer_1`/`Farmer_2`/`Body_2`) + a pale palette tint, so the player
+(Farmer_2), Farmer Rowan (Farmer_1), and the villagers are visibly different instead of all
+sharing one farmer sprite. The player's tint comes from the saved Wardrobe (F9) customization.
+Full details + how to test uniqueness: [docs/character_customization.md](character_customization.md).
+
+## Object contracts (what each prop IS)
+
+Every visible prop carries a contract in `systems/world/asset_world_metadata.gd`: its category
+(decor / obstacle / storage / sign / workbench / mailbox / fence / resource / building / farm),
+whether it blocks the player, its collider footprint, and its F interaction (prompt + response).
+A visible solid prop is never a silent walk-through object, and decor never shows a fake prompt.
+Physical: barn, tree, fence, **crate**, well, workbench, mailbox, NPC. Pass-through decor:
+flowers, grass, small/edge trees, paths, crops, ambient animals. Placed build objects reuse the
+same contract (collision + interaction + LimeZu art) and persist it across save/load. See
+[docs/playtest_readiness.md](playtest_readiness.md) for the per-object rules and test steps.
+
 ## Collision vs. visual footprints (LimeZu homestead)
 
 Collision is keyed to **ground footprints**, not full sprite bounds: tall bottom-anchored

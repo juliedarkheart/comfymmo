@@ -1,5 +1,52 @@
 # Playtest Readiness
 
+## Actor identity & customization (2026-06-24)
+
+The LimeZu repair had made every actor render the same `Farmer_1` farmer. Now each named actor
+has a distinct visual profile (`systems/character/character_profile_registry.gd`): a different
+LimeZu base sheet + a pale palette tint.
+
+- **Manual check (opening scene):** Julie (player) renders the `Farmer_2` sheet with a soft
+  garden tint; Farmer Rowan renders the classic `Farmer_1`; the land clerk (Hazel) renders
+  `Body_2` with a lilac tint; Maribel/Bram differ by sheet + tint. They should look like
+  different people, name labels still aligned, scale unchanged.
+- **Customization:** the F9 Wardrobe (mirror by the cottage) writes `player.appearance`; the
+  player's outfit colour drives the live palette tint and persists across save/load. Missing
+  customization falls back to the default Julie profile.
+- **How to test uniqueness headless:** `tools/smoke_character_identity.gd` (profiles load,
+  player≠Rowan, NPCs varied, customization round-trips/falls back) and the `ACTOR IDENTITIES`
+  table in `tools/audit_live_visuals.gd` (0 duplicate signatures). Validation fails on any
+  actor clone, missing/blank actor art, or a missing required profile/customization default.
+
+## Object contracts: collision + interaction (2026-06-24)
+
+Every visible/playable object has a contract in [`AssetWorldMetadata`](../systems/world/asset_world_metadata.gd)
+(`object_category`, `collision_type`/`collision_shapes`, `interaction_kind`/`interaction_prompt`/
+`interaction_response`). This is what fixed the ambiguous **crate next to spawn** that had no F
+prompt and could be walked through.
+
+- **Physical (blocks the player):** barn (building), apple tree (trunk), fence (rail line),
+  **crate** (storage), well, workbench, mailbox, NPC body. The map builds their colliders from
+  `collision_shapes` via `PlacedObjectCollision`; their tiles are also added to placement/spawn
+  blocking. Toggle the F7 **Show Collision** overlay to see them (crate now included).
+- **Pass-through decor (intentionally non-solid):** flowers, grass tufts, small/edge trees,
+  paths, crops, ambient animals (so they never trap the player).
+- **Interactive (F prompt + action):** sign (read), farm plot (tend), NPC (talk), and the
+  contract props **crate → "The crate is empty."**, well → "Cool, clear water.",
+  workbench → crafting hint, mailbox → "No mail right now." A prompt only shows when there is a
+  real action — decor never shows a fake prompt, and F is never silent.
+- **How F prompts get wired:** the live map spawns contract props via `OverworldMap._limezu_prop`
+  and exposes the interactable ones; `OverworldController._register_limezu_world_props()` binds
+  each to its contract response. Placed objects get the same treatment in
+  `BuildingPlacementSystem` (a placed crate also blocks + inspects).
+- **How to test F interactions:** walk next to the crate by spawn → "Press F to check the crate"
+  → F shows "The crate is empty." Walk into it → you are blocked. Walk into a flower → you pass
+  through (no prompt).
+- **How to test placed-object persistence:** press B, place a crate/sign/fence (it renders LimeZu
+  art now, not legacy planks), then quit and relaunch. The object persists with its art,
+  collision, and (crate) interaction — rebuilt from its saved `object_id`. Verified headless by
+  [`tools/smoke_object_contracts.gd`](../tools/smoke_object_contracts.gd).
+
 ## LimeZu live visual quarantine (2026-06-24)
 
 Normal local dev live mode is **LimeZu-family only**; old legacy/procedural/Sprout art is
