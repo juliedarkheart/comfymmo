@@ -29,6 +29,12 @@ Actors get distinct LimeZu-family looks (different base character sheet + palett
 profile) from `systems/character/character_profile_registry.gd`, so the player and NPCs are not
 the same farmer clone — see [docs/character_customization.md](character_customization.md).
 
+Character facing/animation (down/up + mirrored side, light down-walk + bob) and held-tool hand
+sockets come from `systems/character/character_animation_registry.gd`; LimeZu animation sheets are
+cataloged read-only by `tools/audit_limezu_animations.gd` into a gitignored manifest. `terrain.grass`
+resolves to a reviewed LimeZu grass tile (no derivative path-tile ground). Cows/signs now block at a
+small base collider. Full per-direction walk cycles + animal animation remain cataloged deferrals.
+
 ## Visual Target
 
 Hearthvale should read as a cozy Sprout-compatible top-down / gentle 3/4 village

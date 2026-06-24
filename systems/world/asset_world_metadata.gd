@@ -33,6 +33,35 @@ const COLLISION_TILE_RECT_FALLBACK := "tile_rect_fallback"
 const COLLISION_ALPHA_MASK_SOURCE := "alpha_mask_source"
 const COLLISION_GENERATED_POLYGON_FROM_ALPHA := "generated_polygon_from_alpha"
 
+# --- object_category (the "what is this thing" contract field) ---
+const CATEGORY_DECOR := "decor"
+const CATEGORY_OBSTACLE := "obstacle"
+const CATEGORY_STORAGE := "storage"
+const CATEGORY_SIGN := "sign"
+const CATEGORY_WORKBENCH := "workbench"
+const CATEGORY_MAILBOX := "mailbox"
+const CATEGORY_FENCE := "fence"
+const CATEGORY_RESOURCE := "resource"
+const CATEGORY_BUILDING := "building"
+const CATEGORY_FARM := "farm"
+const CATEGORY_ACTOR := "actor"
+
+# --- interaction_kind (what F does; placeholder kinds show a toast response) ---
+const INTERACT_NONE := "none"
+const INTERACT_INSPECT := "inspect"
+const INTERACT_READ := "read"
+const INTERACT_OPEN_STORAGE := "open_storage_placeholder"
+const INTERACT_USE_WORKBENCH := "use_workbench_placeholder"
+const INTERACT_CHECK_MAILBOX := "check_mailbox_placeholder"
+const INTERACT_TEND_PLOT := "tend_plot"
+const INTERACT_TALK := "talk"
+## interaction_kinds whose F action is a self-contained toast/observe response (so the live
+## map can auto-register them). Panel/handler kinds (read sign, tend plot, talk) are wired by
+## their owning controller and are NOT auto-registered here.
+const TOAST_INTERACTION_KINDS: Array[String] = [
+	INTERACT_INSPECT, INTERACT_OPEN_STORAGE, INTERACT_USE_WORKBENCH, INTERACT_CHECK_MAILBOX,
+]
+
 # --- minimap_kind ---
 const MINIMAP_HIDDEN := "hidden"
 const MINIMAP_PLAYER_DOT := "player_dot"
@@ -61,6 +90,10 @@ const BARN_PLACEMENT_PROXY_RECT := BARN_COLLISION_RECT
 
 const _DEFAULT := {
 	"debug_name": "Unknown",
+	"object_category": CATEGORY_DECOR,
+	"interaction_kind": INTERACT_NONE,
+	"interaction_prompt": "",
+	"interaction_response": "",
 	"collision_type": COLLISION_NONE,
 	"collision_radius": 0.0,
 	"collision_offset": Vector2.ZERO,
@@ -87,6 +120,7 @@ const _DEFAULT := {
 const DATA := {
 	"object.barn": {
 		"debug_name": "Barn",
+		"object_category": CATEGORY_BUILDING,
 		"collision_type": COLLISION_MULTI_POLYGON,
 		"collision_rect": Rect2i(),
 		"collision_tile_proxy": BARN_PLACEMENT_PROXY_RECT,
@@ -125,6 +159,7 @@ const DATA := {
 	},
 	"object.tree": {
 		"debug_name": "Apple Tree",
+		"object_category": CATEGORY_OBSTACLE,
 		"collision_type": COLLISION_CIRCLE,
 		"collision_radius": 10.0,
 		"collision_offset": Vector2(0, -4),
@@ -158,6 +193,7 @@ const DATA := {
 	},
 	"object.fence_horizontal": {
 		"debug_name": "Fence",
+		"object_category": CATEGORY_FENCE,
 		"collision_type": COLLISION_LINE,
 		"collision_anchor": "sprite_bottom_center",
 		"collision_precision": "asset_line_from_alpha",
@@ -180,17 +216,111 @@ const DATA := {
 		"notes": "Blocks along the fence line (FENCE_START_TILE..+FENCE_LENGTH).",
 	},
 	"object.crate": {
-		"debug_name": "Crate (decor)",
-		"collision_type": COLLISION_NONE,
-		"interaction_enabled": false,
-		"minimap_visible": false,
-		"notes": "Visual-only prop (apple crate). Intentionally not solid.",
+		"debug_name": "Crate",
+		"object_category": CATEGORY_STORAGE,
+		"collision_type": COLLISION_RECT,
+		"collision_anchor": "sprite_bottom_center",
+		"collision_precision": "asset_base_rect",
+		"collision_source": "object.crate base review (16x16 source, x2 render)",
+		"collision_shapes": [
+			{"type": COLLISION_RECT, "label": "crate_body", "offset": Vector2(0, -14), "size": Vector2(28, 24)},
+		],
+		"interaction_enabled": true,
+		"interaction_label": "inspect",
+		"interaction_kind": INTERACT_OPEN_STORAGE,
+		"interaction_prompt": "Press F to check the crate",
+		"interaction_response": "The crate is empty. (Storage opens in a later update.)",
+		"interaction_point_offset": Vector2(0, -14),
+		"minimap_visible": true,
+		"minimap_kind": MINIMAP_PLACED_OBJECT_DOT,
+		"minimap_color": "#c8a064",
+		"minimap_shape": "dot",
+		"minimap_priority": 50,
+		"minimap_label": "Crate",
+		"notes": "Apple crate. SOLID storage prop: blocks at its base rect, inspects with a placeholder message. (Previously decor-only/pass-through — that was the ambiguous walk-through object.)",
+	},
+	"object.well": {
+		"debug_name": "Well",
+		"object_category": CATEGORY_OBSTACLE,
+		"collision_type": COLLISION_CIRCLE,
+		"collision_radius": 12.0,
+		"collision_offset": Vector2(0, -8),
+		"collision_anchor": "sprite_bottom_center",
+		"collision_shapes": [
+			{"type": COLLISION_CIRCLE, "label": "well_base", "offset": Vector2(0, -8), "radius": 12.0},
+		],
+		"interaction_enabled": true,
+		"interaction_label": "inspect",
+		"interaction_kind": INTERACT_INSPECT,
+		"interaction_prompt": "Press F to look in the well",
+		"interaction_response": "Cool, clear water.",
+		"interaction_point_offset": Vector2(0, -10),
+		"minimap_visible": true,
+		"minimap_kind": MINIMAP_SIGN_DOT,
+		"minimap_color": "#79a8c0",
+		"minimap_shape": "dot",
+		"minimap_priority": 55,
+		"minimap_label": "Well",
+		"notes": "Solid round well; inspect-only. Contract present for world/placeable parity even when not in the current slice.",
+	},
+	"object.workbench": {
+		"debug_name": "Workbench",
+		"object_category": CATEGORY_WORKBENCH,
+		"collision_type": COLLISION_RECT,
+		"collision_anchor": "sprite_bottom_center",
+		"collision_shapes": [
+			{"type": COLLISION_RECT, "label": "bench_body", "offset": Vector2(0, -10), "size": Vector2(30, 18)},
+		],
+		"interaction_enabled": true,
+		"interaction_label": "use",
+		"interaction_kind": INTERACT_USE_WORKBENCH,
+		"interaction_prompt": "Press F to use the workbench",
+		"interaction_response": "Crafting opens at a workbench with the K menu.",
+		"interaction_point_offset": Vector2(0, -10),
+		"minimap_visible": true,
+		"minimap_kind": MINIMAP_PLACED_OBJECT_DOT,
+		"minimap_color": "#b0894e",
+		"minimap_shape": "dot",
+		"minimap_priority": 50,
+		"minimap_label": "Workbench",
+		"notes": "Solid crafting station; placeholder use text (real crafting is the K panel).",
+	},
+	"object.mailbox": {
+		"debug_name": "Mailbox",
+		"object_category": CATEGORY_MAILBOX,
+		"collision_type": COLLISION_RECT,
+		"collision_anchor": "sprite_bottom_center",
+		"collision_shapes": [
+			{"type": COLLISION_RECT, "label": "mailbox_post", "offset": Vector2(0, -8), "size": Vector2(12, 16)},
+		],
+		"interaction_enabled": true,
+		"interaction_label": "check",
+		"interaction_kind": INTERACT_CHECK_MAILBOX,
+		"interaction_prompt": "Press F to check mailbox",
+		"interaction_response": "No mail right now.",
+		"interaction_point_offset": Vector2(0, -10),
+		"minimap_visible": true,
+		"minimap_kind": MINIMAP_SIGN_DOT,
+		"minimap_color": "#cf9f6f",
+		"minimap_shape": "dot",
+		"minimap_priority": 60,
+		"minimap_label": "Mailbox",
+		"notes": "Solid mailbox; placeholder text. (The real mailbox flow is BuildingPlacementSystem's mailbox object.)",
 	},
 	"object.sign": {
 		"debug_name": "Sign",
-		"collision_type": COLLISION_NONE,
+		"object_category": CATEGORY_SIGN,
+		"collision_type": COLLISION_RECT,
+		"collision_anchor": "sprite_bottom_center",
+		"collision_precision": "asset_base_rect",
+		"collision_source": "object.sign post base (16x16 source, x2 render)",
+		"collision_shapes": [
+			{"type": COLLISION_RECT, "label": "sign_post", "offset": Vector2(0, -6), "size": Vector2(16, 12)},
+		],
 		"interaction_enabled": true,
 		"interaction_label": "view",
+		"interaction_kind": INTERACT_READ,
+		"interaction_prompt": "Press F to read the sign",
 		"interaction_point_offset": Vector2(0, -6),
 		"minimap_visible": true,
 		"minimap_kind": MINIMAP_SIGN_DOT,
@@ -202,10 +332,23 @@ const DATA := {
 	},
 	"animal.cow": {
 		"debug_name": "Cow",
-		"collision_type": COLLISION_NONE,
+		"object_category": CATEGORY_OBSTACLE,
+		"collision_type": COLLISION_CIRCLE,
+		"collision_radius": 14.0,
+		"collision_offset": Vector2(0, -10),
+		"collision_anchor": "sprite_bottom_center",
+		"collision_precision": "asset_body_circle",
+		"collision_shapes": [
+			{"type": COLLISION_CIRCLE, "label": "cow_body", "offset": Vector2(0, -10), "radius": 14.0},
+		],
 		"interaction_enabled": false,
-		"minimap_visible": false,
-		"notes": "Ambient animal. Must NOT trap the player, so no collider.",
+		"minimap_visible": true,
+		"minimap_kind": MINIMAP_NPC_DOT,
+		"minimap_color": "#d8c9b0",
+		"minimap_shape": "dot",
+		"minimap_priority": 40,
+		"minimap_label": "Cow",
+		"notes": "Ambient cow. SMALL body circle so the player bumps it (can't walk through) but it never traps — interaction reach is far larger than the collider.",
 	},
 	"animal.chicken": {
 		"debug_name": "Chicken",
@@ -244,9 +387,12 @@ const DATA := {
 	},
 	"terrain.tilled_soil": {
 		"debug_name": "Tilled Soil",
+		"object_category": CATEGORY_FARM,
 		"collision_type": COLLISION_NONE,
 		"interaction_enabled": true,
 		"interaction_label": "tend plot",
+		"interaction_kind": INTERACT_TEND_PLOT,
+		"interaction_prompt": "Press F to tend plot",
 		"minimap_visible": true,
 		"minimap_kind": MINIMAP_FARM_PATCH,
 		"minimap_color": "#6b4a2e",
@@ -261,6 +407,7 @@ const DATA := {
 	"crop.watermelon": {"debug_name": "Watermelon Crop", "collision_type": COLLISION_NONE, "notes": "Crops never hard-block."},
 	"npc": {
 		"debug_name": "NPC",
+		"object_category": CATEGORY_ACTOR,
 		"collision_type": COLLISION_CIRCLE,
 		"collision_radius": 7.0,
 		"collision_offset": Vector2(0, -8),
@@ -271,6 +418,8 @@ const DATA := {
 		],
 		"interaction_enabled": true,
 		"interaction_label": "talk",
+		"interaction_kind": INTERACT_TALK,
+		"interaction_prompt": "Press F to talk",
 		"minimap_visible": true,
 		"minimap_kind": MINIMAP_NPC_DOT,
 		"minimap_color": "#9fc4e8",
@@ -304,6 +453,10 @@ const PLACEABLE_TO_ASSET := {
 	"fence_segment": "object.fence_horizontal",  # blocking rail line
 	"fence_corner": "object.fence_horizontal",
 	"barn_shell": "object.barn",        # building polygons
+	"workbench": "object.workbench",    # solid crafting station
+	"crafting_station": "object.workbench",
+	"mailbox": "object.mailbox",        # solid mailbox
+	"well": "object.well",              # solid well
 	"dirt_path": "terrain.dirt_path",   # walkable ground, non-blocking
 	"floor_deck": "terrain.dirt_path",
 	"flower_bed": "object.flower",      # decor, non-blocking
@@ -388,6 +541,42 @@ static func interaction_label(asset_id: String) -> String:
 
 static func interaction_point_offset(asset_id: String) -> Vector2:
 	return meta_for(asset_id).get("interaction_point_offset", Vector2.ZERO)
+
+# --- Object contract helpers (category / interaction kind+prompt+response) ----------------
+static func object_category(asset_id: String) -> String:
+	return String(meta_for(asset_id).get("object_category", CATEGORY_DECOR))
+
+static func interaction_kind(asset_id: String) -> String:
+	return String(meta_for(asset_id).get("interaction_kind", INTERACT_NONE))
+
+static func interaction_prompt(asset_id: String) -> String:
+	return String(meta_for(asset_id).get("interaction_prompt", ""))
+
+static func interaction_response(asset_id: String) -> String:
+	return String(meta_for(asset_id).get("interaction_response", ""))
+
+## True when F on this id is a self-contained toast/observe response (so the live map can
+## auto-register it without an owning controller wiring a panel/handler).
+static func has_toast_interaction(asset_id: String) -> bool:
+	return interaction_enabled(asset_id) and TOAST_INTERACTION_KINDS.has(interaction_kind(asset_id))
+
+## All ids with interaction_enabled (used by validation to assert prompt+handler coverage).
+static func interactable_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for key in DATA.keys():
+		if interaction_enabled(String(key)):
+			ids.append(String(key))
+	ids.sort()
+	return ids
+
+## All ids that block the player (collision_type != none).
+static func blocking_object_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for key in DATA.keys():
+		if is_blocking(String(key)):
+			ids.append(String(key))
+	ids.sort()
+	return ids
 
 ## Ids that should appear on the live minimap (used by validation + the minimap builder).
 static func minimap_visible_ids() -> Array[String]:

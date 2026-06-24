@@ -37,6 +37,7 @@ func _init() -> void:
 	disallowed += _audit_section("UI FRAMES", UI_IDS, false)
 	_audit_object_contracts()
 	var actor_dupes: int = _audit_actor_identities()
+	_audit_animation_terrain_collision()
 	print("================================================================")
 	print("DISALLOWED visible world/HUD sources: %d (target 0, farm-plot procedural exempt)" % disallowed)
 	print("DUPLICATE named-actor signatures: %d (target 0)" % actor_dupes)
@@ -107,6 +108,28 @@ func _audit_object_contracts() -> void:
 			asset_id, category, str(blocks), str(interactive), kind,
 			("\"%s\"" % prompt) if not prompt.is_empty() else "",
 		])
+
+## Animation/facing, held-tool socket, terrain direct ids, and cow/sign/fence/tree collision
+## (animation/terrain pass, Task 8) — so the audit catches missing facing, missing tool sockets,
+## terrain gaps, and walk-through animals/signs.
+func _audit_animation_terrain_collision() -> void:
+	print("\n-- ANIMATION / FACING / SOCKET --")
+	for sid in ["character.farmer_idle", "character.farmer2_idle", "character.body2_idle"]:
+		print("  sheet %-24s wired=%-5s reviewed_dirs=%s walk_down_frames=%d" % [
+			sid, str(CharacterAnimationRegistry.has_sheet(sid)),
+			str(CharacterAnimationRegistry.reviewed_directions(sid)),
+			CharacterAnimationRegistry.walk_frames(sid, "down").size(),
+		])
+	for facing in ["down", "up", "side"]:
+		var s: Dictionary = CharacterAnimationRegistry.hand_socket(facing)
+		print("  hand_socket %-5s pos=%s behind=%s present=%s" % [facing, str(s.get("pos")), str(s.get("behind")), str(CharacterAnimationRegistry.has_hand_socket(facing))])
+	print("-- TERRAIN DIRECT IDS --")
+	for t in ["terrain.grass", "terrain.dirt_path", "terrain.tilled_soil"]:
+		var tier: String = VisualSourceReport.classify_texture(LimeZuArtRegistry.texture_path(t))
+		print("  %-22s tier=%-14s allowed=%s" % [t, tier, str(LiveVisualPolicy.is_allowed_live_tier(tier))])
+	print("-- COLLISION (blocks_player) --")
+	for c in ["animal.cow", "object.sign", "object.fence_horizontal", "object.tree", "object.barn", "object.crate", "animal.chicken", "object.flower"]:
+		print("  %-22s blocks=%-5s shapes=%s" % [c, str(AssetWorldMetadata.is_blocking(c)), str(AssetWorldMetadata.has_asset_collision_shapes(c))])
 
 func _dims(path: String) -> String:
 	if path.is_empty():

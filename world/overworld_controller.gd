@@ -984,6 +984,14 @@ func _add_limezu_sign_sprite(parent: Node2D, scale_factor: float = 1.0) -> bool:
 	sprite.scale = Vector2(display_scale, display_scale)
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	parent.add_child(sprite)
+	# A visible sign is solid at its post base (contract object.sign), so the player can't walk
+	# through it. The marker origin is the sign base, so shapes attach with no extra offset.
+	if AssetWorldMetadata.has_asset_collision_shapes("object.sign"):
+		var body := StaticBody2D.new()
+		body.name = "LimeZuSignCollision"
+		body.set_meta("asset_id", "object.sign")
+		parent.add_child(body)
+		PlacedObjectCollision.build_shapes_into(body, "object.sign", Vector2.ZERO)
 	return true
 
 ## A large, readable plot/area sign with a title plate. `parent` defaults to the

@@ -49,6 +49,12 @@ const LIVE_REQUIRED_IDS: Array[String] = [
 ]
 
 const RAW_PACK_FALLBACKS := {
+	"terrain.grass": {
+		# Reviewed solid grass cell from the Modern Farm terrains autotile (col 3, row 2 = a
+		# full-green ground tile). Replaces the mislabeled derivative path tile for the ground.
+		"path": "modern_farm/extracted/16x16/1_Terrains_16x16.png",
+		"rect": [48, 32, 16, 16],
+	},
 	"terrain.dirt_path": {
 		"path": "modern_exteriors/extracted/modernexteriors-win/Modern_Exteriors_16x16/ME_Theme_Sorter_16x16/1_Terrains_and_Fences_Singles_16x16/ME_Singles_Terrains_and_Fences_16x16_Props_Dirt_18.png",
 	},
@@ -124,10 +130,14 @@ const RAW_PACK_FALLBACKS := {
 
 static var _loaded := false
 static var _active: Dictionary = {}
+## Cache of resolved per-id frame textures so tiling ground (e.g. 651 grass tiles cropped from a
+## shared sheet) decodes the source PNG once, not once per tile. Cleared on reload().
+static var _texture_cache: Dictionary = {}
 
 static func reload() -> void:
 	_loaded = false
 	_active.clear()
+	_texture_cache.clear()
 	_ensure_loaded()
 
 static func _ensure_loaded() -> void:
@@ -217,12 +227,39 @@ static func has_asset(logical_id: String) -> bool:
 		return true
 	return false
 
+## The FULL sheet texture for a logical id (NO source-rect crop), for region/animation use.
+## Returns null when the file is absent. Loads via Image for the .gdignored extracted/output
+## paths (same path policy as resolve_texture), so a clean checkout simply gets null + falls back.
+static func resolve_full_sheet(logical_id: String) -> Texture2D:
+	var path := texture_path(logical_id)
+	if path.is_empty() or path == FALLBACK_PATH:
+		return null
+	var use_resource_loader := not (path.begins_with(LIMEZU_ROOT) and (path.contains("/generator_outputs/") or path.contains("/extracted/")))
+	if use_resource_loader:
+		var loaded: Texture2D = load(path) as Texture2D
+		if loaded != null:
+			loaded.set_meta("source_path", path)
+			return loaded
+	var image := Image.new()
+	var image_path := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+	if image.load(image_path) != OK or image.is_empty():
+		return null
+	var tex := ImageTexture.create_from_image(image)
+	if tex != null:
+		tex.set_meta("source_path", path)
+	return tex
+
 static func resolve_texture(logical_id: String) -> Texture2D:
+	var nid := normalize_id(logical_id)
+	var cached: Variant = _texture_cache.get(nid, null)
+	if cached != null and is_instance_valid(cached):
+		return cached as Texture2D
 	var path := texture_path(logical_id)
 	var use_resource_loader := not (path.begins_with(LIMEZU_ROOT) and (path.contains("/generator_outputs/") or path.contains("/extracted/")))
 	var tex: Texture2D = load(path) as Texture2D if use_resource_loader else null
 	if tex != null:
 		tex.set_meta("source_path", path)
+		_texture_cache[nid] = tex
 		return tex
 	var image := Image.new()
 	var image_path := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
@@ -236,6 +273,7 @@ static func resolve_texture(logical_id: String) -> Texture2D:
 	tex = ImageTexture.create_from_image(image)
 	if tex != null:
 		tex.set_meta("source_path", path)
+		_texture_cache[nid] = tex
 	return tex
 
 ## Source tier for an id: "missing", "limezu_generated_local" (output from a LimeZu

@@ -36,6 +36,8 @@ var _held_tool_sprite: Sprite2D = null
 var _animation_state: String = STATE_IDLE_DOWN
 var _walk_phase: float = 0.0
 var _last_side_sign: float = 1.0
+# LimeZu sheet id when the body sprite is region/animation-driven (else "" = single idle frame).
+var _sheet_id: String = ""
 
 func _ready() -> void:
 	rebuild(CharacterAppearance.default_appearance())
@@ -53,16 +55,20 @@ func rebuild(appearance: Dictionary) -> void:
 	# through CharacterArtRegistry before falling back to generated polygons.
 	if CharacterArtRegistry.apply_sprite(self, CharacterArtRegistry.PLAYER):
 		_sprite = get_child(get_child_count() - 1) as Sprite2D
+		_sheet_id = String(_sprite.get_meta("actor_sheet_id", "")) if _sprite != null else ""
 	else:
 		CharacterVisualBuilder.build(self, appearance)
+		_sheet_id = ""
 	_ensure_held_tool_attachment()
+	_apply_frame()
 	_refresh_held_tool()
 
 func _process(delta: float) -> void:
 	if _animation_state.begins_with("walk"):
-		_walk_phase += delta * 9.0
-		position.y = sin(_walk_phase) * 1.8
-		rotation = sin(_walk_phase * 0.5) * 0.025
+		_walk_phase += delta * 7.0
+		position.y = sin(_walk_phase) * 1.6
+		rotation = sin(_walk_phase * 0.5) * 0.02
+		_apply_frame()   # cycle the directional walk frame(s) under the bob
 		return
 	_walk_phase = 0.0
 	position = position.move_toward(Vector2.ZERO, delta * 18.0)
@@ -74,9 +80,14 @@ func set_facing_direction(direction: String, side_sign: float = 0.0) -> void:
 			facing_direction = direction
 		_:
 			facing_direction = FACING_DOWN
-	if not is_zero_approx(side_sign):
-		_last_side_sign = -1.0 if side_sign < 0.0 else 1.0
-	scale.x = _last_side_sign
+	# Mirror the body only for SIDE (left/right); never flip the up/down poses.
+	if facing_direction == FACING_SIDE:
+		if not is_zero_approx(side_sign):
+			_last_side_sign = -1.0 if side_sign < 0.0 else 1.0
+		scale.x = _last_side_sign
+	else:
+		scale.x = 1.0
+	_apply_frame()
 	_refresh_held_tool_pose()
 
 func set_animation_state(state: String, _movement_vector: Vector2 = Vector2.ZERO) -> void:
@@ -85,6 +96,17 @@ func set_animation_state(state: String, _movement_vector: Vector2 = Vector2.ZERO
 			_animation_state = state
 		_:
 			_animation_state = STATE_IDLE_DOWN
+	_apply_frame()
+
+## Swap the body sprite's region to the current facing/walk frame. No-op for the single-frame
+## fallback sprite (region not enabled) or the generated polygon body.
+func _apply_frame() -> void:
+	if _sprite == null or not is_instance_valid(_sprite) or _sheet_id.is_empty():
+		return
+	if not _sprite.region_enabled:
+		return
+	var frame_index: int = int(_walk_phase) if _animation_state.begins_with("walk") else 0
+	_sprite.region_rect = Rect2(CharacterAnimationRegistry.region_for(_sheet_id, _animation_state, frame_index))
 
 func set_held_tool_contract(hotbar_index: int, item_id: String, visual_id: String = "") -> void:
 	selected_hotbar_index = hotbar_index
@@ -138,7 +160,7 @@ func _refresh_held_tool() -> void:
 		_held_tool_attachment.add_child(_held_tool_sprite)
 	_held_tool_sprite.texture = tex
 	var max_dim: float = maxf(float(tex.get_width()), float(tex.get_height()))
-	var target_size := 24.0
+	var target_size := 18.0
 	var scale_f := target_size / maxf(max_dim, 1.0)
 	_held_tool_sprite.scale = Vector2(scale_f, scale_f)
 	_held_tool_sprite.visible = true
@@ -154,16 +176,9 @@ func _resolve_held_tool_texture() -> Texture2D:
 func _refresh_held_tool_pose() -> void:
 	if _held_tool_attachment == null:
 		return
-	match facing_direction:
-		FACING_UP:
-			_held_tool_attachment.position = Vector2(-8, -17)
-			_held_tool_attachment.rotation = -0.25
-			_held_tool_attachment.z_index = -1
-		FACING_SIDE:
-			_held_tool_attachment.position = Vector2(18, -10)
-			_held_tool_attachment.rotation = 0.45
-			_held_tool_attachment.z_index = 3
-		_:
-			_held_tool_attachment.position = Vector2(11, -7)
-			_held_tool_attachment.rotation = 0.18
-			_held_tool_attachment.z_index = 3
+	# Data-driven hand socket per facing (CharacterAnimationRegistry) so the tool sits on the
+	# hand instead of floating, and draws behind the body when the character faces away (up).
+	var socket: Dictionary = CharacterAnimationRegistry.hand_socket(facing_direction)
+	_held_tool_attachment.position = socket.get("pos", Vector2(6, -13)) as Vector2
+	_held_tool_attachment.rotation = float(socket.get("rot", 0.18))
+	_held_tool_attachment.z_index = -1 if bool(socket.get("behind", false)) else 3

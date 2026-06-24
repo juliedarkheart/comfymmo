@@ -348,6 +348,8 @@ func get_static_blocked_tiles() -> Array[Vector2i]:
 	if AssetWorldMetadata.is_blocking("object.fence_horizontal"):
 		for fence_tile in _limezu_blocking_fence_tiles():
 			blocked.append(fence_tile)
+	for prop_tile in _limezu_blocking_prop_tiles():
+		blocked.append(prop_tile)
 	return blocked
 
 func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = []) -> Dictionary:
@@ -367,6 +369,8 @@ func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = [])
 		for fence_tile in _limezu_blocking_fence_tiles():
 			if tile == fence_tile:
 				return {"valid": false, "reason": "Blocked by fence"}
+	if tile in _limezu_blocking_prop_tiles():
+		return {"valid": false, "reason": "Blocked by object"}
 	return {"valid": true, "reason": ""}
 
 # --- Dev collision debug overlay (off by default; toggled via the admin panel) ----------
@@ -374,6 +378,9 @@ func get_tile_block_result(tile: Vector2i, occupied_tiles: Array[Vector2i] = [])
 # purple = minimap-visible feature. Map-static diagnostic only; not a play feature.
 var _collision_debug: Node2D = null
 var _collision_debug_legend: CanvasLayer = null
+## Contracted LimeZu world props (crates, etc.) spawned by _limezu_prop this build. Each:
+## {logical_id, tile, node}. The controller registers the interactable ones as F prompts.
+var _limezu_prop_instances: Array = []
 
 func set_collision_debug(enabled: bool) -> void:
 	if enabled:
@@ -405,6 +412,11 @@ func _limezu_collision_debug_instances() -> Array:
 	if AssetWorldMetadata.has_asset_collision_shapes("object.fence_horizontal"):
 		for fence_tile in _limezu_blocking_fence_tiles():
 			instances.append({"asset_id": "object.fence_horizontal", "origin": _limezu_object_origin(fence_tile)})
+	for inst in _limezu_prop_instances:
+		var entry: Dictionary = inst as Dictionary
+		var lid: String = String(entry.get("logical_id", ""))
+		if AssetWorldMetadata.has_asset_collision_shapes(lid):
+			instances.append({"asset_id": lid, "origin": _limezu_object_origin(entry.get("tile", Vector2i.ZERO) as Vector2i)})
 	return instances
 
 func _debug_points(origin: Vector2, points: Array) -> PackedVector2Array:
@@ -1077,6 +1089,7 @@ func _build_curated_slice() -> void:
 ## placement bounds, spawn, and colliders are unchanged.
 func _build_limezu_slice() -> void:
 	set_meta("limezu_slice", true)
+	_limezu_prop_instances.clear()
 	# 1) LimeZu grass ground covering the small playable homestead area. This is
 	# intentionally bounded; the full overworld remains deferred.
 	for ty in range(LIMEZU_PLAYABLE_AREA_BOUNDS.position.y, LIMEZU_PLAYABLE_AREA_BOUNDS.end.y):
@@ -1100,8 +1113,8 @@ func _build_limezu_slice() -> void:
 	for flower_tile in [Vector2i(1, 12), Vector2i(5, 11), Vector2i(12, 15), Vector2i(2, 9), Vector2i(15, 12)]:
 		_limezu_object("object.flower", flower_tile)
 	_limezu_object("animal.chicken", Vector2i(6, 12))
-	_limezu_object("animal.cow", Vector2i(11, 15))
-	_limezu_object("object.crate", Vector2i(10, 13))
+	_limezu_prop("animal.cow", Vector2i(11, 15))   # small body collider so the player can't walk through
+	_limezu_prop("object.crate", Vector2i(10, 13))
 	# 6) Sparse LimeZu-only edge clusters so walking a few steps from spawn still
 	# feels authored without turning this into a whole-world makeover.
 	for edge_tree_tile in LIMEZU_EDGE_TREE_TILES:
@@ -1114,7 +1127,7 @@ func _build_limezu_slice() -> void:
 	for fence_tile in LIMEZU_EDGE_FENCE_TILES:
 		_limezu_object("object.fence_horizontal", fence_tile)
 	for edge_crate_tile in LIMEZU_EDGE_CRATE_TILES:
-		_limezu_object("object.crate", edge_crate_tile)
+		_limezu_prop("object.crate", edge_crate_tile)
 
 func _limezu_is_ground_blocked(tile: Vector2i) -> bool:
 	if LIMEZU_BARN_VISUAL_FOOTPRINT.has_point(tile):
@@ -1163,13 +1176,13 @@ func _limezu_ground(logical_id: String, tile: Vector2i, z: int) -> void:
 	ground_layer.add_child(s)
 
 ## A LimeZu object/animal, bottom-anchored to base_tile and y-sorted via its feet.
-func _limezu_object(logical_id: String, base_tile: Vector2i) -> void:
+func _limezu_object(logical_id: String, base_tile: Vector2i) -> Node2D:
 	if not LimeZuArtRegistry.has_asset(logical_id):
-		return
+		return null
 	var source_path: String = LimeZuArtRegistry.texture_path(logical_id)
 	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(logical_id)
 	if tex == null:
-		return
+		return null
 	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
 	var holder := Node2D.new()
 	holder.position = grid_to_world(base_tile) + Vector2(0, 16)
@@ -1187,6 +1200,43 @@ func _limezu_object(logical_id: String, base_tile: Vector2i) -> void:
 	s.set_meta("tile", base_tile)
 	s.set_meta("visual_source_path", source_path)
 	holder.add_child(s)
+	return holder
+
+## A LimeZu world PROP: the visual sprite PLUS its AssetWorldMetadata contract — a base
+## collider when the contract is blocking, and a recorded instance the controller registers
+## as an F interactable when the contract is interactable. This is what turns the old
+## decorative-only crate into a real, contracted object (collision + interaction + minimap).
+func _limezu_prop(logical_id: String, base_tile: Vector2i) -> void:
+	var holder: Node2D = _limezu_object(logical_id, base_tile)
+	if holder == null:
+		return
+	if AssetWorldMetadata.has_asset_collision_shapes(logical_id):
+		_add_limezu_asset_collider(
+			"LimeZuPropCollision_%s_%d_%d" % [logical_id.replace(".", "_"), base_tile.x, base_tile.y],
+			logical_id, _limezu_object_origin(base_tile)
+		)
+	_limezu_prop_instances.append({"logical_id": logical_id, "tile": base_tile, "node": holder})
+
+## Contracted world-prop instances spawned this build (crates, etc.). The controller reads
+## the interactable ones to register F prompts; the map reads the blocking ones for placement.
+func get_limezu_prop_instances() -> Array:
+	return _limezu_prop_instances
+
+func get_limezu_interactable_props() -> Array:
+	var out: Array = []
+	for inst in _limezu_prop_instances:
+		var entry: Dictionary = inst as Dictionary
+		if AssetWorldMetadata.interaction_enabled(String(entry.get("logical_id", ""))):
+			out.append(entry)
+	return out
+
+func _limezu_blocking_prop_tiles() -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	for inst in _limezu_prop_instances:
+		var entry: Dictionary = inst as Dictionary
+		if AssetWorldMetadata.is_blocking(String(entry.get("logical_id", ""))):
+			tiles.append(entry.get("tile", Vector2i.ZERO) as Vector2i)
+	return tiles
 
 func _build_overworld_bounds() -> void:
 	# Walls are derived from the world's actual content bounds (+ a margin) and

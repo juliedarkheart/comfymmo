@@ -136,18 +136,31 @@ static func _limezu_actor_sprite(visual_id: String) -> Sprite2D:
 	if not LimeZuArtRegistry.has_asset(sheet_id):
 		return null
 	var source_path: String = LimeZuArtRegistry.texture_path(sheet_id)
-	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(sheet_id)
-	if tex == null:
-		return null
 	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE * CharacterProfileRegistry.scale_mult(normalized_id)
 	var sprite := Sprite2D.new()
 	sprite.name = "CharacterArt_limezu_%s" % normalized_id
-	sprite.texture = tex
 	sprite.centered = true
-	# Feet at the actor origin (0,0): centre sits half the scaled height above it.
-	sprite.position = Vector2(0, -tex.get_height() * scale_f * 0.5)
 	sprite.scale = Vector2(scale_f, scale_f)
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	# Directional animation: when the sheet has REVIEWED frame data, use the FULL sheet with a
+	# region rect (the avatar swaps the rect by facing/walk). Otherwise fall back to the single
+	# cropped idle frame so a partial/unknown sheet still renders one clean pose (no regression).
+	var frame_h: float = float(CharacterAnimationRegistry.FRAME.y)
+	if CharacterAnimationRegistry.has_sheet(sheet_id):
+		var full: Texture2D = LimeZuArtRegistry.resolve_full_sheet(sheet_id)
+		if full != null:
+			sprite.texture = full
+			sprite.region_enabled = true
+			sprite.region_rect = Rect2(CharacterAnimationRegistry.idle_rect(sheet_id, "down"))
+			sprite.set_meta("actor_sheet_id", sheet_id)
+	if sprite.texture == null:
+		var tex: Texture2D = LimeZuArtRegistry.resolve_texture(sheet_id)
+		if tex == null:
+			return null
+		sprite.texture = tex
+		frame_h = float(tex.get_height())
+	# Feet at the actor origin (0,0): centre sits half the scaled frame height above it.
+	sprite.position = Vector2(0, -frame_h * scale_f * 0.5)
 	# Per-actor palette tint (pale, near-white) so a shared base sheet still reads as a
 	# different person. The player's tint comes from saved CharacterAppearance customization.
 	sprite.modulate = CharacterProfileRegistry.palette_color(normalized_id)

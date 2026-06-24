@@ -1,5 +1,31 @@
 # Playtest Readiness
 
+## Animation, facing, tool sockets, terrain & collision (2026-06-24)
+
+- **Character facing/animation:** the player body now uses the LimeZu sheet with a region rect
+  selected by facing — DOWN shows the front frame, UP the back frame, LEFT/RIGHT the front frame
+  mirrored. DOWN walk cycles a 2-frame step; UP/SIDE walk use the facing frame plus a body bob.
+  Data + reviewed frames live in `systems/character/character_animation_registry.gd`. Full
+  per-direction walk cycles (and the action atlases) are CATALOGED for a future reviewed pass —
+  see `tools/audit_limezu_animations.gd` + `licensed_assets/limezu/generator_manifests/limezu_animation_manifest.json`.
+  - *Manual test:* walk up/down/left/right — the player faces the right way (back when going up),
+    visibly steps when moving down, and settles to idle facing when stopped. NPCs keep their unique
+    profiles (Rowan Farmer_1, Hazel Body_2, etc.) and render the down idle.
+- **Held-tool sockets:** equipped tools (hoe/axe/watering can/shovel) attach to a per-facing hand
+  socket (`CharacterAnimationRegistry.HAND_SOCKET`) instead of floating; the tool draws behind the
+  body when facing up, and mirrors with the body for left/right. *Test:* equip a tool from the
+  quickbar and walk in each direction — it stays on the hand and hides when unequipped.
+- **Terrain:** `terrain.grass` now resolves to a real LimeZu grass tile (Modern Farm terrains
+  autotile cell), not the old mislabeled derivative path tile; `dirt_path`/`tilled_soil` are
+  reviewed LimeZu tiles. *Test:* the ground reads as coherent grass with a dirt path, no path-tile
+  ground. **Deferral:** FarmPlot soil/crop are still procedural polygons (budgeted ≤28, audited).
+- **Collision:** cows and signs now block at a small base collider (you bump them, can't walk
+  through, never get trapped); fences, tree trunks, barn base, and crates also block; chickens and
+  flowers stay pass-through. *Test:* walk into the cow / a sign — blocked; walk through a flower —
+  pass. F7 "Show Collision" overlay shows the cow + sign + crate colliders.
+- **Animals:** cow/chicken animation sheets are cataloged (the analyzer found them) but the live
+  animals stay static-with-collision for now (documented deferral — no behavior added).
+
 ## Actor identity & customization (2026-06-24)
 
 The LimeZu repair had made every actor render the same `Farmer_1` farmer. Now each named actor

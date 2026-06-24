@@ -46,6 +46,21 @@ looked identical. Fixed with a central profile layer:
   full layered character creator (per-part hair/outfit/skin sprites composited over a LimeZu
   body) is future scope — the appearance data model + F9 panel already exist to grow into it.
 
+## Facing, animation & held-tool sockets (2026-06-24)
+
+- `systems/character/character_animation_registry.gd` (`CharacterAnimationRegistry`) — reviewed
+  directional FRAME cells + per-facing hand SOCKETS for the LimeZu base character sheets
+  (Farmer_1/Farmer_2/Body_2, 16x32 frames). Wired now: DOWN (front, cell col1) and UP (back,
+  col4) idle, a 2-frame DOWN walk, and SIDE = the down frame mirrored. The avatar
+  (`avatar/avatar_visual.gd`) swaps the body sprite's `region_rect` by facing/walk and reads the
+  hand socket so held tools sit on the hand (drawn behind the body when facing up).
+- Full per-direction walk cycles and the action atlases (chopping/watering/etc.) are CATALOGED,
+  not yet wired — run `tools/audit_limezu_animations.gd` to (re)build the gitignored
+  `licensed_assets/limezu/generator_manifests/limezu_animation_manifest.json`. This keeps a
+  wrong-frame guess from shipping: anything unreviewed renders the safe single idle pose.
+- Character uniqueness profiles still drive the base sheet + palette per actor, so facing/anim
+  layers on top of identity without changing it.
+
 ## Pieces
 
 - `systems/character/character_appearance_registry.gd` — all options as

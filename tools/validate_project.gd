@@ -1375,6 +1375,48 @@ func _initialize() -> void:
 			quit(1)
 			return
 
+		# --- Animation / facing / held-tool socket (animation pass) ---------------------
+		for anim_sheet in ["character.farmer_idle", "character.farmer2_idle", "character.body2_idle"]:
+			if not CharacterAnimationRegistry.has_sheet(anim_sheet):
+				push_error("Character sheet '%s' has no animation/facing data" % anim_sheet)
+				quit(1)
+				return
+			for facing in ["down", "up", "side"]:
+				if CharacterAnimationRegistry.walk_frames(anim_sheet, facing).is_empty():
+					push_error("Character sheet '%s' has no movement frame for facing '%s'" % [anim_sheet, facing])
+					quit(1)
+					return
+			var rev_dirs: Array = CharacterAnimationRegistry.reviewed_directions(anim_sheet)
+			if not (rev_dirs.has("down") and rev_dirs.has("up")):
+				push_error("Character sheet '%s' must have reviewed down+up facing frames" % anim_sheet)
+				quit(1)
+				return
+		for socket_facing in ["down", "up", "side"]:
+			if not CharacterAnimationRegistry.has_hand_socket(socket_facing):
+				push_error("Held-tool hand socket missing for facing '%s'" % socket_facing)
+				quit(1)
+				return
+
+		# --- Terrain completion: the direct ids resolve to allowed LimeZu-family tiers, and grass
+		# is a distinct tile (not the old mislabeled path-tile collapse). ---
+		for terrain_id in ["terrain.grass", "terrain.dirt_path", "terrain.tilled_soil"]:
+			var terr_tier: String = VisualSourceReport.classify_texture(LimeZuArtRegistry.texture_path(terrain_id))
+			if not LiveVisualPolicy.is_allowed_live_tier(terr_tier):
+				push_error("Terrain '%s' does not resolve to an allowed LimeZu-family tier (%s)" % [terrain_id, terr_tier])
+				quit(1)
+				return
+		if LimeZuArtRegistry.texture_path("terrain.grass") == LimeZuArtRegistry.texture_path("terrain.dirt_path"):
+			push_error("terrain.grass resolves to the same tile as terrain.dirt_path (grass not distinct)")
+			quit(1)
+			return
+
+		# --- Animal/sign/fence/tree/building must block (no walk-through props) ----------
+		for solid_world in ["animal.cow", "object.sign", "object.fence_horizontal", "object.tree", "object.barn", "object.crate"]:
+			if not AssetWorldMetadata.has_asset_collision_shapes(solid_world):
+				push_error("World object '%s' must have collision shapes (player can walk through it)" % solid_world)
+				quit(1)
+				return
+
 	var gen_gitignore: String = FileAccess.get_file_as_string("res://.gitignore")
 	if not gen_gitignore.contains("licensed_assets/"):
 		push_error(".gitignore must ignore licensed_assets/ so generator outputs/manifests stay local")

@@ -54,6 +54,22 @@ explicit debug mode — they must not appear in the opening view when LimeZu is 
   legacy planks, and save-restored placements stay visible (`BuildingPlacementSystem` no longer
   hides LimeZu-mapped objects). Collision + interaction are rebuilt from the saved `object_id`.
 
+## Animation + terrain completion (2026-06-24)
+
+- **Terrain:** `terrain.grass` → reviewed solid grass cell `1_Terrains_16x16.png` rect `[48,32,16,16]`
+  (Modern Farm terrains autotile); `terrain.dirt_path` → ME dirt single; `terrain.tilled_soil` →
+  `Soil_Wet_1`. All three resolve to `limezu_raw`. The old derivative `path_tile_variant` ground is
+  retired. A per-id texture cache (`LimeZuArtRegistry._texture_cache`) keeps the 651-tile grass
+  ground decoding the source sheet once.
+- **Character sheets:** added `character.farmer2_idle` + `character.body2_idle` raw frames;
+  `LimeZuArtRegistry.resolve_full_sheet()` returns the uncropped sheet for region/animation use.
+  Reviewed directional frames + hand sockets live in `CharacterAnimationRegistry` (down/up wired,
+  side mirrored; full walk cycles deferred).
+- **Animation catalog:** `tools/audit_limezu_animations.gd` scans the character/animal folders and
+  writes the gitignored `generator_manifests/limezu_animation_manifest.json` (frame counts, dims,
+  likely directions, usable-now flag). Cow/chicken animation sheets exist and are cataloged for a
+  later light-idle pass; the live animals are static-with-collision for now.
+
 ## How it works
 
 1. The licensed packs live under `licensed_assets/limezu/<pack>/original/` (zips +

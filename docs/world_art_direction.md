@@ -18,6 +18,16 @@ ground fill is a `limezu_derivative` tile (no flat-grass single in the packs yet
 draws procedural soil/crop polygons until a reviewed LimeZu farm-plot asset replaces them. Full
 policy + tiers: [docs/limezu_asset_mapping.md](limezu_asset_mapping.md).
 
+## Terrain & collision (2026-06-24)
+
+The ground fill (`terrain.grass`) now resolves to a reviewed solid LimeZu grass cell from the
+Modern Farm terrains autotile — not the old mislabeled derivative path tile — so the whole
+playable ground reads as grass with a real dirt path crossing it. Solidity is enforced from the
+object contracts: cows and signs block at a small base collider (bump, don't pass through, never
+trap), alongside fences / tree trunks / barn base / crates; chickens and flowers stay
+pass-through. FarmPlot soil/crop remain the one documented procedural deferral (budgeted +
+audited). See [docs/playtest_readiness.md](playtest_readiness.md) for the manual test steps.
+
 ## Actor identity (no clones)
 
 Each named actor has a visual profile in `systems/character/character_profile_registry.gd`: a
