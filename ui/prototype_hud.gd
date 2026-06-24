@@ -52,10 +52,19 @@ func _enable_row_icon(path: String, px: int) -> void:
 	if node == null:
 		return
 	if LiveVisualPolicy.live_limezu_slice():
-		var limezu_icon_id := "ui.slot_selected" if path.contains("DayIcon") else "ui.slot"
+		# SEMANTIC LimeZu-family icons (a day/calendar + a comfort/heart token), never
+		# an empty UI slot frame (that read as a blank/missing HUD icon).
+		var limezu_icon_id := "icon.day" if path.contains("DayIcon") else "icon.comfort"
 		if LimeZuArtRegistry.has_asset(limezu_icon_id):
 			node.texture = LimeZuArtRegistry.resolve_texture(limezu_icon_id)
-			px = 28
+			node.visible = node.texture != null
+			node.custom_minimum_size = Vector2(28, 28)
+			node.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			return
+		# No semantic LimeZu icon resolved — hide the decorative icon rather than
+		# show a blank slot.
+		node.visible = false
+		return
 	node.visible = true
 	node.custom_minimum_size = Vector2(px, px)
 	node.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST

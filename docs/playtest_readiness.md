@@ -1,5 +1,37 @@
 # Playtest Readiness
 
+## LimeZu live visual quarantine (2026-06-24)
+
+Normal local dev live mode is **LimeZu-family only**; old legacy/procedural/Sprout art is
+quarantined out of the opening view (see [docs/limezu_asset_mapping.md](limezu_asset_mapping.md)
+for the full policy and tiers).
+
+- **Root fixes this pass:** (1) *giant fence-post scatter* — `LimeZuArtRegistry.texture_path`
+  now prefers the reviewed raw single-file mapping over the unreviewed generator derivative
+  slices, so fences/crates/flowers/props render their correct LimeZu single files instead of
+  one repeated `fence_variant` cell; (2) *blank HUD icons* — the day/comfort icons used empty
+  UI slot frames; they now use semantic LimeZu-inspired icons (`family_calendar_icon`,
+  `comfort_token_icon`); (3) the world sign renders the LimeZu `Sign_1_16x16` prop.
+- **Manual visual confirmation (run `--path . ` and look at the opening):**
+  - No giant fence-post scatter; fences/posts/signs/trees/props are visually distinct.
+  - HUD day + comfort icons are visible (a calendar + a comfort token), not blank slots.
+  - Old sign board is replaced by the LimeZu sign; no old legacy generated world art on camera.
+  - No Sprout-looking assets in live mode.
+  - Player and Farmer Rowan are visible (LimeZu farmer sprite), correct scale, names aligned.
+  - Nearest-neighbour filtering, consistent 16→32px (x2) scale; no blur, no giant/tiny mismatch.
+- **Dev growth helper:** press `F7` → admin panel → **Grow Crops** advances all crop stages
+  for fast farm playtests.
+- **Save/load test:** hoe→plant→grow→harvest, place a crate, then quit and relaunch; farm
+  plot stage, watered/tilled state, inventory counts, and the placed crate persist
+  (verified headless by `tools/smoke_homestead_loop.gd`).
+- **Known deferrals (allowed, documented):** the ground fill `terrain.grass` is the
+  `limezu_derivative` `path_tile_variant` tile (no flat-grass single in the packs — reviewed
+  raw grass tile is a follow-up); FarmPlot still draws procedural soil/crop polygons until a
+  reviewed LimeZu farm-plot asset replaces them. A small number of off-camera legacy sprites
+  remain in the deferred broad overworld (outside the opening view).
+- **Checks:** `tools/validate_project.gd` (live allowlist + HUD-icon + generic-mapping guards),
+  `tools/audit_live_visuals.gd` (per-id source-tier audit), `tools/smoke_homestead_loop.gd`.
+
 ## Build placement, panels, and farm usability (2026-06-18 follow-up 7)
 
 - **Build id -> visual id -> metadata:** build menu cards keep the selected content id unchanged; `ObjectRegistry` loads that id's scene; `PlaceableDecor.decor_id` now reports the selected id through the placeable art path; `ObjectArtRegistry` supplies selected sprites where mapped; `DecorVisuals` supplies explicit custom visuals for procedural decor; `AssetWorldMetadata.asset_id_for_placeable()` still supplies collision/minimap metadata.

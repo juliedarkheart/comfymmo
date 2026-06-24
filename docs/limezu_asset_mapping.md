@@ -6,6 +6,43 @@ visual spike scene for focused review. All LimeZu media is **local-only** under 
 `licensed_assets/limezu/` — nothing here is committed except this doc, the manifest
 *template*, the integration tool, and the provider/spike code.
 
+## Live visual policy — LimeZu-family only (2026-06-24 quarantine pass)
+
+Normal local dev **live** mode renders **only** LimeZu-family sources. Old legacy /
+procedural / Sprout visuals are quarantined to clean-checkout emergency fallback or
+explicit debug mode — they must not appear in the opening view when LimeZu is usable.
+
+- **Allowed live source tiers** (`LiveVisualPolicy.LIVE_ALLOWED_SOURCE_TIERS`):
+  `limezu_reviewed`, `limezu_raw` (hand-reviewed raw single-file crops), `limezu_derivative`,
+  `limezu_inspired`, `limezu_generated_local`.
+- **Disallowed in live mode** (`LIVE_DISALLOWED_SOURCE_TIERS`): `legacy_generated`,
+  `procedural` (for world art), `sprout`, `blank`, `missing`, `unknown`, and unreviewed
+  random raw sheet cells.
+- **Resolution order** (`LimeZuArtRegistry.texture_path`): active manifest → **reviewed
+  raw single-file mapping (`RAW_PACK_FALLBACKS`)** → local generator derivative/inspired
+  → safe missing fallback. The reviewed raw mapping now wins over the unreviewed generator
+  slices for **every** id. *(This is the fence-post-scatter fix: the generator
+  `fence_variant` derivative used to out-rank the curated `Wooden_Fence_*` single file and
+  many object ids aliased onto it, producing repeated giant fence posts.)*
+- **Sprout** is optional / manual / reference-only. The LimeZu live path never auto-mixes
+  Sprout, even when local Sprout manifests exist.
+- **Raw LimeZu cells must be semantically reviewed** before live use; the curated
+  `RAW_PACK_FALLBACKS` map is that review. **Inspired/derivative** outputs are the preferred
+  gap-fillers for ids without a reviewed raw mapping.
+- **HUD icons**: day/comfort status icons resolve to semantic LimeZu-family icons
+  (`icon.day`→`family_calendar_icon`, `icon.comfort`→`comfort_token_icon`, both inspired),
+  **never** an empty UI slot/blank texture.
+- **Actors/NPCs**: player, Farmer Rowan, and other NPCs render the raw LimeZu farmer frame
+  (`Characters_16x16/Farmer_1_16x16.png`), cropped to a 16x32 frame.
+- **Known deferrals (allowed, documented):** (1) the ground fill `terrain.grass` resolves to
+  the `limezu_derivative` `path_tile_variant` tile — no flat grass single exists in the packs,
+  so a reviewed raw grass tile is a follow-up; (2) FarmPlot draws procedural soil/crop
+  polygons live until a reviewed LimeZu farm-plot asset replaces them.
+- **Enforcement:** `tools/validate_project.gd` fails if any live id resolves to a disallowed
+  tier, if the HUD day/comfort icons resolve to a slot/blank, or if distinct world props
+  collapse onto one shared texture (the bad-generic-mapping guard). `tools/audit_live_visuals.gd`
+  prints the per-id source-tier audit.
+
 ## How it works
 
 1. The licensed packs live under `licensed_assets/limezu/<pack>/original/` (zips +

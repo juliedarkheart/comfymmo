@@ -52,6 +52,10 @@ const LOGICAL_ID_ALIASES := {
 	"ui.tab": ["tab_variant", "cozy_button"],
 	"ui.close": ["close_button_variant", "tiny_close_button"],
 	"ui.close_hover": ["close_button_variant", "tiny_close_button"],
+	# Semantic HUD status icons (LimeZu-INSPIRED, drawn by category) — a day/calendar
+	# and a comfort/heart token. Used so the HUD never falls back to an empty UI slot.
+	"icon.day": ["family_calendar_icon", "village_note_icon"],
+	"icon.comfort": ["comfort_token_icon", "creature_treat_icon"],
 }
 
 static var _loaded: bool = false

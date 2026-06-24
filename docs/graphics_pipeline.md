@@ -5,6 +5,21 @@ gameplay scope. The current art is generated local placeholder PNG art, routed
 through registries so final ComfyUI/manual sprites or verified CC0 assets can
 replace it later without rewriting placement, land, building, or map systems.
 
+## LimeZu-only live mode (2026-06-24 quarantine pass)
+
+Live local dev mode renders **only** LimeZu-family sources. The generated local
+placeholder/legacy art described below is now an **emergency fallback only** (clean checkout
+with no licensed packs / generator outputs) or an explicit debug mode — it must not appear in
+the normal LimeZu opening view. Allowed live tiers: `limezu_reviewed`, `limezu_raw`,
+`limezu_derivative`, `limezu_inspired`, `limezu_generated_local`. Disallowed live: legacy
+generated, procedural world art, Sprout, blank/missing/unknown, and unreviewed random raw
+sheet cells. Sprout is optional/manual/reference-only. Raw LimeZu cells must be semantically
+reviewed before live use; inspired/derivative outputs are the preferred gap-fillers. See
+[docs/limezu_asset_mapping.md](limezu_asset_mapping.md) for the full policy, the resolution
+order (reviewed raw beats unreviewed generator slices — the fence-post-scatter fix), HUD-icon
+and actor requirements, and the documented ground/farm-plot deferrals. Enforced by
+`tools/validate_project.gd`; audited by `tools/audit_live_visuals.gd`.
+
 ## Visual Target
 
 Hearthvale should read as a cozy Sprout-compatible top-down / gentle 3/4 village

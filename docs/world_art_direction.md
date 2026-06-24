@@ -5,6 +5,19 @@ Sprout-compatible top-down / gentle 3/4 space. The older 64x32 isometric diamond
 view remains a legacy fallback. The player should be able to understand paths,
 plots, public areas, wilderness, and biome changes at a glance.
 
+## LimeZu-family only in live mode (2026-06-24)
+
+The live homestead opening renders **only** LimeZu-family art (reviewed mappings, reviewed raw
+single-file crops, derivative, inspired, or LimeZu-style generated-local). Old legacy generated
+and procedural world props, signs, fences, and trees are quarantined to clean-checkout
+emergency fallback / debug mode and must not appear when LimeZu is usable. Sprout is
+optional/manual/reference-only. The world sign, fences, barn, trees, flowers, crate, crops, and
+the player/NPC actors all resolve to LimeZu single-file art; the HUD day/comfort icons use
+semantic LimeZu-inspired icons (never empty UI slots). Two documented deferrals remain: the
+ground fill is a `limezu_derivative` tile (no flat-grass single in the packs yet) and FarmPlot
+draws procedural soil/crop polygons until a reviewed LimeZu farm-plot asset replaces them. Full
+policy + tiers: [docs/limezu_asset_mapping.md](limezu_asset_mapping.md).
+
 ## Collision vs. visual footprints (LimeZu homestead)
 
 Collision is keyed to **ground footprints**, not full sprite bounds: tall bottom-anchored

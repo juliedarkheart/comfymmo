@@ -71,6 +71,38 @@ static func should_draw_procedural_actor_fallbacks() -> bool:
 static func normal_hud_is_compact(size: Vector2) -> bool:
 	return size.x <= NORMAL_HUD_MAX_WIDTH and size.y <= NORMAL_HUD_MAX_HEIGHT
 
+## ----------------------------------------------------------------------------
+## STRICT LIVE VISUAL ALLOWLIST (Task 2 of the visual-quarantine pass).
+## In normal LimeZu live mode only LimeZu-family source tiers may be visible. Old
+## legacy/procedural/Sprout art is quarantined to clean-checkout emergency fallback
+## or explicit debug mode. Validation (tools/validate_project.gd) and the live audit
+## (tools/audit_live_visuals.gd) consult these so old placeholders cannot silently
+## creep back into the opening view. Tier strings match VisualSourceReport.classify_texture.
+## ----------------------------------------------------------------------------
+const LIVE_ALLOWED_SOURCE_TIERS: Array[String] = [
+	"limezu_reviewed",      # active manifest / normalized LimeZu UI
+	"limezu_raw",           # hand-reviewed raw LimeZu single-file crops (RAW_PACK_FALLBACKS)
+	"limezu_derivative",    # licensed-pixel derivative generator outputs
+	"limezu_inspired",      # Hearthvale LimeZu-style original generator outputs
+	"limezu_generated_local",  # LimeZu-style locally generated, tagged as such
+]
+## Hard-disallowed in normal LimeZu live mode. Visible occurrence => validation fails.
+const LIVE_DISALLOWED_SOURCE_TIERS: Array[String] = [
+	"legacy_generated", "procedural", "sprout", "blank", "missing", "unknown",
+]
+## The ONE documented procedural exception: farm plot / crop polygons that FarmPlot
+## draws live until a reviewed LimeZu farm-plot asset replaces them. Validation reports
+## these as an explicit deferral (a bounded Polygon2D budget) rather than a hard failure.
+const PROCEDURAL_FARM_DEFERRAL := true
+
+## True when a classified source tier may appear in the normal LimeZu live opening.
+static func is_allowed_live_tier(tier: String) -> bool:
+	return LIVE_ALLOWED_SOURCE_TIERS.has(String(tier).strip_edges())
+
+## True when a tier must never appear in the normal LimeZu live opening.
+static func is_disallowed_live_tier(tier: String) -> bool:
+	return LIVE_DISALLOWED_SOURCE_TIERS.has(String(tier).strip_edges())
+
 static func terrain_for_plot_ground(biome_id: String, rect: Rect2i, tile: Vector2i) -> String:
 	var normalized := String(biome_id).strip_edges().to_lower()
 	if normalized == "farmland":

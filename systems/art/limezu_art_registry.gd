@@ -182,19 +182,20 @@ static func texture_path(logical_id: String) -> String:
 		var local := _resolve_local(String(_active[nid]))
 		if not local.is_empty():
 			return local
-	if _prefers_raw_pack_frame(nid):
-		var raw_first := _resolve_raw_fallback(nid)
-		if not raw_first.is_empty():
-			return raw_first
-	# Optional local generator outputs (derivative > inspired). Returns "" — and so
-	# is skipped — when the manifests/PNGs are absent (clean checkout), so the live
-	# game never depends on these dev/review outputs.
-	var generated := GeneratorAssetResolver.resolve(nid)
-	if not generated.is_empty():
-		return generated
+	# Reviewed, hand-curated raw LimeZu single-file mapping (RAW_PACK_FALLBACKS) wins
+	# over the unreviewed local generator slices for EVERY id. The generator
+	# derivative cells are semantically random (they were the cause of the giant
+	# fence-post scatter when they out-ranked the curated single files), so they may
+	# only fill ids that have NO reviewed mapping.
 	var raw := _resolve_raw_fallback(nid)
 	if not raw.is_empty():
 		return raw
+	# Optional local generator outputs (derivative > inspired) only as a last resort
+	# before missing. Returns "" — and is skipped — when the manifests/PNGs are absent
+	# (clean checkout), so the live game never depends on these dev/review outputs.
+	var generated := GeneratorAssetResolver.resolve(nid)
+	if not generated.is_empty():
+		return generated
 	return FALLBACK_PATH
 
 static func has_asset(logical_id: String) -> bool:
@@ -202,11 +203,11 @@ static func has_asset(logical_id: String) -> bool:
 	var nid := normalize_id(logical_id)
 	if _active.has(nid) and not _resolve_local(String(_active[nid])).is_empty():
 		return true
-	if _prefers_raw_pack_frame(nid) and not _resolve_raw_fallback(nid).is_empty():
+	if not _resolve_raw_fallback(nid).is_empty():
 		return true
 	if not GeneratorAssetResolver.resolve(nid).is_empty():
 		return true
-	return not _resolve_raw_fallback(nid).is_empty()
+	return false
 
 static func resolve_texture(logical_id: String) -> Texture2D:
 	var path := texture_path(logical_id)

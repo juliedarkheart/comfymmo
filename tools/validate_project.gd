@@ -1263,6 +1263,60 @@ func _initialize() -> void:
 				quit(1)
 				return
 	# Generator outputs + manifests live under the gitignored licensed_assets/ tree.
+	# --- Strict LimeZu live allowlist (deterministic registry check) ---------------
+	# Every id the live opening spawns must resolve to an allowed LimeZu-family tier,
+	# the HUD status icons must be semantic (never a blank/slot frame), and the distinct
+	# world props must NOT collapse onto one shared texture. That last guard is what the
+	# scene audit missed: the giant fence-post scatter classified as a valid
+	# 'limezu_derivative' tier, so only the bad-generic-mapping check catches it.
+	if LiveVisualPolicy.live_limezu_slice():
+		var live_world_ids: Array[String] = [
+			"terrain.grass", "terrain.dirt_path", "terrain.tilled_soil",
+			"object.barn", "object.tree", "object.tree_small",
+			"object.fence_horizontal", "object.fence_vertical", "object.fence_post",
+			"object.flower", "object.flower2", "object.flower3", "object.crate", "object.sign",
+			"crop.carrot", "crop.carrot_stage1",
+			"character.farmer_idle", "animal.chicken", "animal.cow",
+		]
+		for live_id in live_world_ids:
+			var live_path: String = LimeZuArtRegistry.texture_path(live_id)
+			var live_tier: String = VisualSourceReport.classify_texture(live_path)
+			if not LiveVisualPolicy.is_allowed_live_tier(live_tier):
+				push_error("Live id '%s' resolves to disallowed source tier '%s' (%s)" % [live_id, live_tier, live_path])
+				quit(1)
+				return
+		# Bad-generic-mapping guard: distinct props must not share one texture (the
+		# fence-post regression had many object ids -> one derivative cell).
+		var distinct_obj_ids: Array[String] = [
+			"object.fence_horizontal", "object.fence_vertical", "object.fence_post",
+			"object.crate", "object.tree", "object.barn",
+			"object.flower", "object.flower2", "object.flower3", "object.tree_small",
+		]
+		var path_to_ids: Dictionary = {}
+		for obj_id in distinct_obj_ids:
+			var op: String = LimeZuArtRegistry.texture_path(obj_id)
+			var bucket: Array = path_to_ids.get(op, [])
+			bucket.append(obj_id)
+			path_to_ids[op] = bucket
+		for shared_path in path_to_ids:
+			if (path_to_ids[shared_path] as Array).size() >= 3:
+				push_error("Generic-mapping regression: %d unrelated object ids share one texture %s -> %s" % [(path_to_ids[shared_path] as Array).size(), str(shared_path), str(path_to_ids[shared_path])])
+				quit(1)
+				return
+		# HUD status icons must be semantic LimeZu-family icons, never a blank/slot frame.
+		for hud_icon_id in ["icon.day", "icon.comfort"]:
+			var hud_path: String = LimeZuArtRegistry.texture_path(hud_icon_id)
+			var hud_tier: String = VisualSourceReport.classify_texture(hud_path)
+			if not LiveVisualPolicy.is_allowed_live_tier(hud_tier):
+				push_error("HUD status icon '%s' resolves to disallowed tier '%s' (%s)" % [hud_icon_id, hud_tier, hud_path])
+				quit(1)
+				return
+			var hud_low: String = hud_path.to_lower()
+			if hud_path.is_empty() or hud_low.contains("slot") or hud_low.contains("missing"):
+				push_error("HUD status icon '%s' resolves to a blank/slot texture: %s" % [hud_icon_id, hud_path])
+				quit(1)
+				return
+
 	var gen_gitignore: String = FileAccess.get_file_as_string("res://.gitignore")
 	if not gen_gitignore.contains("licensed_assets/"):
 		push_error(".gitignore must ignore licensed_assets/ so generator outputs/manifests stay local")
