@@ -46,36 +46,6 @@ static func body_styles() -> Dictionary:
 		"cozy_default": {"display_name": "Cozy"},
 	}
 
-static func hair_styles() -> Dictionary:
-	return {
-		"round_bob": {"display_name": "Round Bob"},
-		"fluffy_short": {"display_name": "Fluffy Short"},
-		"soft_curls": {"display_name": "Soft Curls"},
-		"leafy_pigtails": {"display_name": "Leafy Pigtails"},
-		"cozy_bun": {"display_name": "Cozy Bun"},
-		"wavy_shag": {"display_name": "Wavy Shag"},
-	}
-
-static func outfit_styles() -> Dictionary:
-	return {
-		"starter_overalls": {"display_name": "Starter Overalls"},
-		"cozy_tunic": {"display_name": "Cozy Tunic"},
-		"forest_apron": {"display_name": "Forest Apron"},
-		"village_dress": {"display_name": "Village Dress"},
-		"mushroom_sweater": {"display_name": "Mushroom Sweater"},
-		"gardener_jacket": {"display_name": "Gardener Jacket"},
-	}
-
-static func accessories() -> Dictionary:
-	return {
-		"none": {"display_name": "None"},
-		"leaf_clip": {"display_name": "Leaf Clip"},
-		"tiny_hat": {"display_name": "Tiny Hat"},
-		"flower_pin": {"display_name": "Flower Pin"},
-		"round_glasses": {"display_name": "Round Glasses"},
-		"acorn_cap": {"display_name": "Acorn Cap"},
-	}
-
 static func face_styles() -> Dictionary:
 	return {
 		"happy": {"display_name": "Happy"},
@@ -89,6 +59,60 @@ static func skin_value(skin_id: String) -> Color:
 
 static func has_option(options: Dictionary, option_id: String) -> bool:
 	return options.has(option_id)
+
+## --- Layered part mappings (Character Generator parts when available) ---
+
+## Layer-friendly hairstyle ids mapped from CharacterPartLibrary if available.
+## Falls back to the original hair_styles when the curated manifest is absent.
+static func hair_styles() -> Dictionary:
+	if CharacterPartLibrary.layered_ready():
+		var layered: Dictionary = {}
+		for pid in CharacterPartLibrary.part_ids_for_category("hairstyles"):
+			layered[pid] = {"display_name": pid.capitalize().replace("_", " ")}
+		if not layered.is_empty():
+			return layered
+	return {
+		"round_bob": {"display_name": "Round Bob"},
+		"fluffy_short": {"display_name": "Fluffy Short"},
+		"soft_curls": {"display_name": "Soft Curls"},
+		"leafy_pigtails": {"display_name": "Leafy Pigtails"},
+		"cozy_bun": {"display_name": "Cozy Bun"},
+		"wavy_shag": {"display_name": "Wavy Shag"},
+	}
+
+## Layer-friendly outfit ids mapped from CharacterPartLibrary if available.
+static func outfit_styles() -> Dictionary:
+	if CharacterPartLibrary.layered_ready():
+		var layered: Dictionary = {}
+		for pid in CharacterPartLibrary.part_ids_for_category("outfits"):
+			layered[pid] = {"display_name": pid.capitalize().replace("_", " ")}
+		if not layered.is_empty():
+			return layered
+	return {
+		"starter_overalls": {"display_name": "Starter Overalls"},
+		"cozy_tunic": {"display_name": "Cozy Tunic"},
+		"forest_apron": {"display_name": "Forest Apron"},
+		"village_dress": {"display_name": "Village Dress"},
+		"mushroom_sweater": {"display_name": "Mushroom Sweater"},
+		"gardener_jacket": {"display_name": "Gardener Jacket"},
+	}
+
+## Layer-friendly accessory ids mapped from CharacterPartLibrary if available.
+static func accessories() -> Dictionary:
+	if CharacterPartLibrary.layered_ready():
+		var layered: Dictionary = {"none": {"display_name": "None"}}
+		for pid in CharacterPartLibrary.part_ids_for_category("accessories"):
+			if pid != "acc_none":
+				layered[pid] = {"display_name": pid.capitalize().replace("_", " ")}
+		return layered
+	return {
+		"none": {"display_name": "None"},
+		"leaf_clip": {"display_name": "Leaf Clip"},
+		"tiny_hat": {"display_name": "Tiny Hat"},
+		"flower_pin": {"display_name": "Flower Pin"},
+		"round_glasses": {"display_name": "Round Glasses"},
+		"acorn_cap": {"display_name": "Acorn Cap"},
+	}
 
 ## The LimeZu base sheet id mapped from a body_presentation option.
 ## Falls back to Farmer_2 when the presentation id is unknown or missing.

@@ -25,7 +25,8 @@ static func default_appearance() -> Dictionary:
 
 ## Returns a complete appearance dict: every slot present, every id valid.
 ## Unknown ids (e.g. from a future save written by a newer build) fall back
-## to the default for that slot instead of erroring.
+## to the first valid option in the current registry for that slot, so layered
+## and legacy registries each degrade to their own first available choice.
 static func normalized(data: Dictionary) -> Dictionary:
 	var result: Dictionary = default_appearance()
 	if data.is_empty():
@@ -43,7 +44,16 @@ static func normalized(data: Dictionary) -> Dictionary:
 		"face_style": CharacterAppearanceRegistry.face_styles(),
 	}
 	for slot in validators.keys():
+		var options: Dictionary = validators[slot] as Dictionary
 		var candidate: String = String(data.get(slot, ""))
-		if CharacterAppearanceRegistry.has_option(validators[slot] as Dictionary, candidate):
+		if CharacterAppearanceRegistry.has_option(options, candidate):
 			result[slot] = candidate
+		elif not options.is_empty():
+			# Fall back to the default value if it's still valid, otherwise first
+			# registry option (e.g. layered IDs when legacy defaults are unavailable).
+			var def_val := String(default_appearance().get(slot, ""))
+			if CharacterAppearanceRegistry.has_option(options, def_val):
+				result[slot] = def_val
+			else:
+				result[slot] = String(options.keys()[0])
 	return result

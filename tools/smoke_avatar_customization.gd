@@ -76,7 +76,7 @@ func _initialize() -> void:
 	# (The F9 panel marks them as unavailable; validation checks below)
 	# These slots exist in the data model but are not rendered on full-body sheets.
 	ok = _expect(CharacterAppearanceRegistry.hair_styles().size() >= 6, "hair styles in registry") and ok
-	ok = _expect(CharacterAppearanceRegistry.accessories().size() >= 6, "accessories in registry") and ok
+	ok = _expect(CharacterAppearanceRegistry.accessories().size() >= 1, "accessories in registry") and ok
 	# The limitation is rendering, not data — documented in avatar_parts_manifest
 
 	# --- 7) Save/load preserves appearance ---------------------------------

@@ -83,9 +83,21 @@ func _build_rows() -> void:
 	CozyUITheme.apply_heading_label(_title_label, 18)
 	_rows.add_child(_title_label)
 
+	# Check layered part availability: if the curated manifest exists and layout is verified,
+	# enable hair/outfit/accessory. If manifest exists but layout isn't verified, show needs-review.
+	var layered_ready := CharacterPartLibrary.layered_ready()
+	var needs_review := CharacterPartLibrary.needs_layout_review()
+
 	for slot in SLOTS:
 		var key: String = String(slot["key"])
+		# Override availability: hair/outfit/accessory become real when layered parts exist
 		var available: bool = bool(slot.get("available", true))
+		if not available and layered_ready:
+			match key:
+				"hair_style", "outfit_style", "accessory":
+					available = true
+				"hair_color", "skin_tone":
+					pass  # still unavailable — palette handled via color variants
 		var reason: String = String(slot.get("reason", ""))
 		var row: HBoxContainer = HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
@@ -123,7 +135,12 @@ func _build_rows() -> void:
 		# Unavailable note for disabled slots
 		if not available:
 			var note_label: Label = Label.new()
-			note_label.text = "(unavailable)"
+			if needs_review:
+				note_label.text = "(needs layout review)"
+			elif not layered_ready:
+				note_label.text = "(unavailable)"
+			else:
+				note_label.text = "(needs review)"
 			note_label.custom_minimum_size = Vector2(160, 0)
 			CozyUITheme.apply_secondary_label(note_label, 10)
 			note_label.add_theme_color_override("font_color", Color("#8a5a3a80"))

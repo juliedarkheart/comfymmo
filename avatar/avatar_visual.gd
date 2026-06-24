@@ -38,6 +38,9 @@ var _walk_phase: float = 0.0
 var _last_side_sign: float = 1.0
 # LimeZu sheet id when the body sprite is region/animation-driven (else "" = single idle frame).
 var _sheet_id: String = ""
+# Layered mode: stack of layer sprites (body, eyes, outfit, hair, accessory)
+var _layered_mode := false
+var _layer_sprites: Dictionary = {}
 
 func _ready() -> void:
 	rebuild(CharacterAppearance.default_appearance())
@@ -50,7 +53,20 @@ func rebuild(appearance: Dictionary) -> void:
 	_sprite = null
 	_held_tool_attachment = null
 	_held_tool_sprite = null
+	_layered_mode = false
+	_layer_sprites.clear()
+	_sheet_id = ""
 
+	# Try layered rendering first (Character Generator parts if available)
+	if CharacterPartLibrary.layered_ready() and appearance.has("body_presentation"):
+		_build_layered_sprites(appearance)
+		if _layered_mode:
+			_ensure_held_tool_attachment()
+			_apply_frame()
+			_refresh_held_tool()
+			return
+
+	# Fall back to full-body sheet rendering
 	# Wire the appearance data into the player profile BEFORE building the sprite,
 	# so the body_presentation (sheet) and outfit_color (tint) take effect immediately.
 	# Player profile is the source of truth for the LimeZu actor sprite.
@@ -74,6 +90,75 @@ func rebuild(appearance: Dictionary) -> void:
 	_ensure_held_tool_attachment()
 	_apply_frame()
 	_refresh_held_tool()
+
+## Build the layered sprite stack from the curated Character Generator parts.
+## Maps appearance slots (outfit_style, hair_style, accessory) to layer textures.
+## Falls back to full-body rendering if any required layer is missing.
+func _build_layered_sprites(appearance: Dictionary) -> void:
+	# Map appearance fields to layer part ids
+	var body_part_id := _body_part_for(appearance.get("body_presentation", "neutral"))
+	var hair_part_id := String(appearance.get("hair_style", ""))
+	var outfit_part_id := String(appearance.get("outfit_style", ""))
+	var acc_part_id := String(appearance.get("accessory", ""))
+
+	if body_part_id.is_empty():
+		return  # no valid body part → fallback
+
+	# Build layer sprites (z_index: body=0, eyes=1, outfit=2, hair=3, accessory=4)
+	var part_map := {
+		"body": [body_part_id, 0],
+		"eyes": ["eyes_01", 1],
+		"outfit": [outfit_part_id, 2],
+		"hair": [hair_part_id, 3],
+		"accessory": [acc_part_id, 4],
+	}
+
+	var any_ok := false
+	for layer_name in CharacterPartLibrary.LAYER_ORDER:
+		var pair := part_map.get(layer_name, ["", 0]) as Array
+		var pid := String(pair[0])
+		var z := int(pair[1])
+		if pid.is_empty() or pid == "none" or pid == "acc_none":
+			continue  # skip empty/none layers
+
+		var entry := CharacterPartLibrary.part_entry(pid)
+		if entry.is_empty():
+			if layer_name == "body":
+				return  # body is required
+			continue
+
+		var tex := CharacterPartLibrary.resolve_texture(String(entry.get("file", "")))
+		if tex == null:
+			if layer_name == "body":
+				return
+			continue
+
+		var sprite := Sprite2D.new()
+		sprite.name = "Layer_%s" % layer_name
+		sprite.texture = tex
+		sprite.centered = true
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sprite.region_enabled = true
+		sprite.z_index = z
+		sprite.scale = Vector2(2, 2)  # 16px → 32px display
+		add_child(sprite)
+		_layer_sprites[layer_name] = sprite
+		any_ok = true
+
+	if any_ok:
+		_layered_mode = true
+		# Feet at origin: center sits half the scaled frame height above
+		var sprite := _layer_sprites.get("body", null) as Sprite2D
+		if sprite != null:
+			var h := 16.0 * 2.0  # frame_h * scale
+			sprite.position = Vector2(0, -h * 0.5)
+
+## Map body_presentation value to a layer part id from the curated set.
+func _body_part_for(presentation: String) -> String:
+	match String(presentation):
+		"feminine": return "body_02"
+		"masculine": return "body_05"
+		_: return "body_01"  # neutral + default
 
 func _process(delta: float) -> void:
 	if _animation_state.begins_with("walk"):
@@ -110,15 +195,33 @@ func set_animation_state(state: String, _movement_vector: Vector2 = Vector2.ZERO
 			_animation_state = STATE_IDLE_DOWN
 	_apply_frame()
 
-## Swap the body sprite's region to the current facing/walk frame. No-op for the single-frame
-## fallback sprite (region not enabled) or the generated polygon body.
+## Swap the body sprite's region to the current facing/walk frame.
+## In layered mode, ALL layer sprites get the same region_rect for grid sync.
 func _apply_frame() -> void:
+	if _layered_mode:
+		var rect := _layered_frame_rect()
+		for sprite in _layer_sprites.values():
+			(sprite as Sprite2D).region_rect = Rect2(rect)
+		return
 	if _sprite == null or not is_instance_valid(_sprite) or _sheet_id.is_empty():
 		return
 	if not _sprite.region_enabled:
 		return
 	var frame_index: int = int(_walk_phase) if _animation_state.begins_with("walk") else 0
 	_sprite.region_rect = Rect2(CharacterAnimationRegistry.region_for(_sheet_id, _animation_state, frame_index))
+
+## Get the shared grid rect for the current facing/animation state in layered mode.
+func _layered_frame_rect() -> Rect2i:
+	var facing := facing_direction
+	var dir_int := CharacterPartLibrary.Direction.DOWN
+	match facing:
+		"up": dir_int = CharacterPartLibrary.Direction.UP
+		"side": dir_int = CharacterPartLibrary.Direction.DOWN  # side mirrors front
+	var col := CharacterPartLibrary.direction_grid_col(dir_int)
+	var row := CharacterPartLibrary.idle_grid_row(dir_int)
+	if _animation_state.begins_with("walk"):
+		row += clampi(int(_walk_phase) % 2, 1, 2)  # 2-frame walk
+	return CharacterPartLibrary.grid_rect(col, row)
 
 func set_held_tool_contract(hotbar_index: int, item_id: String, visual_id: String = "") -> void:
 	selected_hotbar_index = hotbar_index

@@ -1,137 +1,148 @@
 extends RefCounted
 class_name CharacterPartLibrary
 
-## Maps CharacterAppearance option ids -> LimeZu Modern Interiors "Character_Generator" LAYER
-## files so the player avatar renders as composited layers (body + eyes + outfit + hair +
-## accessory) that ACTUALLY change when the editor changes a field. The generator parts all share
-## one 16x32 frame grid and are designed to stack in the order body -> eyes -> outfit -> hair ->
-## accessory (per the pack's HOW_TO guide).
-##
-## Pure data + path resolution; textures load via Image (the extracted PNGs). Clean-checkout safe:
-## when the pack is absent, available() is false and the avatar falls back to the farmer sprite /
-## generated body. This is a SMALL real vertical slice — full per-part catalogs are future scope.
+## Loads the local curated avatar parts manifest and provides texture access
+## for layered character rendering. Falls back safely when the manifest or
+## textures are absent (clean checkout).
 
-const CG := "res://licensed_assets/limezu/modern_interiors/extracted/moderninteriors-win/2_Characters/Character_Generator/"
-const FRAME := Vector2i(16, 32)
+const MANIFEST_PATH := "res://licensed_assets/limezu/generator_manifests/hearthvale_curated_avatar_parts_manifest.json"
+const CG_ROOT := "res://licensed_assets/limezu/modern_interiors/extracted/moderninteriors-win/2_Characters/Character_Generator/"
 
-# Layer z-order (relative); held tool (z 3 on the AvatarVisual) + name label stay separate.
-const Z_BODY := 0
-const Z_EYES := 1
-const Z_OUTFIT := 2
-const Z_HAIR := 3
-const Z_ACCESSORY := 4
+const LAYER_ORDER := ["body", "eyes", "outfit", "hair", "accessory"]
+const DEFAULT_GRID := 56  # columns in the shared sprite sheet grid (16x16 cells)
 
-# Skin tone -> full body sheet.
-const BODY_BY_SKIN := {
-	"peach": "Bodies/16x16/Body_01.png",
-	"honey": "Bodies/16x16/Body_05.png",
-	"umber": "Bodies/16x16/Body_08.png",
-}
-const DEFAULT_BODY := "Bodies/16x16/Body_01.png"
-const EYES := "Eyes/16x16/Eyes_01.png"
+## SAFETY GATE: Set to true ONLY after Julie visually verifies the per-layer grid
+## offsets match. Currently disabled because bodies are 927px (non-aligned grid)
+## while hair/outfit/accessory are 896px, and per-layer idle-row positions differ.
+const LAYOUT_VERIFIED := false
 
-# Appearance hair_style id -> Hairstyle GROUP number (each group has 7 colour variants _01.._07).
-const HAIR_GROUP := {
-	"round_bob": 1, "fluffy_short": 3, "soft_curls": 7,
-	"leafy_pigtails": 10, "cozy_bun": 12, "wavy_shag": 5,
-}
-# Appearance outfit_style id -> Outfit GROUP number (each group has colour variants).
-const OUTFIT_GROUP := {
-	"starter_overalls": 1, "cozy_tunic": 3, "forest_apron": 5,
-	"village_dress": 8, "mushroom_sweater": 10, "gardener_jacket": 6,
-}
-# Palette colour id -> generator colour-variant index (1..7).
-const COLOR_VARIANT := {
-	"blush_pink": 1, "moss_green": 2, "sky_blue": 3, "warm_brown": 4, "lavender": 5,
-	"cream": 6, "terracotta": 7, "butter_yellow": 1, "berry_red": 7, "pond_blue": 3,
-	"lilac": 5, "soft_black": 4, "warm_white": 6,
-}
-# Accessory/hat appearance id -> generator accessory file ("" = no layer = hat off).
-const ACCESSORY_FILE := {
-	"none": "",
-	"tiny_hat": "Accessories/16x16/Accessory_11_Beanie_01.png",
-	"acorn_cap": "Accessories/16x16/Accessory_04_Snapback_01.png",
-	"round_glasses": "Accessories/16x16/Accessory_15_Glasses_01.png",
-	"flower_pin": "Accessories/16x16/Accessory_15_Glasses_03.png",
-	"leaf_clip": "",
-}
+enum Direction { DOWN, LEFT, RIGHT, UP }
 
-# Body/presentation presets -> default appearance overrides. The player default (Julie) is
-# neutral-feminine, never forced masculine.
-const PRESENTATION_PRESETS := {
-	"feminine": {"hair_style": "leafy_pigtails", "outfit_style": "village_dress", "skin_tone": "peach"},
-	"neutral": {"hair_style": "wavy_shag", "outfit_style": "gardener_jacket", "skin_tone": "honey"},
-	"masculine": {"hair_style": "fluffy_short", "outfit_style": "starter_overalls", "skin_tone": "umber"},
-}
+# Cached manifest data
+static var _loaded := false
+static var _manifest: Dictionary = {}
+static var _texture_cache: Dictionary = {}
 
-static func _abs(rel: String) -> String:
-	return CG + rel
+## True when the curated manifest exists and has usable parts.
+static func is_available() -> bool:
+	_ensure_loaded()
+	return not _manifest.is_empty()
 
-static func _exists(rel: String) -> bool:
-	if rel.is_empty():
+## The manifest data (empty dict when absent).
+static func manifest() -> Dictionary:
+	_ensure_loaded()
+	return _manifest.duplicate(true)
+
+## True when layered rendering is usable (manifest present AND layout verified).
+static func layered_ready() -> bool:
+	if not LAYOUT_VERIFIED:
 		return false
-	return FileAccess.file_exists(_abs(rel))
+	_ensure_loaded()
+	if _manifest.is_empty():
+		return false
+	var starter := _manifest.get("starter_set", {}) as Dictionary
+	return starter.has("bodies") and starter.has("hairstyles") and starter.has("outfits")
 
-## True when the layered generator pack is installed (else the avatar uses the farmer fallback).
-static func available() -> bool:
-	return _exists(DEFAULT_BODY) and _exists(EYES)
+## True when the manifest exists but layout isn't verified yet (for editor labeling).
+static func needs_layout_review() -> bool:
+	_ensure_loaded()
+	if _manifest.is_empty():
+		return false
+	var starter := _manifest.get("starter_set", {}) as Dictionary
+	return starter.has("bodies") and starter.has("hairstyles") and starter.has("outfits")
 
-static func _color_variant(color_id: String) -> int:
-	return int(COLOR_VARIANT.get(color_id, 1))
-
-static func _hair_rel(appearance: Dictionary) -> String:
-	var group: int = int(HAIR_GROUP.get(String(appearance.get("hair_style", "")), 1))
-	return "Hairstyles/16x16/Hairstyle_%02d_%02d.png" % [group, _color_variant(String(appearance.get("hair_color", "warm_brown")))]
-
-static func _outfit_rel(appearance: Dictionary) -> String:
-	var group: int = int(OUTFIT_GROUP.get(String(appearance.get("outfit_style", "")), 1))
-	return "Outfits/16x16/Outfit_%02d_%02d.png" % [group, _color_variant(String(appearance.get("outfit_color", "moss_green")))]
-
-static func _body_rel(appearance: Dictionary) -> String:
-	return String(BODY_BY_SKIN.get(String(appearance.get("skin_tone", "peach")), DEFAULT_BODY))
-
-static func _accessory_rel(appearance: Dictionary) -> String:
-	return String(ACCESSORY_FILE.get(String(appearance.get("accessory", "none")), ""))
-
-## Ordered render layers for an appearance: [{res_path, z, layer, rel}]. Missing parts (e.g. a
-## hairstyle colour variant that doesn't exist) are skipped so the avatar still renders.
-static func layers_for(appearance: Dictionary) -> Array:
+## List of part ids for a given layer category (empty array when absent).
+static func part_ids_for_category(category: String) -> Array:
+	_ensure_loaded()
+	var starter := _manifest.get("starter_set", {}) as Dictionary
+	var items: Array = starter.get(category, []) as Array
 	var out: Array = []
-	var plan := [
-		[_body_rel(appearance), Z_BODY, "body"],
-		[EYES, Z_EYES, "eyes"],
-		[_outfit_rel(appearance), Z_OUTFIT, "outfit"],
-		[_hair_rel(appearance), Z_HAIR, "hair"],
-		[_accessory_rel(appearance), Z_ACCESSORY, "accessory"],
-	]
-	for entry in plan:
-		var rel: String = String(entry[0])
-		if rel.is_empty() or not _exists(rel):
-			continue
-		out.append({"res_path": _abs(rel), "z": int(entry[1]), "layer": String(entry[2]), "rel": rel})
+	for item in items:
+		out.append(String((item as Dictionary).get("part_id", "")))
 	return out
 
-## A stable signature of the rendered layer set — changes whenever any visible part changes, so
-## validation/smoke can prove the editor actually alters the avatar (not just the saved data).
-static func signature(appearance: Dictionary) -> String:
-	var parts: Array = []
-	for layer in layers_for(appearance):
-		parts.append((layer["rel"] as String).get_file())
-	return "|".join(parts)
+## Full entry for a part id, or empty dict.
+static func part_entry(part_id: String) -> Dictionary:
+	_ensure_loaded()
+	var starter: Dictionary = _manifest.get("starter_set", {}) as Dictionary
+	for category in starter.keys():
+		var items = starter[category]
+		if typeof(items) != TYPE_ARRAY:
+			continue
+		for i in range(items.size()):
+			var item: Dictionary = items[i] as Dictionary
+			if String(item.get("part_id", "")) == part_id:
+				return item.duplicate(true)
+	return {}
 
-## Load a layer texture (Image-based; works for the .gdignored extracted PNGs). null when absent.
-static func layer_texture(res_path: String) -> Texture2D:
-	if res_path.is_empty():
+## Layer category for a part id ("body"/"hair"/"outfit"/"accessory"/"eyes"), or "".
+static func category_for(part_id: String) -> String:
+	_ensure_loaded()
+	var starter: Dictionary = _manifest.get("starter_set", {}) as Dictionary
+	for cat in starter.keys():
+		var items = starter[cat]
+		if typeof(items) != TYPE_ARRAY:
+			continue
+		for i in range(items.size()):
+			var item: Dictionary = items[i] as Dictionary
+			if String(item.get("part_id", "")) == part_id:
+				return cat
+	return ""
+
+## Standard grid X offset for a direction band (0-based column index).
+static func direction_grid_col(direction: int) -> int:
+	match direction:
+		Direction.DOWN:  return 0
+		Direction.LEFT:  return 14
+		Direction.RIGHT: return 28
+		Direction.UP:    return 42
+	return 0
+
+## Standard grid row for idle frame in a direction.
+static func idle_grid_row(direction: int) -> int:
+	match direction:
+		Direction.DOWN:  return 1
+		Direction.LEFT:  return 3
+		Direction.RIGHT: return 5
+		Direction.UP:    return 7
+	return 1
+
+## The 16x16 region rect for a frame at (col, row) in the shared grid.
+static func grid_rect(col: int, row: int) -> Rect2i:
+	return Rect2i(col * 16, row * 16, 16, 16)
+
+## Resolves the full sprite sheet texture for a part file path (null if absent).
+static func resolve_texture(file_path: String) -> Texture2D:
+	if file_path.is_empty():
 		return null
-	var img := Image.new()
-	var abs_path := ProjectSettings.globalize_path(res_path) if res_path.begins_with("res://") else res_path
-	if img.load(abs_path) != OK or img.is_empty():
+	var cached: Variant = _texture_cache.get(file_path, null)
+	if cached != null and is_instance_valid(cached):
+		return cached as Texture2D
+	var res_path := CG_ROOT + file_path
+	if not FileAccess.file_exists(res_path):
 		return null
-	return ImageTexture.create_from_image(img)
+	# Load via Image for gitignored paths
+	var image := Image.new()
+	var global := ProjectSettings.globalize_path(res_path)
+	if image.load(global) != OK or image.is_empty():
+		return null
+	var tex := ImageTexture.create_from_image(image)
+	if tex != null:
+		_texture_cache[file_path] = tex
+	return tex
 
-## Presentation default overrides (feminine/neutral/masculine). Empty for unknown ids.
-static func presentation_defaults(presentation: String) -> Dictionary:
-	return (PRESENTATION_PRESETS.get(String(presentation), {}) as Dictionary).duplicate()
+static func _ensure_loaded() -> void:
+	if _loaded:
+		return
+	_loaded = true
+	if not FileAccess.file_exists(MANIFEST_PATH):
+		return
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(MANIFEST_PATH))
+	if typeof(parsed) == TYPE_DICTIONARY:
+		_manifest = parsed as Dictionary
 
-static func presentation_ids() -> Array:
-	return PRESENTATION_PRESETS.keys()
+static func reload() -> void:
+	_loaded = false
+	_manifest.clear()
+	_texture_cache.clear()
+	_ensure_loaded()
