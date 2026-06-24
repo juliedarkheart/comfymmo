@@ -6,16 +6,97 @@ Wardrobe (mirror beside the cottage, "Press F to open wardrobe"); appearance
 persists in `player.appearance` AND the active local profile, and is sent to
 the server in the multiplayer join payload so other players see your look.
 
-Option set (this pass): 6 hair styles (round_bob, fluffy_short, soft_curls,
-leafy_pigtails, cozy_bun, wavy_shag), 6 outfits (starter_overalls, cozy_tunic,
-forest_apron, village_dress, mushroom_sweater, gardener_jacket), 6 accessories
-(none, leaf_clip, tiny_hat, flower_pin, round_glasses, acorn_cap), 13 palette
-colors (original 7 + butter_yellow, berry_red, pond_blue, lilac, soft_black,
-warm_white), 3 skin tones.
+**Current reality (2026-06-24):** LimeZu Modern Farm only provides full-body character
+sheets (Farmer_1, Farmer_2, Body_2). All three are male-presenting farmers — there is
+no true female/feminine body in any LimeZu pack. There are NO separate layered sprites
+for hair, outfit, hat, skin, or accessories — everything is baked into the sheet.
+The ONLY customization that visibly works is **body_presentation** (which selects
+the base sheet) and **outfit_color** (which applies as a palette tint/modulate).
+All other controls (hair_style, hair_color, outfit_style, skin_tone, accessory)
+are DISABLED in the F9 panel with "(unavailable)" labels because they cannot
+affect the rendered sprite on full-body sheets.
 
-Appearance precedence (see also docs/profile_and_accounts.md): explicit
-save `player.appearance` wins at boot; otherwise the active profile seeds it;
-the wardrobe/F9 panel writes both thereafter.
+To get true layered customization, the LimeZu Modern Interiors "Character Generator"
+GUI tool must be run to produce layered PNG outputs, and the sprite renderer must
+be updated to composite those layers. This is documented as future scope.
+
+## Body/presentation presets
+
+Three body_presentation options exist:
+
+| option | LimeZu sheet | description |
+|---|---|---|
+| `neutral` | Farmer_2 | Middle-ground. Default for Julie. No hat on sheet. |
+| `feminine` | Body_2 | Closest available silhouette to neutral/feminine. Documented limitation: still a male-presenting base body — no true female body exists in any LimeZu pack. Tinted with warm palette. |
+| `masculine` | Farmer_1 | Classic farmer — most masculine-presenting. Has a hat (cannot be removed). |
+
+Each body_presentation changes the player's base LimeZu sheet immediately. The
+default is `neutral` (Farmer_2) so the player does not default to masculine.
+
+## Option set (this pass)
+
+**Real (visibly changes the rendered sprite):**
+- `body_presentation`: feminine, masculine, neutral (3 options, sheet swap)
+- `outfit_color`: 13 shared pastel palette colors applied as sprite modulate tint
+
+**Disabled / unavailable (baked into full-body sheets, cannot affect rendering):**
+- `hair_style` (6 options, "(unavailable)" in F9)
+- `hair_color` (13 colors, "(unavailable)")
+- `outfit_style` (6 options, "(unavailable)")
+- `skin_tone` (3 tones, "(unavailable)" — tinting the whole sheet would also tint skin)
+- `accessory` (6 options, "(unavailable)")
+- `body_style` (1 option, cozy_default)
+
+**Still in data model for future layered support:**
+- `face_style` (1 option, happy)
+
+## How customization works (current full-body sheet path)
+
+1. The F9 panel's body_presentation < > buttons change `_appearance["body_presentation"]`
+2. `_apply_appearance()` calls `AvatarVisual.rebuild()` which calls `CharacterProfileRegistry.apply_player_appearance()`
+3. The profile maps `body_presentation` → LimeZu sheet ID (Farmer_2 / Body_2 / Farmer_1)
+4. `AvatarVisual.rebuild()` then creates the sprite via `CharacterArtRegistry`, which reads the updated sheet from the profile
+5. For `outfit_color`, the palette tint is applied as `sprite.modulate` immediately
+6. Changes persist to `player.appearance` in the save
+
+## Hat removal
+
+Hat removal is NOT supported. Farmer_1 has a hat baked into the sheet — there is
+no hatless variant. Farmer_2 and Body_2 already have no hat. Choosing a presentation
+with a hatless sheet is the only "hat removal" available. A fake hat toggle is
+not exposed.
+
+## Clothing, hair, and accessories
+
+Clothing, hair, and accessories are baked into the full-body sheets. Different
+sheets show different outfits/hair (e.g. Farmer_1 has red shirt + hat, Farmer_2
+has green shirt + no hat, Body_2 has blue shirt). To "change outfit" or "change hair",
+switch body_presentation. True individual layering requires the LimeZu Interiors
+Character Generator (GUI tool) to produce composited character outputs.
+
+## How to test
+
+**Save/load:**
+1. Open F9 wardrobe, change body_presentation and outfit_color
+2. Walk around — the sprite should visibly change (different sheet + tint)
+3. Quit and relaunch — the appearance should persist
+4. Check `user://homestead_save.json` → `player.appearance` has body_presentation
+
+**Downward movement animation:**
+1. Walk down/south — the player should visibly step (2-frame walk cycle + 3px body bob)
+2. Stop — the player settles to down idle facing
+3. Walk up/north — the player faces back (single frame + bob)
+4. Walk left/right — the player mirrors the front frame + bob
+
+**NPC isolation:**
+1. Customize player via F9 — confirm Rowan still looks like Farmer_1, Hazel like Body_2
+2. Player signature (sheet + palette) must differ from every NPC signature
+
+## Smoke tests
+
+- `tools/smoke_character_identity.gd` — profiles load, player≠Rowan, NPCs varied
+- `tools/smoke_avatar_customization.gd` — body_presentation presets, palette changes, save/load round-trip, NPC isolation, animation frames
+- `tools/smoke_homestead_loop.gd` — farming save/load with customization preserved
 
 ## Actor visual identity & uniqueness (LimeZu, 2026-06-24)
 
@@ -34,17 +115,20 @@ looked identical. Fixed with a central profile layer:
   profiles only NAME LimeZu logical ids; a checkout without the packs still boots the generated
   `art/generated/hearthvale/characters/` art.
 - **Player customization → live look:** `CharacterProfileRegistry.apply_player_appearance()`
-  derives the player's tint from the saved `outfit_color`; `OverworldController._apply_player_customization`
-  applies it on boot and rebuilds the avatar visual, so the F9 Wardrobe choices show in the world.
-  Missing/default customization falls back to the default Julie profile.
+  derives the player's sheet from `body_presentation` and the tint from `outfit_color`.
+  `AvatarVisual.rebuild()` applies the profile BEFORE building the sprite, and applies
+  the tint immediately via `modulate`, so the F9 Wardrobe choices show in the world immediately.
+  Missing/default customization falls back to the default Julie profile (neutral/Farmer_2).
 - **Testing uniqueness:** `tools/smoke_character_identity.gd` (profiles load, player≠Rowan,
   NPCs varied, customization round-trips + falls back) and `tools/audit_live_visuals.gd`
   (`ACTOR IDENTITIES` table + duplicate-signature flag). `tools/validate_project.gd` fails on
   missing/blank actor art, a player==Rowan signature, all-named-actors-identical, a non-LimeZu
   actor tier, a missing required profile, or a missing customization default.
-- **Temporary vs. future:** palette-tint + base-sheet swaps are the lightweight FOUNDATION. A
-  full layered character creator (per-part hair/outfit/skin sprites composited over a LimeZu
-  body) is future scope — the appearance data model + F9 panel already exist to grow into it.
+- **Temporary vs. future:** body_presentation sheet swaps + palette tints are the lightweight
+  FOUNDATION. A full layered character creator (per-part hair/outfit/skin sprites composited
+  over a LimeZu body) is future scope — the appearance data model + F9 panel already exist
+  to grow into it. The slot data (hair_style, outfit_style, accessory, skin_tone) is preserved
+  in saves for backward compatibility when layered rendering arrives.
 
 ## Facing, animation & held-tool sockets (2026-06-24)
 
@@ -54,6 +138,7 @@ looked identical. Fixed with a central profile layer:
   col4) idle, a 2-frame DOWN walk, and SIDE = the down frame mirrored. The avatar
   (`avatar/avatar_visual.gd`) swaps the body sprite's `region_rect` by facing/walk and reads the
   hand socket so held tools sit on the hand (drawn behind the body when facing up).
+  Downward walk adds a 3px body bob for visible stepping.
 - Full per-direction walk cycles and the action atlases (chopping/watering/etc.) are CATALOGED,
   not yet wired — run `tools/audit_limezu_animations.gd` to (re)build the gitignored
   `licensed_assets/limezu/generator_manifests/limezu_animation_manifest.json`. This keeps a
@@ -63,36 +148,39 @@ looked identical. Fixed with a central profile layer:
 
 ## Pieces
 
-- `systems/character/character_appearance_registry.gd` — all options as
-  stable string ids with display names, plus the shared pastel palette and
-  skin tones. Ids are the contract; display names may change freely.
 - `systems/character/character_appearance.gd` — the appearance data model:
   a plain Dictionary, one id per slot, with `default_appearance()` and
   `normalized()` (fills missing slots, replaces unknown ids with defaults).
+  Now includes `body_presentation` as the first slot.
+- `systems/character/character_appearance_registry.gd` — all options as
+  stable string ids with display names, plus the shared pastel palette and
+  skin tones. Now includes `body_presentations()` (feminine/masculine/neutral)
+  and `body_presentation_sheet()` mapping to LimeZu sheet IDs.
+- `systems/character/character_profile_registry.gd` — per-actor VISUAL PROFILES.
+  `apply_player_appearance()` now reads `body_presentation` to select the base
+  sheet AND `outfit_color` to set the palette tint.
 - `systems/art/character_art_registry.gd` — live actor sprite lookup for the
-  player, remote players, villagers, and ambient creatures. It resolves original
-  generated sprites under `art/generated/hearthvale/{characters,creatures}/`.
-- `systems/character/character_visual_builder.gd` — legacy/dev fallback that
-  turns an appearance dict into Polygon2D children. It is no longer the normal
-  live render path.
-- `avatar/avatar_visual.gd` — the player's `Body` node; rebuilds on wardrobe
-  changes but uses the `CharacterArtRegistry` player sprite first.
+  player, remote players, villagers, and ambient creatures.
+- `avatar/avatar_visual.gd` — the player's `Body` node; `rebuild()` now applies
+  the appearance to the profile BEFORE building the sprite, and applies the
+  palette tint immediately via `modulate`.
 - Villagers (`villagers/simple_villager.gd`, `bram_villager.gd`) carry a
-  `visual_id` and use `CharacterArtRegistry` first. Their `_get_appearance()` /
-  `_decorate()` hooks remain fallback-only.
+  `visual_id` and use `CharacterArtRegistry` first. They are NOT affected by
+  player customization.
 
 ## Slots and current options
 
-| slot | options (ids) | default |
-|---|---|---|
-| body_style | cozy_default | cozy_default |
-| skin_tone | peach, honey, umber | peach |
-| hair_style | round_bob, fluffy_short, soft_curls | round_bob |
-| hair_color | blush_pink, moss_green, sky_blue, warm_brown, lavender, cream, terracotta | warm_brown |
-| outfit_style | starter_overalls, cozy_tunic, forest_apron | starter_overalls |
-| outfit_color | (same palette as hair_color) | moss_green |
-| accessory | none, leaf_clip, tiny_hat | none |
-| face_style | happy | happy |
+| slot | options (ids) | default | visible? |
+|---|---|---|---|
+| body_presentation | feminine, masculine, neutral | neutral | YES — changes the LimeZu base sheet |
+| outfit_color | (13 shared pastel colors) | moss_green | YES — applied as modulate tint |
+| outfit_style | starter_overalls, cozy_tunic, ... | starter_overalls | NO — baked into full-body sheet |
+| hair_style | round_bob, fluffy_short, ... | round_bob | NO — baked into full-body sheet |
+| hair_color | (13 shared pastel colors) | warm_brown | NO — not applied separately |
+| skin_tone | peach, honey, umber | peach | NO — would tint whole sprite |
+| accessory | none, leaf_clip, ... | none | NO — baked into full-body sheet |
+| body_style | cozy_default | cozy_default | NO — single option |
+| face_style | happy | happy | NO — future scope |
 
 ## Save integration (implemented)
 
@@ -104,6 +192,7 @@ flat dict of slot→id strings, e.g.:
 	"inventory": { ... },
 	"survival": { ... },
 	"appearance": {
+		"body_presentation": "neutral",
 		"body_style": "cozy_default",
 		"skin_tone": "peach",
 		"hair_style": "round_bob",
@@ -126,16 +215,17 @@ Rules (enforced by `LocalSaveSystem.get/set_player_appearance` and checked by
 3. Write only ids, never display names or colors.
 4. Never remove an id from the registry once shipped in a save; retire by
    mapping it to a successor inside `normalized()`.
+5. Saves without `body_presentation` (pre-this-pass) default to `neutral`.
 
 ## Dev character creator panel (implemented)
 
 `ui/dev_character_creator_panel.tscn` — toggled with **F9** in the overworld.
-Prev/next buttons per slot (hair style/color, skin tone, outfit style/color,
-accessory), plus Reset Default and Close. Every change still applies via
-`AvatarVisual.rebuild()` and persists immediately, but the current live sprite
-is a fixed registry-backed actor sprite until final character sheet variants are
-available. It is instanced by
-`OverworldController._setup_dev_overlay`, which also applies the saved
-appearance to the avatar at boot. The panel touches no gameplay state — it is
-an overlay only, and the real player-facing character creator remains future
-work.
+Controls per slot: **Body** (body_presentation cycling) and **Palette** (outfit_color
+cycling) are active and visibly change the player sprite. All other slots (Outfit,
+Hair Style, Hair Color, Skin Tone, Accessory) show "(unavailable)" and their
+buttons are disabled — they are baked into the full-body LimeZu sheets and
+cannot affect rendering. Reset Default and Close work as before.
+
+Every change applies via `AvatarVisual.rebuild()` and persists immediately to
+the save. The panel touches no gameplay state — it is an overlay only, and the
+real player-facing character creator remains future work.

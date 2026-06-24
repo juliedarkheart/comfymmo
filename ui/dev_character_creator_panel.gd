@@ -12,13 +12,17 @@ const WARDROBE_TITLE := "Wardrobe | F9"
 
 ## Slot order and labels for the generated rows. Option ids come from the
 ## registry at build time so new options appear here automatically.
+## AVAILABILITY note: hair_style, hair_color, skin_tone, outfit_style, and accessory
+## are DISABLED on full-body LimeZu sheets — they do not change the rendered sprite.
+## Only body_presentation (sheet selection) and outfit_color (palette tint) are real.
 const SLOTS: Array = [
-	{"key": "hair_style", "label": "Hair Style"},
-	{"key": "hair_color", "label": "Hair Color"},
-	{"key": "skin_tone", "label": "Skin Tone"},
-	{"key": "outfit_style", "label": "Outfit"},
-	{"key": "outfit_color", "label": "Outfit Color"},
-	{"key": "accessory", "label": "Accessory"},
+	{"key": "body_presentation", "label": "Body", "available": true},
+	{"key": "outfit_color", "label": "Palette", "available": true},
+	{"key": "outfit_style", "label": "Outfit", "available": false, "reason": "baked into full-body sheet"},
+	{"key": "hair_style", "label": "Hair Style", "available": false, "reason": "baked into full-body sheet"},
+	{"key": "hair_color", "label": "Hair Color", "available": false, "reason": "baked into full-body sheet"},
+	{"key": "skin_tone", "label": "Skin Tone", "available": false, "reason": "baked into full-body sheet"},
+	{"key": "accessory", "label": "Accessory", "available": false, "reason": "baked into full-body sheet"},
 ]
 
 var _avatar_visual: Node = null
@@ -81,6 +85,8 @@ func _build_rows() -> void:
 
 	for slot in SLOTS:
 		var key: String = String(slot["key"])
+		var available: bool = bool(slot.get("available", true))
+		var reason: String = String(slot.get("reason", ""))
 		var row: HBoxContainer = HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		_rows.add_child(row)
@@ -94,6 +100,7 @@ func _build_rows() -> void:
 		var prev_button: Button = Button.new()
 		prev_button.text = "<"
 		prev_button.custom_minimum_size = Vector2(34, 28)
+		prev_button.disabled = not available
 		prev_button.pressed.connect(_cycle_slot.bind(key, -1))
 		CozyUITheme.apply_button(prev_button)
 		row.add_child(prev_button)
@@ -108,9 +115,19 @@ func _build_rows() -> void:
 		var next_button: Button = Button.new()
 		next_button.text = ">"
 		next_button.custom_minimum_size = Vector2(34, 28)
+		next_button.disabled = not available
 		next_button.pressed.connect(_cycle_slot.bind(key, 1))
 		CozyUITheme.apply_button(next_button)
 		row.add_child(next_button)
+
+		# Unavailable note for disabled slots
+		if not available:
+			var note_label: Label = Label.new()
+			note_label.text = "(unavailable)"
+			note_label.custom_minimum_size = Vector2(160, 0)
+			CozyUITheme.apply_secondary_label(note_label, 10)
+			note_label.add_theme_color_override("font_color", Color("#8a5a3a80"))
+			row.add_child(note_label)
 
 	var footer: HBoxContainer = HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 10)
@@ -130,6 +147,8 @@ func _build_rows() -> void:
 
 func _slot_option_ids(key: String) -> Array:
 	match key:
+		"body_presentation":
+			return CharacterAppearanceRegistry.body_presentations().keys()
 		"hair_style":
 			return CharacterAppearanceRegistry.hair_styles().keys()
 		"hair_color", "outfit_color":
@@ -169,6 +188,12 @@ func _apply_appearance() -> void:
 	_refresh_labels()
 
 func _refresh_labels() -> void:
-	for key in _value_labels.keys():
+	for slot in SLOTS:
+		var key: String = String(slot["key"])
+		if not _value_labels.has(key):
+			continue
 		var label: Label = _value_labels[key]
-		label.text = String(_appearance.get(key, "")).capitalize()
+		if bool(slot.get("available", true)):
+			label.text = String(_appearance.get(key, "")).capitalize()
+		else:
+			label.text = "(unavailable)"

@@ -9,6 +9,7 @@ class_name CharacterAppearance
 ## which is also what makes future save integration backward-compatible.
 
 const DEFAULT := {
+	"body_presentation": "neutral",
 	"body_style": "cozy_default",
 	"skin_tone": "peach",
 	"hair_style": "round_bob",
@@ -31,6 +32,7 @@ static func normalized(data: Dictionary) -> Dictionary:
 		return result
 
 	var validators: Dictionary = {
+		"body_presentation": CharacterAppearanceRegistry.body_presentations(),
 		"body_style": CharacterAppearanceRegistry.body_styles(),
 		"skin_tone": CharacterAppearanceRegistry.skin_tones(),
 		"hair_style": CharacterAppearanceRegistry.hair_styles(),

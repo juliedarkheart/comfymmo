@@ -99,9 +99,16 @@ static func profile_for(actor_id: String) -> Dictionary:
 	return merged
 
 ## Bridge the saved CharacterAppearance customization onto the player profile: the outfit colour
-## becomes the live palette tint, and the hair/outfit/accessory slots are mirrored for the audit.
+## becomes the live palette tint, and body_presentation determines the LimeZu base sheet.
+## Hair/outfit/accessory slots are mirrored for the audit (not rendered on full-body sheets).
 static func _apply_appearance(profile: Dictionary, appearance: Dictionary) -> Dictionary:
 	var out := profile.duplicate(true)
+	# Body presentation -> base sheet (the only visible customization on full-body sheets)
+	var bp := String(appearance.get("body_presentation", ""))
+	if not bp.is_empty() and CharacterAppearanceRegistry.body_presentations().has(bp):
+		out["sheet"] = CharacterAppearanceRegistry.body_presentation_sheet(bp)
+		out["palette_variant"] = "custom_%s" % bp
+	# Outfit colour -> palette tint (the second visible customization)
 	var outfit_color_id := String(appearance.get("outfit_color", ""))
 	if not outfit_color_id.is_empty():
 		# Pale tint: blend white toward the chosen outfit colour so the sprite reads as a

@@ -34,6 +34,13 @@ static func skin_tones() -> Dictionary:
 		"umber": Color("#9c6b4a"),
 	}
 
+static func body_presentations() -> Dictionary:
+	return {
+		"feminine": {"display_name": "Feminine", "description": "Nearest available feminine-leaning silhouette (Body_2 + warm tint). True female body art not yet available.", "limitation": "full_body_sheet"},
+		"masculine": {"display_name": "Masculine", "description": "Classic Farmer_1 — the most masculine-presenting base.", "limitation": "full_body_sheet"},
+		"neutral": {"display_name": "Neutral", "description": "Farmer_2 — balanced middle-ground option.", "limitation": "full_body_sheet"},
+	}
+
 static func body_styles() -> Dictionary:
 	return {
 		"cozy_default": {"display_name": "Cozy"},
@@ -82,3 +89,15 @@ static func skin_value(skin_id: String) -> Color:
 
 static func has_option(options: Dictionary, option_id: String) -> bool:
 	return options.has(option_id)
+
+## The LimeZu base sheet id mapped from a body_presentation option.
+## Falls back to Farmer_2 when the presentation id is unknown or missing.
+## NOTE: All three map to male-presenting sheets — no true female body exists.
+static func body_presentation_sheet(presentation_id: String) -> String:
+	match String(presentation_id):
+		"feminine":
+			return "character.body2_idle"   # closest available silhouette
+		"masculine":
+			return "character.farmer_idle"  # classic farmer
+		_:
+			return "character.farmer2_idle" # neutral / default

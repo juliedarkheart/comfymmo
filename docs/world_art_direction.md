@@ -33,8 +33,15 @@ audited). See [docs/playtest_readiness.md](playtest_readiness.md) for the manual
 Each named actor has a visual profile in `systems/character/character_profile_registry.gd`: a
 distinct LimeZu base sheet (`Farmer_1`/`Farmer_2`/`Body_2`) + a pale palette tint, so the player
 (Farmer_2), Farmer Rowan (Farmer_1), and the villagers are visibly different instead of all
-sharing one farmer sprite. The player's tint comes from the saved Wardrobe (F9) customization.
-Full details + how to test uniqueness: [docs/character_customization.md](character_customization.md).
+sharing one farmer sprite. The player's sheet AND tint come from the saved Wardrobe (F9)
+customization: `body_presentation` selects the sheet (feminine→Body_2, masculine→Farmer_1,
+neutral→Farmer_2) and `outfit_color` selects the palette tint. Default is neutral/Farmer_2
+(not masculine).
+
+Customization is limited to full-body sheet swaps + palette tinting because LimeZu Modern Farm
+only provides full-body character sheets — there are no separate layered sprites for hair,
+outfit, hat, skin, or accessories. Five of the seven F9 slots are disabled with "(unavailable)"
+labels. See `docs/character_customization.md` for the full slot table and rationale.
 
 ## Object contracts (what each prop IS)
 

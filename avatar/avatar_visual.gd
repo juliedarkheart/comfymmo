@@ -51,11 +51,23 @@ func rebuild(appearance: Dictionary) -> void:
 	_held_tool_attachment = null
 	_held_tool_sprite = null
 
+	# Wire the appearance data into the player profile BEFORE building the sprite,
+	# so the body_presentation (sheet) and outfit_color (tint) take effect immediately.
+	# Player profile is the source of truth for the LimeZu actor sprite.
+	CharacterProfileRegistry.apply_player_appearance(appearance)
+
 	# Keep this call path explicit: validation checks all actor visuals still route
 	# through CharacterArtRegistry before falling back to generated polygons.
 	if CharacterArtRegistry.apply_sprite(self, CharacterArtRegistry.PLAYER):
 		_sprite = get_child(get_child_count() - 1) as Sprite2D
 		_sheet_id = String(_sprite.get_meta("actor_sheet_id", "")) if _sprite != null else ""
+		# Apply the palette tint directly from the appearance data so changes
+		# are visible immediately (not just on next boot).
+		if _sprite != null:
+			var outfit_color_id := String(appearance.get("outfit_color", ""))
+			if not outfit_color_id.is_empty():
+				var tint := Color.WHITE.lerp(CharacterAppearanceRegistry.color_value(outfit_color_id), 0.32)
+				_sprite.modulate = tint
 	else:
 		CharacterVisualBuilder.build(self, appearance)
 		_sheet_id = ""
@@ -66,8 +78,8 @@ func rebuild(appearance: Dictionary) -> void:
 func _process(delta: float) -> void:
 	if _animation_state.begins_with("walk"):
 		_walk_phase += delta * 7.0
-		position.y = sin(_walk_phase) * 1.6
-		rotation = sin(_walk_phase * 0.5) * 0.02
+		position.y = sin(_walk_phase) * 3.0
+		rotation = sin(_walk_phase * 0.5) * 0.025
 		_apply_frame()   # cycle the directional walk frame(s) under the bob
 		return
 	_walk_phase = 0.0

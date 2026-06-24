@@ -36,13 +36,30 @@ LimeZu base sheet + a pale palette tint.
   garden tint; Farmer Rowan renders the classic `Farmer_1`; the land clerk (Hazel) renders
   `Body_2` with a lilac tint; Maribel/Bram differ by sheet + tint. They should look like
   different people, name labels still aligned, scale unchanged.
-- **Customization:** the F9 Wardrobe (mirror by the cottage) writes `player.appearance`; the
-  player's outfit colour drives the live palette tint and persists across save/load. Missing
-  customization falls back to the default Julie profile.
-- **How to test uniqueness headless:** `tools/smoke_character_identity.gd` (profiles load,
-  player≠Rowan, NPCs varied, customization round-trips/falls back) and the `ACTOR IDENTITIES`
-  table in `tools/audit_live_visuals.gd` (0 duplicate signatures). Validation fails on any
-  actor clone, missing/blank actor art, or a missing required profile/customization default.
+- **Customization (body_presentation + palette):** the F9 Wardrobe now has ONLY two working
+  controls: **Body** (body_presentation: feminine/masculine/neutral, changes the LimeZu base
+  sheet immediately) and **Palette** (outfit_color: 13 pastel colors, applied as modulate
+  tint immediately). All other slots (Outfit, Hair Style, Hair Color, Skin Tone, Accessory)
+  show "(unavailable)" with disabled buttons — they are baked into the full-body LimeZu
+  sheets and cannot affect the rendered sprite. See `docs/character_customization.md` for
+  the full slot table and rationale.
+- **Body/presentation presets:** feminine → Body_2 (closest available silhouette to
+  neutral/feminine, documented limitation: still male-presenting, no true female body exists
+  in LimeZu packs), masculine → Farmer_1 (classic farmer, has a hat), neutral → Farmer_2
+  (default). Default Julie uses neutral, not masculine.
+- **Hat removal:** Not supported. Farmer_1 has a hat baked into the sheet (no hatless variant).
+  Farmer_2 and Body_2 already have no hat. Choosing a hatless presentation is the only "hat
+  removal" available. No fake hat toggle is exposed.
+- **How to test customization:** open F9, cycle Body and Palette — the player sprite should
+  visibly change immediately. Changing Body swaps the LimeZu sheet; changing Palette applies
+  a new color tint. Quit and relaunch — the appearance persists in `player.appearance`.
+  Press Reset to return to defaults. All NPCs should remain visually distinct.
+- **How to test headless:** `tools/smoke_avatar_customization.gd` (body_presentation presets,
+  palette changes, save/load round-trip, NPC isolation, animation frames, default is not
+  masculine) and `tools/smoke_character_identity.gd` (profiles load, player≠Rowan, NPCs
+  varied). `tools/validate_project.gd` fails on any actor clone, missing/blank actor art,
+  a missing required profile/customization default, or fake/disabled controls that don't
+  match the registry.
 
 ## Object contracts: collision + interaction (2026-06-24)
 
