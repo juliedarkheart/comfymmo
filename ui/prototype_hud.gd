@@ -51,6 +51,11 @@ func _enable_row_icon(path: String, px: int) -> void:
 	var node: TextureRect = get_node_or_null(path) as TextureRect
 	if node == null:
 		return
+	if LiveVisualPolicy.live_limezu_slice():
+		var limezu_icon_id := "ui.slot_selected" if path.contains("DayIcon") else "ui.slot"
+		if LimeZuArtRegistry.has_asset(limezu_icon_id):
+			node.texture = LimeZuArtRegistry.resolve_texture(limezu_icon_id)
+			px = 28
 	node.visible = true
 	node.custom_minimum_size = Vector2(px, px)
 	node.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST

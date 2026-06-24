@@ -111,6 +111,9 @@ static func make_sprite(visual_id: String) -> Sprite2D:
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	# In LimeZu live mode actors y-sort with objects (z 0); Sprout keeps its z 2 actor band.
 	sprite.z_index = 0 if LiveVisualPolicy.live_limezu_slice() else 2
+	sprite.set_meta("visual_id", String(visual.get("id", visual_id)))
+	sprite.set_meta("visual_category", "actor")
+	sprite.set_meta("visual_source_path", String(visual.get("path", "")))
 	return sprite
 
 ## In LimeZu live mode, returns a bottom-anchored LimeZu farmer sprite for human
@@ -118,16 +121,18 @@ static func make_sprite(visual_id: String) -> Sprite2D:
 static func _limezu_actor_sprite(visual_id: String) -> Sprite2D:
 	if not LiveVisualPolicy.live_limezu_slice():
 		return null
-	if not REQUIRED_CHARACTER_IDS.has(normalize_id(visual_id)):
+	var normalized_id := normalize_id(visual_id)
+	if not REQUIRED_CHARACTER_IDS.has(normalized_id):
 		return null
 	if not LimeZuArtRegistry.has_asset("character.farmer_idle"):
 		return null
+	var source_path: String = LimeZuArtRegistry.texture_path("character.farmer_idle")
 	var tex: Texture2D = LimeZuArtRegistry.resolve_texture("character.farmer_idle")
 	if tex == null:
 		return null
 	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
 	var sprite := Sprite2D.new()
-	sprite.name = "CharacterArt_limezu_%s" % normalize_id(visual_id)
+	sprite.name = "CharacterArt_limezu_%s" % normalized_id
 	sprite.texture = tex
 	sprite.centered = true
 	# Feet at the actor origin (0,0): centre sits half the scaled height above it.
@@ -138,6 +143,10 @@ static func _limezu_actor_sprite(visual_id: String) -> Sprite2D:
 	# the gameplay layer). The old z 2 forced actors to always draw on top, which broke
 	# walk-behind depth. The gameplay layer's y_sort_enabled handles front/behind by feet.
 	sprite.z_index = 0
+	sprite.set_meta("visual_id", normalized_id)
+	sprite.set_meta("visual_category", "actor")
+	sprite.set_meta("limezu_logical_id", "character.farmer_idle")
+	sprite.set_meta("visual_source_path", source_path)
 	return sprite
 
 static func apply_sprite(parent: Node2D, visual_id: String) -> bool:

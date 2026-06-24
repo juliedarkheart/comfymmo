@@ -104,6 +104,27 @@ static func scene_summary(map: Node) -> Dictionary:
 ## play (signs, plot boundaries, the wardrobe mirror — no reviewed Sprout option yet).
 ## Above this we warn so the count is tracked, not silently creeping back up.
 const PROCEDURAL_POLYGON_BUDGET := 600
+const OPENING_VISIBLE_CATEGORIES: Array[String] = [
+	"grass/terrain",
+	"dirt/path tiles",
+	"trees",
+	"bushes/flowers",
+	"house/building",
+	"well/props",
+	"farm plots/crops",
+	"player avatar",
+	"Farmer Rowan",
+	"other NPCs",
+	"quickbar/icons",
+	"UI panels",
+]
+const LIMEZU_SOURCE_TIERS: Array[String] = [
+	"limezu_reviewed",
+	"limezu_raw",
+	"limezu_derivative",
+	"limezu_inspired",
+	"limezu_generated_local",
+]
 
 ## Classify a texture path into a source tier for the live-opening audit.
 static func classify_texture(path: String) -> String:
@@ -112,15 +133,25 @@ static func classify_texture(path: String) -> String:
 		return "procedural"
 	if p.contains("/missing"):
 		return "missing"
-	if p.contains("licensed_assets/limezu"):
-		return "limezu_generated_local" if (p.contains("generator_outputs") or p.contains("generated_candidates")) else "limezu"
 	if p.contains("licensed_assets/sprout"):
 		return "sprout"
-	if p.contains("art/generated/hearthvale"):
-		return "generated"
-	if p.contains("art/objects") or p.contains("art/tiles") or p.contains("fable_cute") or p.contains("assets/generated"):
-		return "legacy"
-	return "other"
+	if p.contains("licensed_assets/limezu"):
+		if p.contains("/generator_outputs/derivatives/"):
+			return "limezu_derivative"
+		if p.contains("/generator_outputs/inspired/"):
+			return "limezu_inspired"
+		if p.contains("/generator_outputs/") or p.contains("/generated_candidates/"):
+			return "limezu_generated_local"
+		if p.contains("/extracted/"):
+			return "limezu_raw"
+		return "limezu_reviewed"
+	if p.contains("art/generated/hearthvale") \
+			or p.contains("art/objects") \
+			or p.contains("art/tiles") \
+			or p.contains("fable_cute") \
+			or p.contains("assets/generated"):
+		return "legacy_generated"
+	return "legacy_generated"
 
 ## Walk a live map node and tally every Sprite2D by source tier, plus Polygon2D count.
 ## Used by validation to hard-block Sprout/generated/legacy visuals in the LimeZu opening.
@@ -134,6 +165,11 @@ static func live_opening_sources(map: Node) -> Dictionary:
 			var path: String = _sprite_source_path(s)
 			var tier := classify_texture(path)
 			tiers[tier] = int(tiers.get(tier, 0)) + 1
+		for node in map.find_children("*", "Polygon2D", true, false):
+			var p := node as Polygon2D
+			if not _is_visible_canvas_item(p):
+				continue
+			tiers["procedural"] = int(tiers.get("procedural", 0)) + 1
 	return tiers
 
 ## Tally visible Sprite2D/Polygon2D sources whose tile position falls inside the
@@ -156,6 +192,44 @@ static func live_area_sources(map: Node, tile_bounds: Rect2i) -> Dictionary:
 			continue
 		tiers["procedural"] = int(tiers.get("procedural", 0)) + 1
 	return tiers
+
+## Category-level opening audit for the actual scene tree. This keeps the report
+## honest: actors, UI, and world sprites all declare the source path they rendered.
+static func live_opening_category_audit(scene_root: Node) -> Dictionary:
+	var categories: Dictionary = {}
+	var totals: Dictionary = {}
+	var map: Node = _find_opening_map(scene_root)
+	var opening_rect: Rect2 = _opening_world_rect(scene_root, map)
+	if map != null:
+		for node in map.find_children("*", "Sprite2D", true, false):
+			var sprite := node as Sprite2D
+			if not _is_visible_canvas_item(sprite):
+				continue
+			if opening_rect.size.x > 0.0 and not opening_rect.has_point(sprite.global_position):
+				continue
+			var sprite_path: String = _sprite_source_path(sprite)
+			var sprite_tier: String = classify_texture(sprite_path)
+			_add_category_source(categories, totals, _category_for_sprite(sprite), sprite_tier, sprite_path, String(sprite.get_path()))
+		for node in map.find_children("*", "Polygon2D", true, false):
+			var poly := node as Polygon2D
+			if not _is_visible_canvas_item(poly):
+				continue
+			if opening_rect.size.x > 0.0 and not opening_rect.has_point(poly.global_position):
+				continue
+			_add_category_source(categories, totals, _category_for_polygon(poly), "procedural", "", String(poly.get_path()))
+	_collect_ui_sources(scene_root, categories, totals)
+	var missing_categories: Array[String] = []
+	for category in OPENING_VISIBLE_CATEGORIES:
+		if not categories.has(category):
+			missing_categories.append(category)
+	return {
+		"categories": categories,
+		"totals": totals,
+		"missing_categories": missing_categories,
+		"camera_rect": opening_rect,
+		"player_avatar": categories.get("player avatar", {}),
+		"farmer_rowan": categories.get("Farmer Rowan", {}),
+	}
 
 static func _is_visible_canvas_item(item: CanvasItem) -> bool:
 	return item != null and item.visible and (not item.is_inside_tree() or item.is_visible_in_tree())
@@ -192,6 +266,148 @@ static func _node_tile(node: Node) -> Variant:
 	if parent != null and parent.has_meta("tile"):
 		return parent.get_meta("tile")
 	return null
+
+static func _find_opening_map(scene_root: Node) -> Node:
+	if scene_root == null:
+		return null
+	var direct: Node = scene_root.get_node_or_null("Map")
+	if direct != null:
+		return direct
+	return scene_root.find_child("Map", true, false)
+
+static func _opening_world_rect(scene_root: Node, map: Node) -> Rect2:
+	var viewport_size := Vector2(1280, 720)
+	if ProjectSettings.has_setting("display/window/size/viewport_width"):
+		viewport_size.x = float(ProjectSettings.get_setting("display/window/size/viewport_width"))
+	if ProjectSettings.has_setting("display/window/size/viewport_height"):
+		viewport_size.y = float(ProjectSettings.get_setting("display/window/size/viewport_height"))
+	var center := Vector2.ZERO
+	var zoom := Vector2.ONE
+	var camera: Camera2D = null
+	if scene_root != null and scene_root.is_inside_tree():
+		camera = scene_root.get_viewport().get_camera_2d()
+	if camera != null:
+		center = camera.global_position
+		zoom = camera.zoom
+	elif map != null and map.has_method("get_spawn_position"):
+		center = map.call("get_spawn_position") as Vector2
+		if map.has_method("get_camera_zoom"):
+			zoom = map.call("get_camera_zoom") as Vector2
+	var safe_zoom := Vector2(maxf(absf(zoom.x), 0.01), maxf(absf(zoom.y), 0.01))
+	var world_size := Vector2(viewport_size.x / safe_zoom.x, viewport_size.y / safe_zoom.y)
+	return Rect2(center - world_size * 0.5, world_size).grow(128.0)
+
+static func _node_meta_string(node: Node, key: String) -> String:
+	if node != null and node.has_meta(key):
+		return String(node.get_meta(key))
+	var parent := node.get_parent() if node != null else null
+	if parent != null and parent.has_meta(key):
+		return String(parent.get_meta(key))
+	return ""
+
+static func _category_for_sprite(sprite: Sprite2D) -> String:
+	var visual_id := _node_meta_string(sprite, "visual_id").to_lower()
+	if visual_id == CharacterArtRegistry.PLAYER:
+		return "player avatar"
+	if visual_id == CharacterArtRegistry.ROWAN:
+		return "Farmer Rowan"
+	if not visual_id.is_empty() or String(sprite.name).to_lower().begins_with("characterart"):
+		return "other NPCs"
+	var logical_id := _node_meta_string(sprite, "ground_role")
+	if logical_id.is_empty():
+		logical_id = _node_meta_string(sprite, "limezu_logical_id")
+	match logical_id:
+		"terrain.grass":
+			return "grass/terrain"
+		"terrain.dirt_path", "terrain.stone_path":
+			return "dirt/path tiles"
+		"terrain.tilled_soil", "terrain.watered_soil", "crop.carrot", "crop.carrot_stage1", "crop.carrot_stage_1", "crop.carrot_stage_2", "crop.carrot_stage_3":
+			return "farm plots/crops"
+		"object.tree":
+			return "trees"
+		"object.tree_small", "object.flower", "object.flower2", "object.flower3":
+			return "bushes/flowers"
+		"object.barn", "object.house", "object.cottage":
+			return "house/building"
+		_:
+			pass
+	if logical_id.begins_with("crop."):
+		return "farm plots/crops"
+	if logical_id.begins_with("object.") or logical_id.begins_with("animal."):
+		return "well/props"
+	return "well/props"
+
+static func _category_for_polygon(poly: Polygon2D) -> String:
+	var node: Node = poly
+	while node != null:
+		if node is FarmPlot:
+			return "farm plots/crops"
+		var lname := String(node.name).to_lower()
+		if lname.contains("farmplot") or lname.contains("crop") or lname.contains("soil"):
+			return "farm plots/crops"
+		node = node.get_parent()
+	return "well/props"
+
+static func _collect_ui_sources(scene_root: Node, categories: Dictionary, totals: Dictionary) -> void:
+	if scene_root == null:
+		return
+	for node in scene_root.find_children("*", "TextureRect", true, false):
+		var texture_rect := node as TextureRect
+		if texture_rect == null or not _is_visible_canvas_item(texture_rect):
+			continue
+		var path := _texture_source_path(texture_rect.texture)
+		if path.is_empty():
+			continue
+		var category := "quickbar/icons" if _has_ancestor_named(texture_rect, "QuickToolsBar") else "UI panels"
+		_add_category_source(categories, totals, category, classify_texture(path), path, String(texture_rect.get_path()))
+	for node in scene_root.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not _is_visible_canvas_item(control):
+			continue
+		for style_name in ["panel", "normal", "hover", "pressed", "disabled"]:
+			if not control.has_theme_stylebox(style_name):
+				continue
+			var style_path := _stylebox_texture_path(control.get_theme_stylebox(style_name))
+			if style_path.is_empty():
+				continue
+			var style_category := "quickbar/icons" if _has_ancestor_named(control, "QuickToolsBar") else "UI panels"
+			_add_category_source(categories, totals, style_category, classify_texture(style_path), style_path, "%s:%s" % [String(control.get_path()), style_name])
+
+static func _texture_source_path(texture: Texture2D) -> String:
+	if texture == null:
+		return ""
+	if texture.has_meta("source_path"):
+		return String(texture.get_meta("source_path"))
+	return texture.resource_path
+
+static func _stylebox_texture_path(box: StyleBox) -> String:
+	if box is StyleBoxTexture:
+		return _texture_source_path((box as StyleBoxTexture).texture)
+	return ""
+
+static func _has_ancestor_named(node: Node, needle: String) -> bool:
+	var current := node
+	var lower_needle := needle.to_lower()
+	while current != null:
+		if String(current.name).to_lower().contains(lower_needle):
+			return true
+		current = current.get_parent()
+	return false
+
+static func _add_category_source(categories: Dictionary, totals: Dictionary, category: String, tier: String, path: String, node_path: String) -> void:
+	if not categories.has(category):
+		categories[category] = {"counts": {}, "paths": [], "nodes": []}
+	var entry: Dictionary = categories[category] as Dictionary
+	var counts: Dictionary = entry["counts"] as Dictionary
+	counts[tier] = int(counts.get(tier, 0)) + 1
+	totals[tier] = int(totals.get(tier, 0)) + 1
+	var stored_path := path if not path.is_empty() else "<procedural>"
+	var paths: Array = entry["paths"] as Array
+	if not paths.has(stored_path) and paths.size() < 12:
+		paths.append(stored_path)
+	var nodes: Array = entry["nodes"] as Array
+	if not node_path.is_empty() and nodes.size() < 12:
+		nodes.append(node_path)
 
 static func print_report(map: Node = null, mode: String = WorldProjection.DEFAULT_MODE) -> void:
 	var r: Dictionary = registry_summary(mode)
@@ -243,6 +459,8 @@ static func print_report(map: Node = null, mode: String = WorldProjection.DEFAUL
 		var opening: Dictionary = live_opening_sources(map)
 		print("[visual-source] live opening sources=", opening)
 		if LiveVisualPolicy.live_limezu_slice():
-			for forbidden in ["sprout", "legacy"]:
-				if int(opening.get(forbidden, 0)) > 0:
-					push_warning("[visual-source] LimeZu opening still has %d '%s' sprite(s)!" % [int(opening[forbidden]), forbidden])
+			if int(opening.get("sprout", 0)) > 0:
+				push_warning("[visual-source] LimeZu live map still has %d Sprout sprite(s)!" % int(opening["sprout"]))
+			if int(opening.get("legacy_generated", 0)) > 0:
+				print("[visual-source] broad live map legacy_generated sprites=", int(opening["legacy_generated"]),
+					" (camera-filtered opening audit is enforced by validation)")

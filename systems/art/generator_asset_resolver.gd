@@ -16,6 +16,44 @@ class_name GeneratorAssetResolver
 const DERIVATIVE_MANIFEST := "res://licensed_assets/limezu/generator_manifests/limezu_derivative_manifest.json"
 const INSPIRED_MANIFEST := "res://licensed_assets/limezu/generator_manifests/limezu_inspired_manifest.json"
 
+## Runtime logical-id bridge. The generator manifests are recipe-oriented
+## (`crate_variant`, `carrot_stage_3`, etc.) while live renderers ask for LimeZu
+## logical ids (`object.crate`, `crop.carrot`). Keep this mapping source-only and
+## local-output-safe; it does not create or commit any generated PNGs.
+const LOGICAL_ID_ALIASES := {
+	"terrain.grass": ["mossy_path_tile", "flower_border_tile", "path_tile_variant"],
+	"terrain.dirt_path": ["dirt_path_variant", "soft_path_tile", "mossy_path_tile"],
+	"terrain.stone_path": ["stone_path_variant", "path_tile_variant"],
+	"terrain.tilled_soil": ["tilled_soil_variant", "dry_soil_variant"],
+	"object.crate": ["crate_variant", "berry_crate"],
+	"object.sign": ["sign_variant", "family_notice_sign", "heart_sign"],
+	"object.fence_horizontal": ["fence_variant", "ribbon_fence"],
+	"object.fence_vertical": ["fence_variant", "ribbon_fence"],
+	"object.fence_post": ["fence_variant", "ribbon_fence"],
+	"object.flower": ["flower_patch_variant", "flower_wagon", "garden_charm_stake"],
+	"object.flower2": ["flower_patch_variant", "flower_wagon", "garden_charm_stake"],
+	"object.flower3": ["flower_patch_variant", "flower_wagon", "garden_charm_stake"],
+	"object.tree_small": ["shrub_variant", "flower_patch_variant"],
+	"object.workbench": ["workbench_variant", "cozy_workbench"],
+	"crop.carrot": ["carrot_stage_3", "carrot_crop_icon"],
+	"crop.carrot_stage1": ["carrot_stage_1"],
+	"crop.carrot_stage_1": ["carrot_stage_1"],
+	"crop.carrot_stage_2": ["carrot_stage_2"],
+	"crop.carrot_stage_3": ["carrot_stage_3"],
+	"ui.panel": ["panel_variant_dark", "hearth_panel_dark"],
+	"ui.inventory_panel": ["panel_variant_light", "hearth_panel_soft"],
+	"ui.dialogue": ["panel_variant_light", "hearth_panel_soft"],
+	"ui.tooltip": ["panel_variant_light", "hearth_panel_soft"],
+	"ui.slot": ["slot_variant", "cozy_slot"],
+	"ui.slot_selected": ["slot_selected_variant", "cozy_slot_selected"],
+	"ui.button": ["button_variant", "cozy_button"],
+	"ui.button_hover": ["button_hover_variant", "cozy_button_hover"],
+	"ui.button_pressed": ["button_hover_variant", "cozy_button_hover"],
+	"ui.tab": ["tab_variant", "cozy_button"],
+	"ui.close": ["close_button_variant", "tiny_close_button"],
+	"ui.close_hover": ["close_button_variant", "tiny_close_button"],
+}
+
 static var _loaded: bool = false
 static var _derivative: Dictionary = {}
 static var _inspired: Dictionary = {}
@@ -62,18 +100,33 @@ static func inspired_path(asset_id: String) -> String:
 	_ensure_loaded()
 	return _path_from(_inspired, String(asset_id).strip_edges())
 
+static func _candidate_ids(asset_id: String) -> Array[String]:
+	var normalized := String(asset_id).strip_edges().to_lower()
+	var ids: Array[String] = [normalized]
+	if LOGICAL_ID_ALIASES.has(normalized):
+		for alias in LOGICAL_ID_ALIASES[normalized]:
+			ids.append(String(alias))
+	return ids
+
 ## Derivative first, then inspired; "" when neither resolves (always safe).
 static func resolve(asset_id: String) -> String:
-	var derivative: String = derivative_path(asset_id)
-	if not derivative.is_empty():
-		return derivative
-	return inspired_path(asset_id)
+	for id in _candidate_ids(asset_id):
+		var derivative: String = derivative_path(id)
+		if not derivative.is_empty():
+			return derivative
+	for id in _candidate_ids(asset_id):
+		var inspired: String = inspired_path(id)
+		if not inspired.is_empty():
+			return inspired
+	return ""
 
 static func source_tier(asset_id: String) -> String:
-	if not derivative_path(asset_id).is_empty():
-		return "limezu_derivative"
-	if not inspired_path(asset_id).is_empty():
-		return "hearthvale_inspired"
+	for id in _candidate_ids(asset_id):
+		if not derivative_path(id).is_empty():
+			return "limezu_derivative"
+	for id in _candidate_ids(asset_id):
+		if not inspired_path(id).is_empty():
+			return "limezu_inspired"
 	return "missing"
 
 static func available() -> bool:

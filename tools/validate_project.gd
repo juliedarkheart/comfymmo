@@ -293,6 +293,21 @@ func _is_limezu_texture_box(box: StyleBox) -> bool:
 	var textured := box as StyleBoxTexture
 	return textured.texture != null
 
+func _audit_count(entry: Dictionary, tier: String) -> int:
+	return int((entry.get("counts", {}) as Dictionary).get(tier, 0))
+
+func _audit_paths_contain(entry: Dictionary, needle: String) -> bool:
+	for path_variant in (entry.get("paths", []) as Array):
+		if String(path_variant).contains(needle):
+			return true
+	return false
+
+func _audit_limezu_family_count(counts: Dictionary) -> int:
+	var total := 0
+	for tier in ["limezu_reviewed", "limezu_raw", "limezu_derivative", "limezu_inspired", "limezu_generated_local"]:
+		total += int(counts.get(tier, 0))
+	return total
+
 func _external_metadata_error(folder_path: String) -> String:
 	var license_names: Array[String] = ["LICENSE", "LICENSE.txt", "LICENSE.md", "COPYING", "COPYING.txt"]
 	var source_names: Array[String] = ["README.md", "README.txt", "SOURCE.txt", "CREDITS.txt", "ATTRIBUTION.txt", "NOTICE", "asset.json", "source.json"]
@@ -1230,7 +1245,7 @@ func _initialize() -> void:
 				quit(1)
 				return
 	if GeneratorAssetResolver.available():
-		for live_alias_id in ["terrain.dirt_path", "object.crate", "character.farmer_idle"]:
+		for live_alias_id in ["terrain.dirt_path", "object.crate", "ui.panel"]:
 			if GeneratorAssetResolver.resolve(live_alias_id).is_empty():
 				push_error("GeneratorAssetResolver must bridge live logical id '%s' to a local output when manifests are present" % live_alias_id)
 				quit(1)
@@ -1263,31 +1278,64 @@ func _initialize() -> void:
 		await process_frame
 		var ow_map: Node = ow.get_node_or_null("Map")
 		var opening: Dictionary = VisualSourceReport.live_opening_sources(ow_map)
-		# No Sprout or legacy (old generated/procedural tile/object) sprites may appear.
-		if int(opening.get("sprout", 0)) > 0:
-			push_error("LimeZu opening still instantiates %d Sprout sprite(s)" % int(opening["sprout"]))
+		print("[visual-source] live opening sources=", opening)
+		for forbidden_opening_tier in ["sprout", "missing"]:
+			if int(opening.get(forbidden_opening_tier, 0)) > 0:
+				push_error("LimeZu opening still instantiates %d '%s' sprite(s)" % [int(opening[forbidden_opening_tier]), forbidden_opening_tier])
+				ow.queue_free(); quit(1); return
+		if int(opening.get("legacy_generated", 0)) > 0:
+			push_warning("Broad LimeZu map still has %d off-camera legacy/generated sprite(s); camera-filtered category audit below is authoritative for opening visuals" % int(opening["legacy_generated"]))
+		var opening_limezu_count: int = _audit_limezu_family_count(opening)
+		var opening_procedural_count: int = int(opening.get("procedural", 0))
+		if opening_limezu_count < 1 or opening_limezu_count < opening_procedural_count:
+			push_error("LimeZu opening is not LimeZu-dominant (limezu_family=%d procedural=%d)" % [opening_limezu_count, opening_procedural_count])
 			ow.queue_free(); quit(1); return
-		if int(opening.get("legacy", 0)) > 0:
-			push_error("LimeZu opening still instantiates %d legacy sprite(s)" % int(opening["legacy"]))
+		var category_audit: Dictionary = VisualSourceReport.live_opening_category_audit(ow)
+		var categories: Dictionary = category_audit.get("categories", {}) as Dictionary
+		var category_totals: Dictionary = category_audit.get("totals", {}) as Dictionary
+		print("[visual-source] live opening category totals=", category_totals)
+		print("[visual-source] live opening category audit=", categories)
+		for required_visible_category in [
+			"grass/terrain", "dirt/path tiles", "trees", "bushes/flowers",
+			"house/building", "well/props", "farm plots/crops",
+			"player avatar", "Farmer Rowan", "quickbar/icons", "UI panels",
+		]:
+			if not categories.has(required_visible_category):
+				push_error("LimeZu opening source audit is missing visible category '%s'" % required_visible_category)
+				ow.queue_free(); quit(1); return
+		if int(category_totals.get("sprout", 0)) > 0:
+			push_error("LimeZu opening category audit still found Sprout visuals: %s" % str(category_totals))
 			ow.queue_free(); quit(1); return
-		# Generated sprites must be minimal (only far-off ambient creatures / placed
-		# objects), never a dominant source — LimeZu must dominate the opening.
-		var gen_count: int = int(opening.get("generated", 0))
-		var limezu_count: int = int(opening.get("limezu", 0)) + int(opening.get("limezu_generated_local", 0))
-		if gen_count > 40 or limezu_count < gen_count:
-			push_error("LimeZu opening is not LimeZu-dominant (limezu_family=%d generated=%d)" % [limezu_count, gen_count])
+		var player_audit: Dictionary = categories.get("player avatar", {}) as Dictionary
+		var rowan_audit: Dictionary = categories.get("Farmer Rowan", {}) as Dictionary
+		if _audit_count(player_audit, "limezu_raw") < 1 \
+				or not _audit_paths_contain(player_audit, "Characters_16x16/Farmer_1_16x16.png"):
+			push_error("Player avatar is not rendering from the raw LimeZu farmer frame: %s" % str(player_audit))
 			ow.queue_free(); quit(1); return
+		if _audit_count(rowan_audit, "limezu_raw") < 1 \
+				or not _audit_paths_contain(rowan_audit, "Characters_16x16/Farmer_1_16x16.png"):
+			push_error("Farmer Rowan is not rendering from the raw LimeZu farmer frame: %s" % str(rowan_audit))
+			ow.queue_free(); quit(1); return
+		for clean_category in ["grass/terrain", "dirt/path tiles", "trees", "bushes/flowers", "house/building", "well/props", "player avatar", "Farmer Rowan"]:
+			var clean_entry: Dictionary = categories.get(clean_category, {}) as Dictionary
+			var clean_counts: Dictionary = clean_entry.get("counts", {}) as Dictionary
+			if int(clean_counts.get("legacy_generated", 0)) > 0 or int(clean_counts.get("missing", 0)) > 0:
+				push_error("LimeZu opening category '%s' still uses old/missing art: %s" % [clean_category, str(clean_entry)])
+				ow.queue_free(); quit(1); return
+			if _audit_limezu_family_count(clean_counts) < 1:
+				push_error("LimeZu opening category '%s' has no LimeZu-family visual source: %s" % [clean_category, str(clean_entry)])
+				ow.queue_free(); quit(1); return
 		var playable_area: Dictionary = VisualSourceReport.live_area_sources(ow_map, OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS)
 		print("[visual-source] live playable area sources=", playable_area)
-		for forbidden_area_tier in ["sprout", "legacy", "missing"]:
+		for forbidden_area_tier in ["sprout", "legacy_generated", "missing"]:
 			if int(playable_area.get(forbidden_area_tier, 0)) > 0:
 				push_error("LimeZu playable area still has %d '%s' sprite(s)" % [int(playable_area[forbidden_area_tier]), forbidden_area_tier])
 				ow.queue_free(); quit(1); return
-		var area_limezu_count: int = int(playable_area.get("limezu", 0)) + int(playable_area.get("limezu_generated_local", 0))
-		var area_generated_count: int = int(playable_area.get("generated", 0))
+		var area_limezu_count: int = _audit_limezu_family_count(playable_area)
+		var area_generated_count: int = int(playable_area.get("legacy_generated", 0))
 		var area_procedural_count: int = int(playable_area.get("procedural", 0))
 		if area_limezu_count < 900 or area_generated_count > 40 or area_procedural_count > 12:
-			push_error("LimeZu playable area is not clean enough (limezu_family=%d generated=%d procedural=%d)" % [area_limezu_count, area_generated_count, area_procedural_count])
+			push_error("LimeZu playable area is not clean enough (limezu_family=%d legacy_generated=%d procedural=%d)" % [area_limezu_count, area_generated_count, area_procedural_count])
 			ow.queue_free(); quit(1); return
 		for collider_snippet in ["_add_limezu_asset_collider", "AssetWorldMetadata.collision_shapes", "Blocked by barn (placement proxy)"]:
 			if not overworld_map_src_live.contains(collider_snippet):

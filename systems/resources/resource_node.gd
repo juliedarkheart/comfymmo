@@ -130,14 +130,18 @@ func _build_limezu_visual() -> void:
 		logical_id = "object.flower"
 	if not LimeZuArtRegistry.has_asset(logical_id):
 		return
+	var source_path: String = LimeZuArtRegistry.texture_path(logical_id)
 	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(logical_id)
 	if tex == null:
 		return
 	var sc: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
 	var s := Sprite2D.new()
+	s.name = "ResourceLimeZu_%s" % logical_id.replace(".", "_")
 	s.texture = tex
 	s.centered = false
 	s.position = Vector2(-tex.get_width() * sc * 0.5, -tex.get_height() * sc)
 	s.scale = Vector2(sc, sc)
 	s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	s.set_meta("limezu_logical_id", logical_id)
+	s.set_meta("visual_source_path", source_path)
 	add_child(s)

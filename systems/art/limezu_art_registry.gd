@@ -104,7 +104,7 @@ const RAW_PACK_FALLBACKS := {
 	},
 	"character.farmer_idle": {
 		"path": "modern_farm/extracted/16x16/Characters_16x16/Farmer_1_16x16.png",
-		"rect": [0, 0, 16, 32],
+		"rect": [16, 32, 16, 32],
 	},
 	"icon.carrot": {
 		"path": "modern_farm/extracted/Icons/Icons_16x16/Icons_16x16_Singles/Icons_16x16_Crops_ Carrot.png",
@@ -170,6 +170,9 @@ static func _source_rect(logical_id: String) -> Rect2i:
 static func normalize_id(logical_id: String) -> String:
 	return String(logical_id).strip_edges().to_lower()
 
+static func _prefers_raw_pack_frame(logical_id: String) -> bool:
+	return normalize_id(logical_id).begins_with("character.")
+
 ## Resolved res:// path for a logical id, or the missing placeholder if not mapped /
 ## the mapped file is absent. Always returns a loadable path.
 static func texture_path(logical_id: String) -> String:
@@ -179,6 +182,10 @@ static func texture_path(logical_id: String) -> String:
 		var local := _resolve_local(String(_active[nid]))
 		if not local.is_empty():
 			return local
+	if _prefers_raw_pack_frame(nid):
+		var raw_first := _resolve_raw_fallback(nid)
+		if not raw_first.is_empty():
+			return raw_first
 	# Optional local generator outputs (derivative > inspired). Returns "" — and so
 	# is skipped — when the manifests/PNGs are absent (clean checkout), so the live
 	# game never depends on these dev/review outputs.
@@ -194,6 +201,8 @@ static func has_asset(logical_id: String) -> bool:
 	_ensure_loaded()
 	var nid := normalize_id(logical_id)
 	if _active.has(nid) and not _resolve_local(String(_active[nid])).is_empty():
+		return true
+	if _prefers_raw_pack_frame(nid) and not _resolve_raw_fallback(nid).is_empty():
 		return true
 	if not GeneratorAssetResolver.resolve(nid).is_empty():
 		return true
