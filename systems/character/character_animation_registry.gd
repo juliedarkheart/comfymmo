@@ -45,6 +45,47 @@ const HAND_SOCKET := {
 	"up": {"pos": Vector2(-6, -15), "rot": -0.22, "behind": true},
 }
 
+# --- LimeZu Modern Interiors "Character_Generator" LAYER layout (the player's layered avatar) ---
+# Verified by eye from a composited body+outfit+hair: band 0 = idle (col0 DOWN/front, col1 UP/back);
+# band 1 = walk (col0/1 = DOWN/front step). UP walk + SIDE reuse the facing idle frame + body bob
+# until the full per-direction walk cycle is reviewed (kept safe: never a garbled wrong-direction frame).
+const GENERATOR_FRAMES := {
+	"idle": {"down": Vector2i(0, 0), "up": Vector2i(1, 0), "side": Vector2i(0, 0)},
+	"walk": {
+		"down": [Vector2i(0, 1), Vector2i(1, 1)],   # real 2-frame front step (fixes downward animation)
+		"up": [Vector2i(1, 0)],                       # back idle + bob (full up-walk deferred)
+		"side": [Vector2i(0, 0)],                     # front idle mirrored + bob
+	},
+	"reviewed_directions": ["down", "up"],
+}
+
+static func generator_idle_rect(facing: String) -> Rect2i:
+	var cell: Vector2i = (GENERATOR_FRAMES["idle"] as Dictionary).get(_facing_key(facing), Vector2i(0, 0))
+	return Rect2i(cell.x * FRAME.x, cell.y * FRAME.y, FRAME.x, FRAME.y)
+
+static func generator_walk_frames(facing: String) -> Array[Rect2i]:
+	var out: Array[Rect2i] = []
+	for cell in (GENERATOR_FRAMES["walk"] as Dictionary).get(_facing_key(facing), []):
+		out.append(Rect2i((cell as Vector2i).x * FRAME.x, (cell as Vector2i).y * FRAME.y, FRAME.x, FRAME.y))
+	if out.is_empty():
+		out.append(generator_idle_rect(facing))
+	return out
+
+## Region for the layered (interiors generator) player by animation state + frame index.
+static func generator_region_for(state: String, frame_index: int) -> Rect2i:
+	var facing := "down"
+	if String(state).ends_with("up"):
+		facing = "up"
+	elif String(state).ends_with("side"):
+		facing = "side"
+	if String(state).begins_with("walk"):
+		var frames := generator_walk_frames(facing)
+		return frames[frame_index % frames.size()]
+	return generator_idle_rect(facing)
+
+static func generator_reviewed_directions() -> Array:
+	return (GENERATOR_FRAMES["reviewed_directions"] as Array).duplicate()
+
 static func has_sheet(sheet_id: String) -> bool:
 	return SHEET_FAMILY.has(String(sheet_id))
 

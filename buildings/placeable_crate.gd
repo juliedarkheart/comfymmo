@@ -69,6 +69,12 @@ func _apply_registry_art() -> void:
 	var art_id: String = _art_object_id()
 	if art_id.is_empty() or get_node_or_null("RegistryArtSprite") != null:
 		return
+	# In LimeZu live mode, placeables mapped to a reviewed LimeZu asset render the LimeZu
+	# sprite (matching the curated world) instead of the legacy generated planks — so placed
+	# objects look correct AND save-restored ones can stay visible (BuildingPlacementSystem
+	# no longer needs to hide them to avoid clashing art).
+	if LiveVisualPolicy.live_limezu_slice() and _apply_limezu_art(art_id):
+		return
 	if not ObjectArtRegistry.has_art_id(art_id):
 		return
 	var visual: Dictionary = ObjectArtRegistry.visual_for(art_id)
@@ -76,6 +82,35 @@ func _apply_registry_art() -> void:
 	set_meta("debug_visual_fallback", bool(visual.get("fallback", false)))
 	if ObjectArtRegistry.apply_sprite(self, art_id):
 		_hide_prototype_polygons()
+
+## Render the LimeZu-family sprite for a placeable mapped to a reviewed LimeZu asset, anchored
+## EXACTLY like the curated world prop (grid_to_world base + (0,16), bottom-centred) so a placed
+## crate sits where a curated crate would. Returns false (caller falls back) when unmapped.
+func _apply_limezu_art(content_id: String) -> bool:
+	var asset_id: String = AssetWorldMetadata.asset_id_for_placeable(content_id)
+	if asset_id.is_empty() or not LimeZuArtRegistry.has_asset(asset_id):
+		return false
+	var tex: Texture2D = LimeZuArtRegistry.resolve_texture(asset_id)
+	if tex == null:
+		return false
+	var scale_f: float = LiveVisualPolicy.LIMEZU_DISPLAY_SCALE
+	var sprite := Sprite2D.new()
+	sprite.name = "RegistryArtSprite"
+	sprite.texture = tex
+	sprite.centered = false
+	sprite.position = Vector2(0, 16) + Vector2(-tex.get_width() * scale_f * 0.5, -tex.get_height() * scale_f)
+	sprite.scale = Vector2(scale_f, scale_f)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.set_meta("limezu_logical_id", asset_id)
+	sprite.set_meta("visual_source_path", LimeZuArtRegistry.texture_path(asset_id))
+	add_child(sprite)
+	# Keep the build-preview contract: debug_visual_asset_id mirrors the CONTENT id (like the
+	# ObjectArtRegistry path); the LimeZu asset id is recorded separately for the visual audit.
+	set_meta("debug_visual_asset_id", content_id)
+	set_meta("debug_limezu_asset_id", asset_id)
+	set_meta("debug_visual_fallback", false)
+	_hide_prototype_polygons()
+	return true
 
 func _hide_prototype_polygons() -> void:
 	for child in get_children():

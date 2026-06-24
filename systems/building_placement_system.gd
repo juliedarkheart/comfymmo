@@ -501,7 +501,7 @@ func _place_record(record: Dictionary, should_append: bool) -> void:
 	# at the map edge). Hide the visual of *save-restored* objects only in LimeZu live mode
 	# so the opening reads as pure LimeZu; record/collision/interaction/occupancy are kept,
 	# and in-session placements (should_append) stay visible so place-and-see still works.
-	if not should_append and LiveVisualPolicy.live_limezu_slice():
+	if not should_append and LiveVisualPolicy.live_limezu_slice() and not _placeable_has_limezu_art(object_id):
 		placed_object.visible = false
 	_apply_placed_object_collision(placed_object, object_id, tile, placeable_data.footprint)
 	_placed_nodes[record_id] = placed_object
@@ -518,6 +518,13 @@ func _place_record(record: Dictionary, should_append: bool) -> void:
 			"tile_x": tile.x,
 			"tile_y": tile.y,
 		})
+
+## True when a placeable maps to a reviewed LimeZu asset whose sprite resolves — those placed
+## objects render LimeZu art (PlaceableCrate._apply_limezu_art), so save-restore keeps them
+## visible instead of hiding them to avoid clashing legacy planks.
+func _placeable_has_limezu_art(object_id: String) -> bool:
+	var asset_id: String = AssetWorldMetadata.asset_id_for_placeable(object_id)
+	return not asset_id.is_empty() and LimeZuArtRegistry.has_asset(asset_id)
 
 ## Asset-aware collision for a placed object: prefer AssetWorldMetadata shapes, retiring the
 ## generic placement proxy when metadata governs the object (so curated + placed objects use
@@ -1077,6 +1084,20 @@ func _register_interactable_for_object(record_id: String, object_id: String, pla
 			ContentIds.INTERACTION_PREFAB_DOOR,
 			"Press F to enter %s" % PrefabInteriors.title_of(object_id)
 		)
+		return
+
+	# Contract-driven placeholder interaction (e.g. a placed crate -> "The crate is empty.").
+	# Only objects whose AssetWorldMetadata contract has a self-contained toast response are
+	# registered, so a placed object never shows a prompt without a backing action. The
+	# response is delivered by HomesteadController._on_interaction_requested's fallback.
+	if _placed_contract_response_for_object(object_id) != "":
+		var contract_asset: String = AssetWorldMetadata.asset_id_for_placeable(object_id)
+		placed_object.set_meta("contract_asset_id", contract_asset)
+		placed_object.set_meta("interaction_point_offset", AssetWorldMetadata.interaction_point_offset(contract_asset))
+		interactable_system.register_interactable(
+			record_id, placed_object, ContentIds.INTERACTION_GENERIC,
+			AssetWorldMetadata.interaction_prompt(contract_asset)
+		)
 
 func _unregister_interactable_for_object(record_id: String, object_id: String) -> void:
 	if interactable_system == null:
@@ -1087,8 +1108,31 @@ func _unregister_interactable_for_object(record_id: String, object_id: String) -
 		or object_id == ContentIds.PLACEABLE_WORKBENCH
 		or object_id == ContentIds.PLACEABLE_GARDEN_TABLE
 		or PrefabInteriors.has_interior(object_id)
+		or _placed_contract_response_for_object(object_id) != ""
 	):
 		interactable_system.unregister_interactable(record_id)
+
+## Self-contained toast response for a placeable's contract, or "" when it has none (so the
+## caller knows whether to register a prompt). Mailbox/workbench are handled by their own
+## explicit branches above; this covers contract props like the crate.
+func _placed_contract_response_for_object(object_id: String) -> String:
+	if object_id == ContentIds.PLACEABLE_MAILBOX \
+			or object_id == ContentIds.PLACEABLE_WORKBENCH \
+			or object_id == ContentIds.PLACEABLE_GARDEN_TABLE:
+		return ""
+	var asset_id: String = AssetWorldMetadata.asset_id_for_placeable(object_id)
+	if asset_id.is_empty() or not AssetWorldMetadata.has_toast_interaction(asset_id):
+		return ""
+	return AssetWorldMetadata.interaction_response(asset_id)
+
+## Public: contract response for a currently-placed record (used by the interaction dispatch
+## fallback when no bound world-interactable callback handled the press).
+func placed_contract_response(record_id: String) -> String:
+	var node: PlaceableCrate = _placed_nodes.get(record_id, null) as PlaceableCrate
+	if node == null:
+		return ""
+	var asset_id: String = String(node.get_meta("contract_asset_id", ""))
+	return AssetWorldMetadata.interaction_response(asset_id) if not asset_id.is_empty() else ""
 
 ## True when a placed object with this content id sits within `radius` world
 ## units of `world_pos`. Used for "requires a station nearby" crafting checks.
