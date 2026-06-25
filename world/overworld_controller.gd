@@ -810,7 +810,7 @@ func _setup_plot_markers() -> void:
 	Nameplate.attach(clerk, "Clerk Hazel", "Land Office", Color("#9fc4e8"))
 	register_world_interactable(
 		"land_clerk", clerk, ContentIds.INTERACTION_VILLAGER,
-		"Press F to talk to the land clerk", _talk_land_clerk
+		"Press F to talk to Clerk Hazel", _talk_land_clerk
 	)
 
 ## Spawn (or re-spawn) one plot's in-world furniture: biome ground patch, corner

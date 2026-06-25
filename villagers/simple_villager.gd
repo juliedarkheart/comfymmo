@@ -2,8 +2,8 @@ extends Node2D
 class_name SimpleVillager
 
 @export var villager_name: String = "Villager"
-@export var first_visit_text: String = "Hello."
-@export var repeat_visit_text: String = "Good to see you again."
+@export var first_visit_text: String = "Hello there. Always nice to see a new face about the village."
+@export var repeat_visit_text: String = "Good to see you again. The village feels brighter for it."
 @export var repeat_visit_lines: PackedStringArray = PackedStringArray()
 @export var visual_id: String = CharacterArtRegistry.MARIBEL
 ## A compact body collider so the NPC is not a ghost. Turn off for a debug pass-through NPC.
