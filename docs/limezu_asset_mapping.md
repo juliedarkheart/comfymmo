@@ -1,3 +1,20 @@
+# Layered avatar dev wardrobe mapping (2026-06-25)
+
+The live player avatar scans compatible adult Modern Interiors
+`2_Characters/Character_Generator` PNGs directly from the gitignored local pack:
+9 bodies, 7 eyes, 200 hairstyle files grouped into 29 style bases, 132 outfit
+files grouped into 33 outfit bases, and 84 accessories. F9 exposes these as
+dev-unlocked test options while preserving release-gating metadata
+(`unlock_status`, `release_unlock_source`, `tone_tag`, `release_default_available`,
+`dev_available`, `avatar_type`, `layout_status`).
+
+Hair and outfit storage is split: `hair_style=hair_22` + `hair_color=04` resolves
+at render time to `hair_22_04`; `outfit_style=outfit_14` + `outfit_color=03`
+resolves to `outfit_14_03`. Color options are derived from actual files for the
+selected style; no fake palette colors are shown in layered mode. Kid generator
+sheets are cataloged but tagged `incompatible_layout` because their canvas sizes
+do not match the adult compositor.
+
 # LimeZu Asset Mapping (logical ids)
 
 LimeZu is the current live visual ecosystem for this branch, with Sprout kept as a
@@ -53,6 +70,17 @@ explicit debug mode — they must not appear in the opening view when LimeZu is 
   like the curated world prop. So a placed crate/sign/fence matches the world instead of showing
   legacy planks, and save-restored placements stay visible (`BuildingPlacementSystem` no longer
   hides LimeZu-mapped objects). Collision + interaction are rebuilt from the saved `object_id`.
+
+## Full avatar wardrobe scan + release gating (2026-06-25)
+
+`CharacterPartLibrary` scans the actual `Character_Generator/{Bodies,Eyes,Hairstyles,Outfits,
+Accessories}/16x16` folders, so the dev wardrobe exposes **every** compatible adult part (9 bodies,
+7 eyes, 200 hair files / 29 bases, 132 outfit files / 33 bases, 84 accessories + None = 432 parts).
+The curated manifest is only the clean-checkout fallback. Each part gets release-gating metadata
+(`dev_available`, `release_default_available`, `unlock_status`, `release_unlock_source`, `tone_tag`,
+`avatar_type`, `layout_status`). `Bodies_kids/…` are inventoried but tagged
+`avatar_type=kid`/`layout_status=incompatible_layout` and deferred (different body layout — separate
+pass). No PNGs/manifests are committed (all under gitignored `licensed_assets/`).
 
 ## Layered player avatar — Character_Generator (2026-06-25)
 

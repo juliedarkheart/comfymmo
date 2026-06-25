@@ -34,11 +34,23 @@ static func skin_tones() -> Dictionary:
 		"umber": Color("#9c6b4a"),
 	}
 
+## Body/skin tone options from the layered parts when available.
+## Bodies are skin tones, not gendered presentations — wardrobe labels them "Peach", "Fair", etc.
 static func body_presentations() -> Dictionary:
+	# In layered mode, bodies are skin tone variants from the curated manifest
+	if CharacterPartLibrary.layered_ready():
+		var layered: Dictionary = {}
+		for pid in CharacterPartLibrary.part_ids_for_category("bodies"):
+			var entry := CharacterPartLibrary.part_entry(pid)
+			var label := String(entry.get("skin_tone_label", pid.capitalize().replace("_", " ")))
+			layered[pid] = {"display_name": label}
+		if not layered.is_empty():
+			return layered
+	# Full-body fallback: feminine/masculine/neutral
 	return {
-		"feminine": {"display_name": "Feminine", "description": "Nearest available feminine-leaning silhouette (Body_2 + warm tint). True female body art not yet available.", "limitation": "full_body_sheet"},
-		"masculine": {"display_name": "Masculine", "description": "Classic Farmer_1 — the most masculine-presenting base.", "limitation": "full_body_sheet"},
-		"neutral": {"display_name": "Neutral", "description": "Farmer_2 — balanced middle-ground option.", "limitation": "full_body_sheet"},
+		"feminine": {"display_name": "Feminine"},
+		"masculine": {"display_name": "Masculine"},
+		"neutral": {"display_name": "Neutral"},
 	}
 
 static func body_styles() -> Dictionary:
@@ -67,8 +79,11 @@ static func has_option(options: Dictionary, option_id: String) -> bool:
 static func hair_styles() -> Dictionary:
 	if CharacterPartLibrary.layered_ready():
 		var layered: Dictionary = {}
-		for pid in CharacterPartLibrary.part_ids_for_category("hairstyles"):
-			layered[pid] = {"display_name": pid.capitalize().replace("_", " ")}
+		for pid in CharacterPartLibrary.style_bases_for_category("hairstyles"):
+			layered[String(pid)] = {
+				"display_name": CharacterPartLibrary.hair_style_label(String(pid)),
+				"metadata": {"unlock_status": "dev_unlocked", "dev_available": true},
+			}
 		if not layered.is_empty():
 			return layered
 	return {
@@ -84,8 +99,11 @@ static func hair_styles() -> Dictionary:
 static func outfit_styles() -> Dictionary:
 	if CharacterPartLibrary.layered_ready():
 		var layered: Dictionary = {}
-		for pid in CharacterPartLibrary.part_ids_for_category("outfits"):
-			layered[pid] = {"display_name": pid.capitalize().replace("_", " ")}
+		for pid in CharacterPartLibrary.style_bases_for_category("outfits"):
+			layered[String(pid)] = {
+				"display_name": CharacterPartLibrary.outfit_style_label(String(pid)),
+				"metadata": {"unlock_status": "dev_unlocked", "dev_available": true},
+			}
 		if not layered.is_empty():
 			return layered
 	return {
@@ -113,7 +131,11 @@ static func accessories() -> Dictionary:
 	if CharacterPartLibrary.layered_ready():
 		for pid in CharacterPartLibrary.part_ids_for_category("accessories"):
 			if pid != "acc_none":
-				base[pid] = {"display_name": String(pid).capitalize().replace("_", " ")}
+				var entry := CharacterPartLibrary.part_entry(pid)
+				base[pid] = {
+					"display_name": String(entry.get("label", String(pid).capitalize().replace("_", " "))),
+					"metadata": CharacterPartLibrary.dev_metadata_for_part(pid),
+				}
 	return base
 
 ## Renderable accessory ids for the layered editor: None + the curated Character_Generator

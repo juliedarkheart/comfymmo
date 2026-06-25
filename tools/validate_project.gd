@@ -1394,14 +1394,52 @@ func _initialize() -> void:
 				push_error("Layered Julie default does not composite enough layers: %s" % base_render_sig)
 				quit(1)
 				return
+			var hair_bases: Array = CharacterPartLibrary.style_bases_for_category("hairstyles")
+			var outfit_bases: Array = CharacterPartLibrary.style_bases_for_category("outfits")
+			var default_hair_base: String = String(jd.get("hair_style", ""))
+			var default_hair_color: String = String(jd.get("hair_color", ""))
+			var default_outfit_base: String = String(jd.get("outfit_style", ""))
+			var default_outfit_color: String = String(jd.get("outfit_color", ""))
+			if not hair_bases.has(default_hair_base) or CharacterPartLibrary.part_entry(CharacterPartLibrary.resolve_combined_part_id("hair", default_hair_base, default_hair_color)).is_empty():
+				push_error("Default split hair style/color does not resolve to a real layered texture")
+				quit(1)
+				return
+			if not outfit_bases.has(default_outfit_base) or CharacterPartLibrary.part_entry(CharacterPartLibrary.resolve_combined_part_id("outfit", default_outfit_base, default_outfit_color)).is_empty():
+				push_error("Default split outfit style/color does not resolve to a real layered texture")
+				quit(1)
+				return
+			if hair_bases.size() < 20 or outfit_bases.size() < 20:
+				push_error("F9 dev wardrobe is still starter-limited (hair=%d outfit=%d)" % [hair_bases.size(), outfit_bases.size()])
+				quit(1)
+				return
+			var hair_color_options: Array = CharacterPartLibrary.colors_for_style_base(default_hair_base)
+			var outfit_color_options: Array = CharacterPartLibrary.colors_for_style_base(default_outfit_base)
+			if hair_color_options.size() < 2 or outfit_color_options.size() < 2:
+				push_error("Default split hair/outfit color controls do not expose real file variants")
+				quit(1)
+				return
 			# Each editable field changes the render signature (no fake controls).
-			for field_change in [["body_presentation", "masculine"], ["hair_style", "hair_28_01"], ["outfit_style", "outfit_05_01"], ["accessory", "acc_beanie_01"]]:
+			for field_change in [["body_presentation", "masculine"], ["hair_style", String(hair_bases.back())], ["hair_color", String(hair_color_options.back())], ["outfit_style", String(outfit_bases.back())], ["outfit_color", String(outfit_color_options.back())], ["accessory", "acc_beanie_01"]]:
 				var changed: Dictionary = jd.duplicate()
 				changed[field_change[0]] = field_change[1]
 				if CharacterPartLibrary.render_signature(changed) == base_render_sig:
 					push_error("Editor field '%s' does not change the rendered avatar (fake control)" % field_change[0])
 					quit(1)
 					return
+			var changed_hair_style: Dictionary = jd.duplicate()
+			changed_hair_style["hair_style"] = String(hair_bases.back())
+			var normalized_changed_hair: Dictionary = CharacterAppearance.normalized(changed_hair_style)
+			if CharacterPartLibrary.colors_for_style_base(String(normalized_changed_hair.get("hair_style", ""))).is_empty():
+				push_error("Changing Hair Style did not leave Hair Color on a valid real variant list")
+				quit(1)
+				return
+			var changed_outfit_style: Dictionary = jd.duplicate()
+			changed_outfit_style["outfit_style"] = String(outfit_bases.back())
+			var normalized_changed_outfit: Dictionary = CharacterAppearance.normalized(changed_outfit_style)
+			if CharacterPartLibrary.colors_for_style_base(String(normalized_changed_outfit.get("outfit_style", ""))).is_empty():
+				push_error("Changing Outfit did not leave Outfit Color on a valid real variant list")
+				quit(1)
+				return
 			# Accessory None removes exactly one layer.
 			var none_look: Dictionary = jd.duplicate()
 			none_look["accessory"] = "none"
@@ -1409,6 +1447,16 @@ func _initialize() -> void:
 				push_error("Accessory None does not remove the accessory layer")
 				quit(1)
 				return
+			var kid_status: Dictionary = CharacterPartLibrary.kid_asset_status()
+			for kid_bucket in ["Bodies_kids/16x16", "Eyes_kids/16x16", "Hairstyles_kids/16x16", "Outfits_kids/16x16"]:
+				var kid_entries: Array = kid_status.get(kid_bucket, []) as Array
+				var kid_metadata: Dictionary = {}
+				if not kid_entries.is_empty():
+					kid_metadata = (kid_entries[0] as Dictionary).get("metadata", {}) as Dictionary
+				if not kid_entries.is_empty() and String(kid_metadata.get("layout_status", "")) != "incompatible_layout":
+					push_error("Kid avatar bucket '%s' is not explicitly deferred as incompatible_layout" % kid_bucket)
+					quit(1)
+					return
 			# Player customization must not leak into NPC profiles.
 			var rowan_sig_pre: String = CharacterProfileRegistry.signature("rowan")
 			CharacterProfileRegistry.apply_player_appearance(jd)
@@ -1532,6 +1580,18 @@ func _initialize() -> void:
 		if not player_actor_paths.is_empty() and player_actor_paths == (rowan_audit.get("paths", []) as Array):
 			push_error("Player and Farmer Rowan render the IDENTICAL character sheet (actor cloning): %s" % str(player_actor_paths))
 			ow.queue_free(); quit(1); return
+		# --- Nameplate placement: player + NPCs carry a name label clearly ABOVE the avatar (not
+		# cutting into head/hair/hat). The avatar is ~64px tall (feet at 0), so a nameplate offset
+		# above ~-70 floats over the head. ---
+		var all_plates: Array = ow.find_children("Nameplate", "Node2D", true, false)
+		if all_plates.size() < 2:
+			push_error("Expected nameplates on the player + NPCs; found %d" % all_plates.size())
+			ow.queue_free(); quit(1); return
+		for plate_node in all_plates:
+			if (plate_node as Node2D).position.y > -70.0:
+				push_error("A nameplate sits too low (y=%.0f) — cuts into the avatar" % (plate_node as Node2D).position.y)
+				ow.queue_free(); quit(1); return
+		print("[nameplate] %d nameplates, all above y=-70 (above heads)" % all_plates.size())
 		for clean_category in ["grass/terrain", "dirt/path tiles", "trees", "bushes/flowers", "house/building", "well/props", "player avatar", "Farmer Rowan"]:
 			var clean_entry: Dictionary = categories.get(clean_category, {}) as Dictionary
 			var clean_counts: Dictionary = clean_entry.get("counts", {}) as Dictionary
@@ -3460,13 +3520,21 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# New customization ids must all survive normalization (registry + builder).
+	# New split customization ids must all survive normalization (registry + builder).
+	var expanded_hair_base: String = String(CharacterAppearanceRegistry.hair_styles().keys().back())
+	var expanded_hair_colors: Array = CharacterPartLibrary.colors_for_style_base(expanded_hair_base)
+	var expanded_outfit_base: String = String(CharacterAppearanceRegistry.outfit_styles().keys().back())
+	var expanded_outfit_colors: Array = CharacterPartLibrary.colors_for_style_base(expanded_outfit_base)
+	if expanded_hair_colors.is_empty() or expanded_outfit_colors.is_empty():
+		push_error("Expanded split customization ids have no real color variants")
+		quit(1)
+		return
 	var expanded_appearance: Dictionary = CharacterAppearance.normalized({
-		"hair_style": String(CharacterAppearanceRegistry.hair_styles().keys().back()), "hair_color": "berry_red", "skin_tone": "umber",
-		"outfit_style": "mushroom_sweater", "outfit_color": "pond_blue", "accessory": String(CharacterAppearanceRegistry.accessories().keys().back()),
+		"hair_style": expanded_hair_base, "hair_color": String(expanded_hair_colors.back()), "skin_tone": "umber",
+		"outfit_style": expanded_outfit_base, "outfit_color": String(expanded_outfit_colors.back()), "accessory": String(CharacterAppearanceRegistry.accessories().keys().back()),
 	})
-	if String(expanded_appearance["hair_style"]) != String(CharacterAppearanceRegistry.hair_styles().keys().back()) or String(expanded_appearance["accessory"]) != String(CharacterAppearanceRegistry.accessories().keys().back()):
-		push_error("Expanded customization ids did not survive normalization")
+	if String(expanded_appearance["hair_style"]) != expanded_hair_base or String(expanded_appearance["hair_color"]) != String(expanded_hair_colors.back()) or String(expanded_appearance["outfit_style"]) != expanded_outfit_base or String(expanded_appearance["outfit_color"]) != String(expanded_outfit_colors.back()) or String(expanded_appearance["accessory"]) != String(CharacterAppearanceRegistry.accessories().keys().back()):
+		push_error("Expanded split customization ids did not survive normalization")
 		quit(1)
 		return
 
@@ -4642,8 +4710,11 @@ func _initialize() -> void:
 		quit(1)
 		return
 	var sw_nameplate_src: String = FileAccess.get_file_as_string("res://ui/nameplate.gd")
-	if not sw_nameplate_src.contains("font_shadow_color") or sw_nameplate_src.contains("bg_color = Color(0.12"):
-		push_error("Nameplate must use the clean readable style (soft shadow, no heavy dark backing box)")
+	# Clean readable nameplate: the soft shadow/outline now lives in the centralized
+	# CozyUITheme.apply_nameplate_label helper (accepted), and still NO heavy dark backing box.
+	if not (sw_nameplate_src.contains("apply_nameplate_label") or sw_nameplate_src.contains("font_shadow_color")) \
+			or sw_nameplate_src.contains("bg_color = Color(0.12"):
+		push_error("Nameplate must use the clean readable style (soft shadow/outline via CozyUITheme, no heavy dark backing box)")
 		quit(1)
 		return
 	var sw_player_scene: PackedScene = load("res://scenes/avatar/player_avatar.tscn") as PackedScene

@@ -12,10 +12,10 @@ const DEFAULT := {
 	"body_presentation": "neutral",
 	"body_style": "cozy_default",
 	"skin_tone": "peach",
-	"hair_style": "round_bob",
-	"hair_color": "warm_brown",
-	"outfit_style": "starter_overalls",
-	"outfit_color": "moss_green",
+	"hair_style": "hair_22",
+	"hair_color": "01",
+	"outfit_style": "outfit_14",
+	"outfit_color": "01",
 	"accessory": "none",
 	"face_style": "happy",
 }
@@ -45,10 +45,6 @@ static func normalized(data: Dictionary) -> Dictionary:
 		"body_presentation": CharacterAppearanceRegistry.body_presentations(),
 		"body_style": CharacterAppearanceRegistry.body_styles(),
 		"skin_tone": CharacterAppearanceRegistry.skin_tones(),
-		"hair_style": CharacterAppearanceRegistry.hair_styles(),
-		"hair_color": CharacterAppearanceRegistry.palette(),
-		"outfit_style": CharacterAppearanceRegistry.outfit_styles(),
-		"outfit_color": CharacterAppearanceRegistry.palette(),
 		"accessory": CharacterAppearanceRegistry.accessories(),
 		"face_style": CharacterAppearanceRegistry.face_styles(),
 		"eyes": CharacterAppearanceRegistry.eyes(),
@@ -66,4 +62,36 @@ static func normalized(data: Dictionary) -> Dictionary:
 				result[slot] = def_val
 			else:
 				result[slot] = String(options.keys()[0])
+	if CharacterPartLibrary.layered_ready():
+		_normalize_split_part(result, data, "hair", CharacterAppearanceRegistry.hair_styles())
+		_normalize_split_part(result, data, "outfit", CharacterAppearanceRegistry.outfit_styles())
+	else:
+		_normalize_legacy_option(result, data, "hair_style", CharacterAppearanceRegistry.hair_styles())
+		_normalize_legacy_option(result, data, "hair_color", CharacterAppearanceRegistry.palette())
+		_normalize_legacy_option(result, data, "outfit_style", CharacterAppearanceRegistry.outfit_styles())
+		_normalize_legacy_option(result, data, "outfit_color", CharacterAppearanceRegistry.palette())
 	return result
+
+static func _normalize_split_part(result: Dictionary, data: Dictionary, slot_prefix: String, style_options: Dictionary) -> void:
+	var style_key := "%s_style" % slot_prefix
+	var color_key := "%s_color" % slot_prefix
+	var candidate_style := String(data.get(style_key, result.get(style_key, "")))
+	var candidate_color := String(data.get(color_key, ""))
+	var split := CharacterPartLibrary.split_id(candidate_style)
+	if split.size() == 3:
+		candidate_style = "%s_%s" % [split[0], split[1]]
+		if candidate_color.is_empty() or not String(candidate_color).is_valid_int():
+			candidate_color = String(split[2])
+	if not CharacterAppearanceRegistry.has_option(style_options, candidate_style):
+		var def_style := CharacterPartLibrary.split_base_from_part_id(String(default_appearance().get(style_key, "")))
+		candidate_style = def_style if CharacterAppearanceRegistry.has_option(style_options, def_style) else String(style_options.keys()[0])
+	var valid_color := CharacterPartLibrary.valid_color_for_style(candidate_style, candidate_color)
+	result[style_key] = candidate_style
+	result[color_key] = valid_color
+
+static func _normalize_legacy_option(result: Dictionary, data: Dictionary, slot: String, options: Dictionary) -> void:
+	var candidate := String(data.get(slot, result.get(slot, "")))
+	if CharacterAppearanceRegistry.has_option(options, candidate):
+		result[slot] = candidate
+	elif not options.is_empty():
+		result[slot] = String(options.keys()[0])

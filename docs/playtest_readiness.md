@@ -1,5 +1,17 @@
 # Playtest Readiness
 
+## Nameplates + full dev wardrobe (2026-06-25)
+
+- **Name labels** (player + NPCs) now sit clearly **above** the avatar's head/hat (offset derived
+  from the avatar bounds incl. the tallest accessory; chef hat/beanie no longer get sliced), use
+  the UI's warm cream + outline style (`CozyUITheme.apply_nameplate_label`), and never jitter while
+  walking (the plate is on the character root). *Test:* equip a chef hat in F9 — the name still
+  clears it; names read cleanly over grass/path/water.
+- **Dev wardrobe is complete:** F9 exposes **every** compatible adult Modern Interiors part for
+  testing (9 bodies, 7 eyes, 29 hair styles ×7 colours, 33 outfits ×colours, 85 accessories incl.
+  None). Themed accessories are available in dev but tagged for later release gating. Kid assets
+  are deferred (incompatible layout). The release game will gate assets via shops/quests/etc later.
+
 ## Layered avatar customization — F9 actually works (2026-06-25)
 
 The player avatar now renders as composited LimeZu Modern Interiors layers (body + eyes + outfit +
@@ -943,3 +955,18 @@ farm helpers, multi-tile fields, full Stardew polish. **Recovery note:** the loc
 LimeZu *sliced textures* were lost with the git-metadata damage; re-run the LimeZu
 integration to repopulate them (the farming loop is provider-agnostic and works
 without them).
+# F9 full wardrobe playtest focus (2026-06-25)
+
+F9 is now a dev-unlocked wardrobe for the compatible adult Modern Interiors
+Character Generator set: 9 skin/body layers, 7 eye layers, 29 hair styles with
+real per-style color variants, 33 outfits with real per-outfit color variants,
+and None plus 84 accessories. Hair Style and Hair Color are split fields in
+`player.appearance`; the renderer resolves them to combined layer IDs such as
+`hair_22_04`. Outfit and Outfit Color work the same way.
+
+Manual checklist: open F9, cycle every enabled row, confirm Hair Color and
+Outfit Color visibly change the avatar, switch styles and confirm color options
+refresh to valid variants, set Accessory to None, Randomize, Reset Julie, then
+walk left/right/up/down and confirm facing/idle still works. Kid generator sheets
+are intentionally deferred as `incompatible_layout`; no kid/adult layer mixing is
+enabled. Release gating is metadata-only for now, not shops/quests/economy.

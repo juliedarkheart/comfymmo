@@ -46,17 +46,19 @@ const HAND_SOCKET := {
 }
 
 # --- LimeZu Modern Interiors "Character_Generator" LAYER layout (the player's layered avatar) ---
-# Verified by eye from a composited body+outfit+hair: band 0 = idle (col0 DOWN/front, col1 UP/back);
-# band 1 = walk (col0/1 = DOWN/front step). UP walk + SIDE reuse the facing idle frame + body bob
-# until the full per-direction walk cycle is reviewed (kept safe: never a garbled wrong-direction frame).
+# Verified by eye from a composited Julie contact sheet:
+#   idle front/DOWN = col3,row0, up/back = col1,row0, side/right = col0,row0.
+#   walk side/left = cols12-17,row1, walk DOWN/front = cols18-23,row1, walk UP/back = cols8-11,row1.
+# Side walk and side idle have opposite base facings. AvatarVisual flips right-walk and left-idle;
+# the parent stays scale.x=1 so a stale side transform can never leak into down/up.
 const GENERATOR_FRAMES := {
-	"idle": {"down": Vector2i(0, 0), "up": Vector2i(1, 0), "side": Vector2i(0, 0)},
+	"idle": {"down": Vector2i(3, 0), "up": Vector2i(1, 0), "side": Vector2i(0, 0)},
 	"walk": {
-		"down": [Vector2i(0, 1), Vector2i(1, 1)],   # real 2-frame front step (fixes downward animation)
-		"up": [Vector2i(1, 0)],                       # back idle + bob (full up-walk deferred)
-		"side": [Vector2i(0, 0)],                     # front idle mirrored + bob
+		"down": [Vector2i(18, 1), Vector2i(19, 1), Vector2i(20, 1), Vector2i(21, 1), Vector2i(22, 1), Vector2i(23, 1)],
+		"up": [Vector2i(8, 1), Vector2i(9, 1), Vector2i(10, 1), Vector2i(11, 1)],
+		"side": [Vector2i(12, 1), Vector2i(13, 1), Vector2i(14, 1), Vector2i(15, 1), Vector2i(16, 1), Vector2i(17, 1)],
 	},
-	"reviewed_directions": ["down", "up"],
+	"reviewed_directions": ["down", "up", "side"],
 }
 
 static func generator_idle_rect(facing: String) -> Rect2i:

@@ -92,14 +92,17 @@ func rebuild(appearance: Dictionary) -> void:
 	_refresh_held_tool()
 
 ## Build the layered sprite stack from the curated Character Generator parts.
-## Maps appearance slots (outfit_style, hair_style, accessory) to layer textures.
-## Falls back to full-body rendering if any required layer is missing.
+## Maps appearance slots (body_presentation, hair_style, outfit_style, accessory, eyes)
+## to layer textures. body_presentation is now a layer body ID directly.
 func _build_layered_sprites(appearance: Dictionary) -> void:
-	# Map appearance fields to curated layer part ids (body = skin/body via presentation map).
-	var body_part_id := CharacterPartLibrary.presentation_body(String(appearance.get("body_presentation", "neutral")))
+	var body_part_id := String(appearance.get("body_presentation", "body_01"))
+	# If body_presentation is a legacy presentation name (feminine/neutral/masculine),
+	# look it up via the manifest mapping.
+	if body_part_id == "feminine" or body_part_id == "masculine" or body_part_id == "neutral":
+		body_part_id = CharacterPartLibrary.presentation_body(body_part_id)
 	var eyes_part_id := String(appearance.get("eyes", "eyes_02"))
-	var hair_part_id := String(appearance.get("hair_style", ""))
-	var outfit_part_id := String(appearance.get("outfit_style", ""))
+	var hair_part_id := CharacterPartLibrary.resolve_combined_part_id("hair", String(appearance.get("hair_style", "")), String(appearance.get("hair_color", "")))
+	var outfit_part_id := CharacterPartLibrary.resolve_combined_part_id("outfit", String(appearance.get("outfit_style", "")), String(appearance.get("outfit_color", "")))
 	var acc_part_id := String(appearance.get("accessory", ""))
 
 	if body_part_id.is_empty():
@@ -184,19 +187,17 @@ func set_facing_direction(direction: String, side_sign: float = 0.0) -> void:
 			facing_direction = direction
 		_:
 			facing_direction = FACING_DOWN
-	# Mirror the body only for SIDE (left/right); never flip the up/down poses.
 	if facing_direction == FACING_SIDE:
 		if not is_zero_approx(side_sign):
 			_last_side_sign = -1.0 if side_sign < 0.0 else 1.0
-		scale.x = _last_side_sign
-	else:
-		scale.x = 1.0
+	# Keep the parent transform stable; individual sprites handle side mirroring.
+	scale.x = 1.0
 	_apply_frame()
 	_refresh_held_tool_pose()
 
 func set_animation_state(state: String, _movement_vector: Vector2 = Vector2.ZERO) -> void:
 	match state:
-		STATE_IDLE_UP, STATE_IDLE_SIDE, STATE_WALK_DOWN, STATE_WALK_UP, STATE_WALK_SIDE:
+		STATE_IDLE_DOWN, STATE_IDLE_UP, STATE_IDLE_SIDE, STATE_WALK_DOWN, STATE_WALK_UP, STATE_WALK_SIDE:
 			_animation_state = state
 		_:
 			_animation_state = STATE_IDLE_DOWN
@@ -204,11 +205,18 @@ func set_animation_state(state: String, _movement_vector: Vector2 = Vector2.ZERO
 
 ## Swap the body sprite's region to the current facing/walk frame.
 ## In layered mode, ALL layer sprites get the same region_rect for grid sync.
+## Also resets flip_h/scale.x on every child when facing is not SIDE, so stale
+## side-mirror state (scale.x = -1) cannot leak into down/up visuals.
 func _apply_frame() -> void:
+	var side_flip := _side_flip_for_current_state()
+	scale.x = 1.0
 	if _layered_mode:
 		var rect := _layered_frame_rect()
 		for sprite in _layer_sprites.values():
-			(sprite as Sprite2D).region_rect = Rect2(rect)
+			var s: Sprite2D = sprite as Sprite2D
+			s.region_rect = Rect2(rect)
+			s.flip_h = side_flip
+			s.scale.x = absf(s.scale.x)  # ensure positive x-scale
 		return
 	if _sprite == null or not is_instance_valid(_sprite) or _sheet_id.is_empty():
 		return
@@ -216,13 +224,25 @@ func _apply_frame() -> void:
 		return
 	var frame_index: int = int(_walk_phase) if _animation_state.begins_with("walk") else 0
 	_sprite.region_rect = Rect2(CharacterAnimationRegistry.region_for(_sheet_id, _animation_state, frame_index))
+	_sprite.flip_h = side_flip
+	_sprite.scale.x = absf(_sprite.scale.x)
 
 ## Get the shared 16x32 cell for the current facing/animation state in layered mode. All layers
-## use this SAME region (pasted at origin), so they stay composited. Cells are the reviewed
-## interiors-generator frames (idle down=(0,0), up=(1,0); down walk = a 2-frame front step).
+## use this SAME region (pasted at origin), so they stay composited. Cells are reviewed from the
+## interiors-generator sheet: down/front is distinct from side. Side walk and side idle use
+## opposite base facings, so _side_flip_for_current_state() handles their flip rules separately.
 func _layered_frame_rect() -> Rect2i:
 	var idx: int = int(_walk_phase) if _animation_state.begins_with("walk") else 0
 	return CharacterAnimationRegistry.generator_region_for(_animation_state, idx)
+
+func _side_flip_for_current_state() -> bool:
+	if facing_direction != FACING_SIDE:
+		return false
+	# Reviewed from the layered generator sheet: walk-side base frames face left,
+	# while idle-side base frame faces right.
+	if _animation_state == STATE_IDLE_SIDE:
+		return _last_side_sign < 0.0
+	return _last_side_sign > 0.0
 
 func set_held_tool_contract(hotbar_index: int, item_id: String, visual_id: String = "") -> void:
 	selected_hotbar_index = hotbar_index
@@ -295,6 +315,15 @@ func _refresh_held_tool_pose() -> void:
 	# Data-driven hand socket per facing (CharacterAnimationRegistry) so the tool sits on the
 	# hand instead of floating, and draws behind the body when the character faces away (up).
 	var socket: Dictionary = CharacterAnimationRegistry.hand_socket(facing_direction)
-	_held_tool_attachment.position = socket.get("pos", Vector2(6, -13)) as Vector2
-	_held_tool_attachment.rotation = float(socket.get("rot", 0.18))
+	var pos: Vector2 = socket.get("pos", Vector2(6, -13)) as Vector2
+	var rot: float = float(socket.get("rot", 0.18))
+	var side_flip := _side_flip_for_current_state()
+	if side_flip:
+		pos.x = -pos.x
+		rot = -rot
+	_held_tool_attachment.position = pos
+	_held_tool_attachment.rotation = rot
+	_held_tool_attachment.scale.x = 1.0
 	_held_tool_attachment.z_index = -1 if bool(socket.get("behind", false)) else 3
+	if _held_tool_sprite != null:
+		_held_tool_sprite.flip_h = side_flip

@@ -16,18 +16,22 @@ func _initialize() -> void:
 	for sid in ["character.farmer_idle", "character.farmer2_idle", "character.body2_idle"]:
 		ok = _expect(CharacterAnimationRegistry.has_sheet(sid), "sheet '%s' wired" % sid) and ok
 
-	# --- 2) Idle + walk frames select for all four facings -------------------
+	# --- 2) Idle + walk frames select for the runtime facings ----------------
 	for facing in ["down", "up", "side"]:
 		var idle: Rect2i = CharacterAnimationRegistry.idle_rect(player_sheet, facing)
 		ok = _expect(idle.size == CharacterAnimationRegistry.FRAME, "idle frame for '%s' is one 16x32 cell" % facing) and ok
 		var walk: Array = CharacterAnimationRegistry.walk_frames(player_sheet, facing)
 		ok = _expect(walk.size() >= 1, "walk frames exist for '%s' (%d)" % [facing, walk.size()]) and ok
-	# left/right = side (mirrored front); a movement state for each direction resolves a region.
+	# Fallback full-body sheets still expose side as a safe mirrored fallback. The
+	# live layered generator path must be the one with reviewed down/up/side cells.
 	for state in ["walk_down", "walk_up", "walk_side", "idle_down", "idle_up", "idle_side"]:
 		var r: Rect2i = CharacterAnimationRegistry.region_for(player_sheet, state, 0)
 		ok = _expect(r.size.x == 16 and r.size.y == 32, "region resolves for state '%s'" % state) and ok
 	ok = _expect(CharacterAnimationRegistry.reviewed_directions(player_sheet).has("down") \
-		and CharacterAnimationRegistry.reviewed_directions(player_sheet).has("up"), "down+up are reviewed-wired facings") and ok
+		and CharacterAnimationRegistry.reviewed_directions(player_sheet).has("up"), "fallback sheet has reviewed down/up facings") and ok
+	var generator_dirs := CharacterAnimationRegistry.generator_reviewed_directions()
+	ok = _expect(generator_dirs.has("down") and generator_dirs.has("up") and generator_dirs.has("side"),
+		"layered generator has reviewed down/up/side facings") and ok
 
 	# --- 3) Held-tool hand socket per facing ---------------------------------
 	for facing in ["down", "up", "side"]:

@@ -1,3 +1,18 @@
+# Character Generator dev wardrobe policy (2026-06-25)
+
+The Modern Interiors Character Generator layer stack is local-only and
+gitignored, but runtime can scan compatible adult sheets for dev testing. F9
+exposes all compatible adult body, eye, hair, outfit, and accessory layers as
+`dev_unlocked` options. Release gating is metadata-only for now; future shop,
+quest, seasonal, NPC-store, drop, purchase, or admin filters can consume the
+metadata without changing the compositor. This pass does not implement economy,
+shops, quests, ownership, or progression.
+
+Hair/outfit colors are not palette tints. They are real file variants: the
+appearance stores split style/color ids and the renderer resolves them to the
+combined layer file id. Kid sheets are not enabled because they use smaller
+384px-wide canvases instead of the adult 896/927px-wide compositor layout.
+
 # Hearthvale Graphics Pipeline
 
 This branch establishes a Godot-ready graphics foundation without changing
@@ -39,6 +54,11 @@ The PLAYER avatar renders as composited LimeZu Modern Interiors Character_Genera
 (body/eyes/outfit/hair/accessory at a shared 16×32 (0,0) cell) so the F9 wardrobe really changes
 the look; NPCs keep full-body farmer sheets and a clean checkout falls back to the full-body
 player. See [docs/character_customization.md](character_customization.md).
+
+Floating name labels (`ui/nameplate.gd`) sit above the avatar head/hat (offset derived from avatar
+bounds) and use the centralized `CozyUITheme.apply_nameplate_label` style so they match the UI.
+The dev wardrobe scans + exposes every compatible adult part with release-gating metadata; kids
+are deferred. See [docs/character_customization.md](character_customization.md).
 
 ## Visual Target
 

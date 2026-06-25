@@ -1,5 +1,39 @@
 # Character customization — foundation (v1)
 
+## Current F9 dev wardrobe status (2026-06-25)
+
+F9 currently exposes the full compatible adult LimeZu Modern Interiors
+`Character_Generator` wardrobe for local dev/testing. No licensed PNGs are
+committed; the library scans the gitignored local pack at runtime and falls back
+safely to the full-body character path on a clean checkout.
+
+Visible dev-unlocked controls:
+
+- Skin Tone: adult `Bodies/16x16`, 9 compatible body layers.
+- Eyes: adult `Eyes/16x16`, 7 compatible eye layers.
+- Hair Style: 29 adult hairstyle bases.
+- Hair Color: real suffix variants from the selected hairstyle, e.g. `hair_22` + `04` resolves to `hair_22_04`.
+- Outfit: 33 adult outfit bases.
+- Outfit Color: real suffix variants from the selected outfit, e.g. `outfit_14` + `03` resolves to `outfit_14_03`.
+- Accessory: None plus 84 compatible adult accessories, including themed items that are available only for dev testing.
+
+Release gating is metadata-only in this pass. Each scanned part carries
+`unlock_status`, `release_unlock_source`, `tone_tag`, `release_default_available`,
+`dev_available`, `avatar_type`, and `layout_status`, so later shops, quests,
+events, drops, NPC stores, admin-only tools, or progression can filter the same
+parts without changing the compositor. No economy, shop, quest, purchase, or
+ownership system is implemented here.
+
+Kid assets are inventoried but deferred. Their sheets are 384x96/128 rather than
+the adult 896/927x656 canvas, so they are tagged `incompatible_layout` and are
+not mixed into the live player compositor.
+
+Manual F9 checklist: open F9; cycle Skin Tone, Eyes, Hair Style, Hair Color,
+Outfit, Outfit Color, and Accessory; confirm every enabled control visibly
+changes or clears a layer; confirm Accessory None removes the layer; Randomize
+chooses valid dev-unlocked adult parts; Reset restores Julie default; movement
+facing still works in left/right/up/down walk and idle.
+
 Status: **data + wardrobe/dev panel + save integration + profile integration +
 network sync + registry-backed live sprites.** The F9 panel doubles as the player-facing
 Wardrobe (mirror beside the cottage, "Press F to open wardrobe"); appearance
@@ -97,6 +131,40 @@ Character Generator (GUI tool) to produce composited character outputs.
 - `tools/smoke_character_identity.gd` — profiles load, player≠Rowan, NPCs varied
 - `tools/smoke_avatar_customization.gd` — body_presentation presets, palette changes, save/load round-trip, NPC isolation, animation frames
 - `tools/smoke_homestead_loop.gd` — farming save/load with customization preserved
+
+## Nameplates + full dev wardrobe + release gating (2026-06-25)
+
+**Nameplate placement & style** (`ui/nameplate.gd`): the floating name sits clearly ABOVE the
+avatar — never cutting into head/hair/hat. The avatar is a 16×32 frame at ×2 (≈64px tall, feet at
+y=0); measured visual tops are ≈-44 (hair) and ≈-62 (tallest accessory, chef hat). The plate
+offset is derived from those bounds (`NAME_OFFSET_Y` ≈ -86) with a safe-minimum floor, so tall
+hats never get sliced. The plate is on the character ROOT (not the bobbing body) so it never
+jitters while walking. Style is centralized in `CozyUITheme.apply_nameplate_label` — the UI's warm
+cream/accent text with a thick dark-ink outline + soft shadow (no heavy backing box), so names read
+as part of the Hearthvale UI and stay legible over grass/paths/water.
+
+**Dev wardrobe exposes EVERY compatible adult asset.** `CharacterPartLibrary` scans the actual
+Character_Generator folders, so the F9 wardrobe lists all usable adult parts for testing —
+**9 bodies, 7 eyes, 29 hair base styles (×7 colours), 33 outfit base styles (×colours), 85
+accessories incl. None** (432 part textures, all resolve). The curated manifest is only the
+clean-checkout fallback. Themed accessories (police/zombie/medical/etc.) remain available in dev
+but are `tone_tag`-flagged for later release gating.
+
+**Release gating is metadata-only here (no shops/quests/economy added).** Every part carries:
+`dev_available`, `release_default_available`, `unlock_status`, `release_unlock_source`, `tone_tag`,
+`avatar_type`, `layout_status`. The release game will gate which assets a player can equip through
+shops / quests / stores / rewards / events later — this pass only tags them.
+
+**Kid assets are DEFERRED.** `Bodies_kids/Eyes_kids/Hairstyles_kids/Outfits_kids` are inventoried
+(`CharacterPartLibrary.kid_asset_status()`) but tagged `avatar_type=kid`,
+`layout_status=incompatible_layout`, `dev_available=false`. They use a different (smaller) body
+layout and are NOT mixed into the adult player — a separate kid-avatar support pass is needed.
+
+**Manual F9 / nameplate checklist:** open F9 → cycle Body / Hair / Hair Color / Outfit / Outfit
+Color / Accessory (incl. None) → the avatar changes; player + NPC names sit above the head (try a
+chef hat — the name clears it); names read like the UI font over any terrain; Rowan/Hazel stay
+unique. (Tests: `smoke_character_identity` nameplate block, `smoke_avatar_layered_parts` coverage,
+`validate_project` live nameplate check.)
 
 ## Layered avatar customization — REAL (2026-06-25)
 

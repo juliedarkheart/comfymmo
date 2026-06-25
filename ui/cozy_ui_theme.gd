@@ -216,6 +216,24 @@ static func apply_secondary_label(label: Label, size: int = 12, on_dark: bool = 
 		color = INK_SOFT if not on_dark else dim_cream
 	label.add_theme_color_override("font_color", color)
 
+## Floating world name label (player/NPC nameplate). Uses the Hearthvale UI text language —
+## the same warm cream/accent colour family and a thick dark-ink outline + soft shadow — so the
+## label reads as part of the UI instead of default Godot debug text, while staying legible over
+## any terrain WITHOUT a backing box. `color` is the per-character name tint (defaults to the
+## UI cream). Centralized so every nameplate shares one style.
+const NAMEPLATE_OUTLINE: Color = Color(WOOD_DARK.r, WOOD_DARK.g, WOOD_DARK.b, 0.92)
+static func apply_nameplate_label(label: Label, size: int = 13, color: Color = CREAM_TEXT) -> void:
+	if label == null:
+		return
+	label.add_theme_font_size_override("font_size", maxi(size, 12))
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", NAMEPLATE_OUTLINE)
+	label.add_theme_constant_override("outline_size", 4)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.4))
+	label.add_theme_constant_override("shadow_offset_x", 0)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.add_theme_constant_override("shadow_outline_size", 1)
+
 static func apply_button(button: Button) -> void:
 	if button == null:
 		return

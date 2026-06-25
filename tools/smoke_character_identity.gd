@@ -48,27 +48,43 @@ func _initialize() -> void:
 	var norm := CharacterAppearance.normalized(default_look)
 	ok = _expect(not norm.is_empty(), "default appearance normalizes non-empty") and ok
 	for slot in default_look.keys():
-		ok = _expect(CharacterAppearanceRegistry.has_option(
-			_opt_for_slot(slot), String(norm.get(slot, ""))
-		), "normalized slot '%s' is valid" % slot) and ok
+		if slot == "hair_color":
+			ok = _expect(CharacterPartLibrary.colors_for_style_base(String(norm.get("hair_style", ""))).has(String(norm.get(slot, ""))),
+				"normalized slot '%s' is valid" % slot) and ok
+		elif slot == "outfit_color":
+			ok = _expect(CharacterPartLibrary.colors_for_style_base(String(norm.get("outfit_style", ""))).has(String(norm.get(slot, ""))),
+				"normalized slot '%s' is valid" % slot) and ok
+		else:
+			ok = _expect(CharacterAppearanceRegistry.has_option(
+				_opt_for_slot(slot), String(norm.get(slot, ""))
+			), "normalized slot '%s' is valid" % slot) and ok
 
 	# --- 6) Customization saves + restores through a temp save (no real save) -
 	var save := LocalSaveSystem.new()
 	get_root().add_child(save)
 	save.set_save_path_for_tests(TEMP_SAVE_PATH)
 	var custom_look: Dictionary = CharacterAppearance.default_appearance()
-	custom_look["outfit_color"] = "berry_red"
 	# Use a hair style id valid in the current registry (layered or legacy)
 	var hair_ids := CharacterAppearanceRegistry.hair_styles().keys()
 	if hair_ids.size() >= 2:
 		custom_look["hair_style"] = String(hair_ids[1])  # second style
+		custom_look["hair_color"] = CharacterPartLibrary.valid_color_for_style(String(custom_look["hair_style"]), "07")
+	var outfit_ids := CharacterAppearanceRegistry.outfit_styles().keys()
+	if outfit_ids.size() >= 2:
+		custom_look["outfit_style"] = String(outfit_ids[1])
+		custom_look["outfit_color"] = CharacterPartLibrary.valid_color_for_style(String(custom_look["outfit_style"]), "04")
+	var body_ids := CharacterAppearanceRegistry.body_presentations().keys()
+	if body_ids.size() >= 2:
+		custom_look["body_presentation"] = String(body_ids[1])
 	save.set_player_appearance(custom_look)
 	var save2 := LocalSaveSystem.new()
 	get_root().add_child(save2)
 	save2.set_save_path_for_tests(TEMP_SAVE_PATH)
 	var restored: Dictionary = save2.get_player_appearance()
-	ok = _expect(String(restored.get("outfit_color", "")) == "berry_red" \
-		and String(restored.get("hair_style", "")) == custom_look["hair_style"], "customization saves + restores") and ok
+	ok = _expect(String(restored.get("hair_style", "")) == custom_look["hair_style"] \
+		and String(restored.get("hair_color", "")) == custom_look["hair_color"] \
+		and String(restored.get("outfit_style", "")) == custom_look["outfit_style"] \
+		and String(restored.get("outfit_color", "")) == custom_look["outfit_color"], "customization saves + restores") and ok
 
 	# --- 7) Customization drives the player profile, then reverts cleanly ----
 	var base_player_sig: String = CharacterProfileRegistry.signature("player")
@@ -88,6 +104,20 @@ func _initialize() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://character_identity_missing_test.json"))
 	ok = _expect(empty_save.get_player_appearance() == CharacterAppearance.default_appearance(),
 		"missing customization falls back to default") and ok
+
+	# --- 9) Nameplate sits clearly above the avatar with UI-consistent styling ---
+	var dummy := Node2D.new()
+	get_root().add_child(dummy)
+	var plate: Node2D = Nameplate.attach(dummy, "Test Name", "", Color("#bfe0ff"))
+	ok = _expect(plate != null and plate.get_child_count() >= 1, "nameplate attaches with a name label") and ok
+	if plate != null:
+		# Avatar is ~64px tall (feet at 0); the plate must sit clearly above the head/hat.
+		ok = _expect(plate.position.y <= -70.0, "nameplate sits clearly above the avatar (y=%.0f, not cutting into head)" % plate.position.y) and ok
+		var name_lbl := plate.get_child(0) as Label
+		ok = _expect(name_lbl != null and name_lbl.text == "Test Name", "nameplate label carries the character name") and ok
+		ok = _expect(name_lbl != null and name_lbl.has_theme_font_size_override("font_size") \
+			and name_lbl.has_theme_constant_override("outline_size"), "nameplate label uses UI-consistent font + outline styling") and ok
+	dummy.queue_free()
 
 	_remove_temp_save()
 	print("SMOKE character identity: ", "PASS" if ok else "FAIL")

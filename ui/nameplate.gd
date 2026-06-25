@@ -9,10 +9,23 @@ class_name Nameplate
 ## Floating name above a character. The role SUBTITLE is hidden by default to keep
 ## the scene uncluttered (every NPC stacking a "Villager"/"Mentor" line read as
 ## noise); pass show_subtitle=true only where a role line is genuinely useful.
+# --- Nameplate vertical placement (px from the character ROOT/feet origin) ----------------
+# The avatar is a 16x32 frame at x2 (≈64px tall, feet at y=0). Measured visual tops from the
+# character root: normal hair ≈ -44, beanie ≈ -48, and the TALLEST equipped accessory (chef hat)
+# ≈ -62. The name's bottom must clear the tallest case so it never slices into head/hair/hats.
+# Derived: tallest_top(-62) - clearance(6) - approx label height(18) ≈ -86. A safe minimum floor
+# keeps the name well above the head even if these constants drift. Stable constant (not the
+# bobbing Body), so the label never jitters while walking.
+const AVATAR_TALLEST_TOP_Y := -62.0
+const NAME_CLEARANCE := 6.0
+const APPROX_LABEL_HEIGHT := 18.0
+const SAFE_MIN_OFFSET_Y := -70.0  # name never sits lower (less negative) than this
+const NAME_OFFSET_Y := minf(AVATAR_TALLEST_TOP_Y - NAME_CLEARANCE - APPROX_LABEL_HEIGHT, SAFE_MIN_OFFSET_Y)
+
 static func attach(parent: Node2D, character_name: String, subtitle: String = "", name_color: Color = Color("#f5f0e6"), show_subtitle: bool = false, portrait_id: String = "") -> Node2D:
 	var holder: Node2D = Node2D.new()
 	holder.name = "Nameplate"
-	holder.position = Vector2(0, -52)
+	holder.position = Vector2(0, NAME_OFFSET_Y)  # clearly above the head/hat, not cutting in
 	holder.z_index = 50
 	parent.add_child(holder)
 
@@ -53,21 +66,13 @@ static func set_name_text(holder: Node2D, character_name: String) -> void:
 	(holder.get_child(0) as Label).text = character_name
 
 static func _make_label(text: String, font_size: int, color: Color) -> Label:
-	# Clean cozy nameplate: warm cream/gold text with a thin soft outline + drop shadow for
-	# legibility over any terrain — NO heavy dark backing box (that black blob read as ugly).
+	# Cozy floating name: the shared Hearthvale UI text style (CozyUITheme.apply_nameplate_label)
+	# — warm cream/accent text with a thick dark-ink outline + soft shadow for legibility over any
+	# terrain, NO heavy backing box. Centralized so it matches the rest of the UI.
 	var label: Label = Label.new()
 	label.text = text
 	label.position = Vector2(-70, 0)
 	label.custom_minimum_size = Vector2(140, 0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", maxi(font_size, 12))
-	label.add_theme_color_override("font_color", color)
-	# Thin outline keeps the text readable on light/dark ground without a box.
-	label.add_theme_color_override("font_outline_color", Color(0.16, 0.11, 0.07, 0.85))
-	label.add_theme_constant_override("outline_size", 3)
-	# Subtle drop shadow for depth instead of a backing panel.
-	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.45))
-	label.add_theme_constant_override("shadow_offset_x", 0)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.add_theme_constant_override("shadow_outline_size", 1)
+	CozyUITheme.apply_nameplate_label(label, maxi(font_size, 13), color)
 	return label

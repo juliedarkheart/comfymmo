@@ -8,6 +8,7 @@ class_name AvatarController
 var movement_enabled: bool = true
 var facing_direction: String = AvatarVisual.FACING_DOWN
 var movement_vector: Vector2 = Vector2.ZERO
+var _last_side_sign: float = -1.0
 
 ## Resolved once from the owning map's visual projection (top-down vs legacy iso),
 ## so movement matches what the player sees. Empty until first resolved.
@@ -70,11 +71,12 @@ func _update_visual_state(input_vector: Vector2) -> void:
 	var body: Node2D = get_node_or_null("Body") as Node2D
 	if body == null:
 		return
-	var side_sign: float = 0.0
+	var side_sign: float = _last_side_sign
 	if input_vector != Vector2.ZERO:
 		if absf(input_vector.x) >= absf(input_vector.y) and not is_zero_approx(input_vector.x):
 			facing_direction = AvatarVisual.FACING_SIDE
-			side_sign = input_vector.x
+			_last_side_sign = -1.0 if input_vector.x < 0.0 else 1.0
+			side_sign = _last_side_sign
 		elif input_vector.y < 0.0:
 			facing_direction = AvatarVisual.FACING_UP
 		else:
