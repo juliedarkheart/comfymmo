@@ -209,10 +209,10 @@ text = "Esc Menu | I Inv | B Build | E Edit\nM Map | H Help | F11 Window"
 
 [node name="InteractionPrompt" type="PanelContainer" parent="."]
 visible = false
-offset_left = 16.0
-offset_top = 510.0
-offset_right = 340.0
-offset_bottom = 560.0
+offset_left = 460.0
+offset_top = 548.0
+offset_right = 820.0
+offset_bottom = 596.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hud_prompt")
 
 [node name="Label" type="Label" parent="InteractionPrompt"]

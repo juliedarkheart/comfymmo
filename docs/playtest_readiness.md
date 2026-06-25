@@ -1,5 +1,27 @@
 # Playtest Readiness
 
+## Interaction/placement polish pass (2026-06-25)
+
+A focused live playtest (via `tools/live_visual_capture.gd` → gitignored screenshots) of
+interaction prompts, build placement, edit/delete highlights, and collision. The prototype was
+already in good shape from prior passes — one clear fix:
+
+- **Interaction prompt repositioned** — the "Press F to…" / farm-plot prompt panel was pinned to
+  the lower-LEFT edge (`offset_left=16`), reading as a disconnected floating box. Moved it to the
+  bottom-CENTRE, just above the tool label + hotbar (the genre-standard spot), so it sits where the
+  player looks. A validation guard now fails if it drifts back to the screen edge.
+
+**Verified good, no change needed:** farm-plot prompts are accurate per stage (till → plant → water
+→ harvest, from `FarmingSystem.get_plot_prompt`); only contracted objects show F prompts (trees /
+cow / fences / flowers never advertise fake interactions); build menu (tabs/costs/locked-reasons/
+controls), inventory panel, and the gold edit-selection highlight all read clearly; collision
+(F7 overlay) matches footprints — barn body, tree trunks, cow body, NPC bodies; y-sort bases sit at
+feet; placement ghost/cost feedback is honest. Time header, clothed NPCs, and placement-text
+(prior pass) still hold.
+
+**Deferrals (minor cosmetic, not normal-play bugs):** the inventory header region label
+("Town/Commons") vs the HUD area ("Farmland") is a profile-vs-current-area mismatch, left as-is.
+
 ## Live homestead polish pass (2026-06-25)
 
 A live playtest (via `tools/live_visual_capture.gd` → gitignored screenshots) surfaced three

@@ -3106,6 +3106,13 @@ func _initialize() -> void:
 		push_error("Overworld HUD day-phase is not synced to the day-night clock (set_time_phase not called)")
 		quit(1)
 		return
+	# The interaction prompt should sit near the BOTTOM-CENTRE (above the hotbar), not pinned to
+	# the left edge where it reads as a disconnected floating box.
+	var interaction_prompt_node: Control = prototype_hud.get_node_or_null("InteractionPrompt") as Control
+	if interaction_prompt_node != null and interaction_prompt_node.offset_left < 300.0:
+		push_error("Interaction prompt is pinned to the screen edge (offset_left=%.0f); it should sit centred near the bottom" % interaction_prompt_node.offset_left)
+		quit(1)
+		return
 	var controls_label: Label = prototype_hud.get_node_or_null("Panel/Rows/ControlsLabel") as Label
 	if controls_label == null:
 		push_error("Prototype HUD is missing ControlsLabel")
