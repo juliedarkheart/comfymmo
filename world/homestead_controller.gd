@@ -583,7 +583,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 	match plot_stage:
 		FarmingSystem.STAGE_EMPTY:
 			if selected_item_id != ItemIds.TOOL_WORN_HOE:
-				_announce("Select Worn Hoe on the quickbar, then press F to till this plot.")
+				_announce("Need Worn Hoe equipped to till this plot.")
 				return
 			if farming_system.till_plot(interactable_id):
 				interaction_result = {"changed": true, "action": "till"}
@@ -592,18 +592,18 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 				if farming_system.water_plot(interactable_id):
 					interaction_result = {"changed": true, "action": "water"}
 				else:
-					_announce("That soil is already watered.")
+					_announce("Already watered!")
 					return
 			elif _is_seed_item(selected_item_id):
 				if inventory_system.get_quantity(selected_item_id) < 1:
-					_announce("You need a Seed Packet in your inventory.")
+					_announce("Need a Seed Packet in your inventory.")
 					return
 				var crop_id: String = _plot_crop_id(interactable_id)
 				if not farming_system.can_plant(interactable_id, crop_id):
-					_announce("Seeds need prepared tilled soil.")
+					_announce("Seeds need tilled soil.")
 					return
 				if not inventory_system.remove_item(selected_item_id, 1):
-					_announce("You need a Seed Packet in your inventory.")
+					_announce("Need a Seed Packet in your inventory.")
 					return
 				if farming_system.plant_seed(interactable_id, crop_id):
 					interaction_result = {"changed": true, "action": "plant"}
@@ -612,14 +612,14 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 					_announce("This plot is not ready for seeds yet.")
 					return
 			else:
-				_announce("Select a Seed Packet to plant, or Watering Can to water the soil.")
+				_announce("Equip a Seed Packet to plant, or Watering Can to water.")
 				return
 		FarmingSystem.STAGE_PLANTED_SEED, FarmingSystem.STAGE_CROP_STAGE_1, FarmingSystem.STAGE_CROP_STAGE_2:
 			if bool(plot_state.get("watered", false)):
-				_announce("Already watered! Explore while it grows, or rest at the cottage door to advance time.")
+				_announce("Already watered! Rest at the cottage to help it grow.")
 				return
 			if selected_item_id != ItemIds.TOOL_WATERING_CAN:
-				_announce("Select Watering Can on the quickbar, then press F to water this crop.")
+				_announce("Need Watering Can equipped to water this crop.")
 				return
 			if farming_system.water_plot(interactable_id):
 				interaction_result = {"changed": true, "action": "water"}
@@ -642,13 +642,13 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 	match String(interaction_result.get("action", "")):
 		"till":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
-			_announce("Tilled the soil. Select a Seed Packet to plant.")
+			_announce("Tilled! Now plant a seed with a Seed Packet.")
 		"plant":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
-			_announce("Planted %s." % _crop_label(_plot_crop_id(interactable_id)))
+			_announce("Planted %s!" % _crop_label(_plot_crop_id(interactable_id)))
 		"water":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
-			_announce("Watered! Explore while it grows, or rest at the cottage door to advance time.")
+			_announce("Watered! Rest at the cottage to help it grow.")
 		"harvest":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 5, 2)
 	if not bool(interaction_result.get("changed", false)):
@@ -661,7 +661,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 		if object_registry.get_item_definition(harvested_crop_id).is_empty():
 			harvested_crop_id = CARROT_ITEM_ID
 		inventory_system.add_item(harvested_crop_id, 1)
-		_announce("Harvested %s! (now %d)" % [_crop_label(harvested_crop_id), inventory_system.get_quantity(harvested_crop_id)])
+		_announce("+1 %s! (now %d in inventory)" % [_crop_label(harvested_crop_id), inventory_system.get_quantity(harvested_crop_id)])
 		if task_integration_system.mark_message_completed(
 			TaskIntegrationSystem.HARVEST_CARROT_TASK_ID
 		):

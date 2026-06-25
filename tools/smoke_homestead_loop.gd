@@ -25,6 +25,47 @@ func _initialize() -> void:
 	ok = _expect(fs.get_plot_state("smoke_plot").get("stage") == FarmingSystem.STAGE_CROP_STAGE_2, "grow -> crop_stage_2") and ok
 	fs.grow_plot("smoke_plot", true)
 	ok = _expect(fs.can_harvest("smoke_plot"), "grow -> harvestable") and ok
+
+	# --- Prompt text validation ----------------------------------------------
+	# Every plot state must return a non-empty, player-facing prompt.
+	# Start from a clean plot for reliable state transitions.
+	var prompt_plot := FarmingSystem.new()
+	get_root().add_child(prompt_plot)
+	prompt_plot.ensure_plot_with_crop("prompt_plot", "carrot")
+
+	# Empty
+	var prompt_empty: String = prompt_plot.get_plot_prompt("prompt_plot")
+	ok = _expect(not prompt_empty.is_empty(), "empty plot prompt is not empty") and ok
+	ok = _expect(not prompt_empty.contains("admin"), "empty plot prompt has no debug language") and ok
+
+	# Tilled
+	prompt_plot.till_plot("prompt_plot")
+	var prompt_tilled: String = prompt_plot.get_plot_prompt("prompt_plot")
+	ok = _expect(not prompt_tilled.is_empty(), "tilled plot prompt is not empty") and ok
+	ok = _expect(prompt_tilled.contains("plant") or prompt_tilled.contains("seed"), "tilled prompt mentions plant/seed") and ok
+
+	# Planted (unwatered)
+	prompt_plot.plant_seed("prompt_plot", "carrot")
+	var prompt_planted: String = prompt_plot.get_plot_prompt("prompt_plot")
+	ok = _expect(not prompt_planted.is_empty(), "planted plot prompt is not empty") and ok
+	ok = _expect(prompt_planted.contains("water"), "unwatered plot prompt mentions water") and ok
+
+	# Watered
+	prompt_plot.water_plot("prompt_plot")
+	var prompt_watered: String = prompt_plot.get_plot_prompt("prompt_plot")
+	ok = _expect(not prompt_watered.is_empty(), "watered plot prompt is not empty") and ok
+	ok = _expect(prompt_watered.contains("Watered") or prompt_watered.contains("watered"), "watered prompt mentions watered state") and ok
+
+	# Grow to mature
+	prompt_plot.grow_plot("prompt_plot", true)
+	prompt_plot.grow_plot("prompt_plot", true)
+	var prompt_ready: String = prompt_plot.get_plot_prompt("prompt_plot")
+	ok = _expect(not prompt_ready.is_empty(), "harvest-ready prompt is not empty") and ok
+	ok = _expect(prompt_ready.contains("harvest") or prompt_ready.contains("collect"), "harvest-ready prompt mentions harvest/collect") and ok
+	ok = _expect(prompt_ready.contains("carrot") or prompt_ready.contains("Carrot") or prompt_ready.contains("Carrot"), "harvest-ready prompt mentions crop name") and ok
+
+	prompt_plot.queue_free()
+
 	# Capture the mature state so save/load proves crop-stage persistence; harvest after.
 	var farm_state: Dictionary = fs.export_state()
 	var harvested: Dictionary = fs.harvest_plot("smoke_plot")

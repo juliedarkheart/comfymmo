@@ -1134,3 +1134,71 @@ refresh to valid variants, set Accessory to None, Randomize, Reset Julie, then
 walk left/right/up/down and confirm facing/idle still works. Kid generator sheets
 are intentionally deferred as `incompatible_layout`; no kid/adult layer mixing is
 enabled. Release gating is metadata-only for now, not shops/quests/economy.
+
+## Farm loop feel pass (2026-06-25)
+
+A focused feel/readability/microinteraction pass on the basic farming loop. No new systems, no new crops, no economy, no combat, no progression.
+
+### Skills applied
+- **Jobs to Be Done:** "I want to know what this plot needs" → prompt now tells you the tool and action. "I want clear feedback" → success messages are exclamatory and concise. "I want to know what changed" → harvest uses "+1 Carrot!" format.
+- **UX Heuristics:** visibility of plot state (prompts match stage), clear action affordance ("Equip X + F to Y"), error prevention + useful messages ("Need Worn Hoe equipped", "Already watered!"). Consistency — all prompts use "Equip" language, all toasts use consistent phrasing.
+- **Microinteractions:** trigger (approach + F), rules (tool-gated per stage), feedback (prompt in bottom-center, toast on success), loop (stage advances naturally, rest to skip time).
+- **Design of Everyday Things:** narrowed the gulf of execution (prompt tells what to do + which tool) and gulf of evaluation (toast confirms action succeeded + next steps).
+
+### Changes made
+
+**Plot prompts (`systems/farming_system.gd:get_plot_prompt`):**
+- `"Select Hoe + F to till"` → `"Equip Worn Hoe + F to till"` (player-facing "Equip", full tool name)
+- `"Select Seed Packet + F to plant Carrot"` → `"Equip Seed Packet + F to plant Carrot"`
+- `"Select Watering Can + F to water"` → `"Equip Watering Can + F to water"`
+- `"Watered! Crops grow while you explore — rest at the cottage door to skip time."` → `"Watered! Rest at the cottage to help it grow."` (shorter, same info)
+- `"Ready to harvest! Press F to collect Carrot"` → `"Ready! Press F to harvest Carrot"` (tighter, active verb)
+
+**Success feedback (`world/homestead_controller.gd:_handle_farm_plot_interaction`):**
+- Till: `"Tilled the soil. Select a Seed Packet to plant."` → `"Tilled! Now plant a seed with a Seed Packet."`
+- Plant: `"Planted Carrot."` → `"Planted Carrot!"` (enthusiasm)
+- Water: `"Watered! Explore while it grows, or rest at the cottage door to advance time."` → `"Watered! Rest at the cottage to help it grow."`
+- Harvest: `"Harvested Carrot! (now 2)"` → `"+1 Carrot! (now 2 in inventory)"`
+
+**Invalid-action feedback (`world/homestead_controller.gd`):**
+- `"Select Worn Hoe on the quickbar…"` → `"Need Worn Hoe equipped to till this plot."`
+- `"Select Watering Can on the quickbar…"` → `"Need Watering Can equipped to water this crop."`
+- `"Select a Seed Packet to plant, or Watering Can to water the soil."` → `"Equip a Seed Packet to plant, or Watering Can to water."`
+- `"Seeds need prepared tilled soil."` → `"Seeds need tilled soil."` (grammar fix)
+- `"You need a Seed Packet in your inventory."` → `"Need a Seed Packet in your inventory."` (tighter)
+- `"Already watered! Explore while it grows…"` → `"Already watered! Rest at the cottage to help it grow."`
+
+**Visual readability (`farming/farm_plot.gd`):**
+- Moisture tint alpha 0.42 → 0.50 (watered state easier to see)
+- Ready ring width 2.0 → 2.5 (harvestable state more visible)
+
+### Files changed
+- `systems/farming_system.gd`
+- `world/homestead_controller.gd`
+- `farming/farm_plot.gd`
+- `tools/smoke_homestead_loop.gd`
+- `docs/playtest_readiness.md`
+
+### Tests added
+- Prompt text validation in `smoke_homestead_loop.gd`: asserts all 5 farm states return non-empty, player-facing prompts with no debug language; tilled prompt mentions plant/seed; unwatered prompt mentions water; watered prompt mentions watered; mature prompt mentions harvest + crop name.
+
+### Smoke results
+- `smoke_homestead_loop.gd` — PASS
+- `smoke_object_contracts.gd` — PASS
+- All other validation tests green (see full run in Task 10)
+- Godot import — no new errors
+
+### Known deferrals
+- Directed tutorial sequence (no quest framework)
+- Irrigation/auto-water mechanic
+- Multi-tile fields / farm expansion
+- Crop variety beyond carrot/turnip/berry
+- Soil quality / fertilization
+- Full Stardew-level animation polish
+- Economy/shop integration
+
+### Final safety
+- Nothing committed.
+- No licensed assets touched (`git ls-files licensed_assets` = empty).
+- No PNGs, screenshots, or logs tracked.
+- Git working tree: only expected docs/tools changes.

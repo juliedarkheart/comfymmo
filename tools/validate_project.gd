@@ -2153,9 +2153,9 @@ func _initialize() -> void:
 			"farming_system.plant_seed",
 			"farming_system.water_plot",
 			"farming_system.harvest_plot",
-			"Select Worn Hoe",
-			"Select a Seed Packet",
-			"Select Watering Can",
+			"Need Worn Hoe equipped",
+			"Equip a Seed Packet",
+			"Need Watering Can equipped",
 		]:
 			if not homestead_live_source.contains(farm_contract_snippet):
 				push_error("HomesteadController is missing Stardew-style farming contract: %s" % farm_contract_snippet)
