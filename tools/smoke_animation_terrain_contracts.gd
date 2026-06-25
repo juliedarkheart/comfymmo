@@ -47,6 +47,19 @@ func _initialize() -> void:
 	ok = _expect(LimeZuArtRegistry.texture_path("terrain.grass") != LimeZuArtRegistry.texture_path("terrain.dirt_path"),
 		"grass tile is distinct from the path tile") and ok
 
+	# --- 4b) Calm launch log: a satisfied LimeZu live contract is info, not a scary warning -
+	# The world always boots on fallback art; boot_advisory() only sets how loud the launch
+	# message is. When every required live id resolves, the partial *direct* slice is the
+	# expected clean-pack-optional state and must NOT emit an "incomplete" warning.
+	var advisory: Dictionary = LimeZuArtRegistry.boot_advisory()
+	var severity: String = String(advisory.get("severity", ""))
+	ok = _expect(severity in ["ok", "info", "warn", "unavailable"], "boot advisory severity is classified (%s)" % severity) and ok
+	if LimeZuArtRegistry.live_ready():
+		ok = _expect(severity == "ok" or severity == "info",
+			"satisfied LimeZu live contract boots info-level, not a scary warning (got '%s')" % severity) and ok
+		ok = _expect(not String(advisory.get("message", "")).to_lower().contains("incomplete"),
+			"satisfied-contract launch message avoids scary 'incomplete' wording") and ok
+
 	# --- 5) Cow / sign / fence / tree collision contracts --------------------
 	for solid_id in ["animal.cow", "object.sign", "object.fence_horizontal", "object.tree", "object.barn"]:
 		ok = _expect(AssetWorldMetadata.is_blocking(solid_id) and AssetWorldMetadata.has_asset_collision_shapes(solid_id),

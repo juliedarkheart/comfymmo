@@ -450,3 +450,38 @@ static func missing_reason() -> String:
 	if list_active_ids().is_empty():
 		return "LimeZu manifest has no resolvable assets yet — review the contact sheets in licensed_assets/limezu/**/contact_sheets and map logical ids in limezu_active_manifest.json."
 	return ""
+
+## Boot-time launch-log advisory. The world ALWAYS boots — registries fall through to
+## generated/procedural art (see world_region_manager._load_starting_region), so this
+## only classifies how loud the launch message should be, never whether to gate.
+##
+## Severity:
+##   "ok"          — full direct LimeZu slice; nothing to report.
+##   "info"        — partial *direct* slice, but every required live id still resolves
+##                   (directly or via the generated/procedural fallback). This is the
+##                   expected, healthy state on a clean checkout without the full
+##                   licensed pack, so it must NOT scream "incomplete" at the player.
+##   "warn"        — usable for live, but some required live ids do not resolve even
+##                   after fallback; still playable, worth surfacing.
+##   "unavailable" — LimeZu is not usable for live; the world renders on the generated/
+##                   Sprout fallback instead.
+static func boot_advisory() -> Dictionary:
+	_ensure_loaded()
+	var status := readiness()
+	var tier := String(status.get("tier", READINESS_ABSENT))
+	if tier == READINESS_FULL_LIVE_SLICE:
+		return {"severity": "ok", "message": ""}
+	if bool(status.get("usable_for_live", false)):
+		if (status.get("missing_ids", []) as Array).is_empty():
+			var resolved := int(status.get("resolved_live_count", 0))
+			var required := int(status.get("required_live_count", 0))
+			var direct_missing := (status.get("direct_missing_ids", []) as Array).size()
+			return {
+				"severity": "info",
+				"message": "[visual-provider] LimeZu live contract satisfied: %d/%d required ids resolve (%d covered by generated/procedural fallback). Full direct LimeZu slice is optional." % [resolved, required, direct_missing],
+			}
+		return {"severity": "warn", "message": "[visual-provider] %s" % missing_reason()}
+	var reason := missing_reason()
+	if not reason.is_empty():
+		return {"severity": "unavailable", "message": "[visual-fallback] LimeZu live assets unavailable: %s" % reason}
+	return {"severity": "ok", "message": ""}

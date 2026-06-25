@@ -145,14 +145,17 @@ func _load_starting_region() -> void:
 	# may be missing/corrupt; the registries fall through to generated/procedural
 	# assets so the playable homestead always boots.
 	if LiveVisualPolicy.limezu_is_live_provider():
-		var limezu_status := LimeZuArtRegistry.readiness()
-		var limezu_tier := String(limezu_status.get("tier", LimeZuArtRegistry.READINESS_ABSENT))
-		var reason := LimeZuArtRegistry.missing_reason()
-		if bool(limezu_status.get("usable_for_live", false)):
-			if limezu_tier != LimeZuArtRegistry.READINESS_FULL_LIVE_SLICE and not reason.is_empty():
-				push_warning("[visual-provider] %s" % reason)
-		elif not reason.is_empty():
-			push_warning("[visual-fallback] LimeZu live assets unavailable: %s" % reason)
+		# A partial *direct* LimeZu slice where every required live id still resolves via
+		# the generated/procedural fallback is the expected clean-pack-optional state, so
+		# it reports as info — not a scary "incomplete" warning. Only genuinely degraded
+		# or unavailable states still warn. See LimeZuArtRegistry.boot_advisory().
+		var advisory: Dictionary = LimeZuArtRegistry.boot_advisory()
+		var message := String(advisory.get("message", ""))
+		if not message.is_empty():
+			if String(advisory.get("severity", "info")) == "info":
+				print(message)
+			else:
+				push_warning(message)
 	var sprout_requirement: Dictionary = SproutAssetRequirement.check()
 	if not bool(sprout_requirement["ok"]):
 		push_warning("[visual-fallback] %s" % String(sprout_requirement["summary"]))
