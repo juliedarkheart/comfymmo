@@ -130,7 +130,7 @@ func refresh() -> void:
 	shown += _add_category("Wearables", ItemIds.ALL_WEARABLES)
 	if shown == 0:
 		var empty := Label.new()
-		empty.text = "Nothing yet - gather materials (F) and craft tools (K)."
+		empty.text = "Nothing yet — gather materials from the world (F) and craft tools (K) to get started!"
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		CozyUITheme.apply_secondary_label(empty, 13)
 		_body.add_child(empty)

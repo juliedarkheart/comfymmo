@@ -616,7 +616,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 				return
 		FarmingSystem.STAGE_PLANTED_SEED, FarmingSystem.STAGE_CROP_STAGE_1, FarmingSystem.STAGE_CROP_STAGE_2:
 			if bool(plot_state.get("watered", false)):
-				_announce("This crop is watered. Rest or use admin Grow Crops to advance it.")
+				_announce("Already watered! Explore while it grows, or rest at the cottage door to advance time.")
 				return
 			if selected_item_id != ItemIds.TOOL_WATERING_CAN:
 				_announce("Select Watering Can on the quickbar, then press F to water this crop.")
@@ -648,7 +648,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 			_announce("Planted %s." % _crop_label(_plot_crop_id(interactable_id)))
 		"water":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
-			_announce("Watered the crop. Rest or use Grow Crops (F7) to advance it.")
+			_announce("Watered! Explore while it grows, or rest at the cottage door to advance time.")
 		"harvest":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 5, 2)
 	if not bool(interaction_result.get("changed", false)):
@@ -1063,18 +1063,22 @@ func _on_interior_closed() -> void:
 
 func _open_help_panel() -> void:
 	_open_observe_panel(
-		"Hearthvale Controls",
-		"Move: WASD / Arrow keys\n"
+		"Hearthvale — Getting Started",
+		"New to Hearthvale? Here's your first cozy loop:\n\n"
+		+ "1  Gather: walk up to wood piles, stones, fiber, or clay and press F.\n"
+		+ "2  Farm: select a tool with number keys 1-9 — Hoe tills, Seed Packet plants, Watering Can waters, then harvest mature crops with F.\n"
+		+ "3  Check your mailbox (by the cottage) for today's tasks.\n"
+		+ "4  Talk to Farmer Rowan — she'll give you a Land Token.\n\n"
+		+ "——— Full Controls ———\n\n"
+		+ "Move: WASD / Arrow keys\n"
 		+ "Interact / talk / gather / claim: F\n"
 		+ "Inventory I | Craft K | Skills P | Help H | Minimap M\n"
 		+ "Build B | Edit E | Move M | Rotate Q/RB | Delete Del/Y\n"
 		+ "Controller: left stick move | A confirm | B cancel | Start menu\n"
 		+ "Chat Enter | Profile F8 | Wardrobe F9 | Admin F7 | Fullscreen F11\n"
 		+ "System menu: Esc when no other panel is open\n\n"
-		+ "Farming: select Hoe to till, Seed Packet to plant, Watering Can to water; mature crops harvest with F.\n\n"
 		+ "Esc closes any open panel first; with nothing open it opens the system menu.\n\n"
-		+ "Getting started: gather branches/pebbles/fiber/clay (F), craft tools (K), "
-		+ "claim a plot at a plot sign, then build (B). Talk to Farmer Rowan for help."
+		+ "Craft tools (K) from gathered materials. Claim a plot at a plot sign, then build (B). Talk to Farmer Rowan for help."
 	)
 
 # _mark_input_handled() is inherited from OutdoorAreaController.

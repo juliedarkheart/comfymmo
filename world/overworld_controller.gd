@@ -1675,7 +1675,7 @@ func _setup_cottage_sign() -> void:
 func _read_cottage_sign() -> void:
 	_open_observe_panel(
 		"Cottage Door",
-		"\"Inside coming soon!\" For now, all of Hearthvale's coziness lives outdoors — the door stays shut while the interior is being furnished (a future update)."
+		"A hand-painted sign reads: \"Home sweet home! The door stays shut while the interior is being furnished — for now, all the coziness lives outdoors.\""
 	)
 
 ## F prompts + actions for the map's contracted LimeZu props (e.g. the apple crate). The
@@ -2069,13 +2069,11 @@ func _show_welcome_if_first_boot() -> void:
 	save_system.set_overworld_flag("welcome_seen", true)
 	_open_observe_panel(
 		"Welcome to Hearthvale",
-		"Gather wood, stone, fiber, and clay from the piles around your homestead (walk up, press F). "
-		+ "Build with B - Tab switches items and shows their cost - and edit with E. "
-		+ "Farm with quickbar tools: Hoe tills, Seed Packet plants, Watering Can waters, then harvest mature crops with F. "
-		+ "Check the mailbox, and rest at the cottage door at dusk. "
-		+ "Inventory is I, the minimap is M, help is H, Esc/Start opens the menu, and F11 switches fullscreen/windowed. "
-		+ "The mirror by the cottage opens your wardrobe (F9 works too). "
-		+ "F8 opens multiplayer, F10 opens dev tools."
+		"Your cozy homestead is ready! Here's how to get started:\n\n"
+		+ "Gather materials: walk up to wood piles, stone outcrops, fiber tufts, or clay patches and press F.\n\n"
+		+ "Try farming: use the quickbar (number keys 1-9) to select the Hoe, till a plot, plant seeds, and water.\n\n"
+		+ "Check your mailbox — it's by the cottage with today's tasks.\n\n"
+		+ "Press H anytime for the full control list. Press Esc to open the menu."
 	)
 
 func _build_notice_marker(world_pos: Vector2) -> Node2D:

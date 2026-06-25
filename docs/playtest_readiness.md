@@ -1,5 +1,73 @@
 # Playtest Readiness
 
+## First 5 Minutes UX polish pass (2026-06-25)
+
+A focused copy/feedback/affordance pass on the first 5 minutes of live gameplay, targeting new-player
+comprehension. No new systems, no quests, no combat, no economy. Only safe text/prompt/label changes.
+
+### What was polished
+
+**Welcome message** (`overworld_controller._show_welcome_if_first_boot`):
+- Shortened from a dense paragraph to 4 focused sections with line breaks
+- Removed F10 dev-tools mention (not appropriate for new players)
+- Ends with a clear call to action: "Press H anytime for the full control list"
+
+**Help panel** (`homestead_controller._open_help_panel`):
+- Added a "Getting Started" numbered list at the top (Gather → Farm → Mailbox → Rowan)
+- Moved the full controls list below a visual divider
+- More inviting tone
+
+**Farm plot prompts** (`farming_system.get_plot_prompt`):
+- Watered state: "Watered crop. Rest or Grow Crops to advance" → "Watered! Crops grow while you explore — rest at the cottage door to skip time."
+- Harvest-ready: "Press F to harvest carrot" → "Ready to harvest! Press F to collect carrot"
+- Also updated the `_handle_farm_plot_interaction` feedback text to remove "admin Grow Crops" references
+
+**Build menu categories** (`build_menu_panel.CATEGORY_LABELS`):
+- "Homes" → "Struct" (more accurate for Structures category)
+- "Store" → "Storage" (more accurate, was ambiguous with a shop)
+- All labels remain ≤8 chars to fit the LimeZu Modern UI button asset
+
+**Micro-copy polish:**
+- Cottage sign: removed "(a future update)" debug language → cozier in-world voice
+- Build menu empty category: "(no pieces in this category yet)" → "(nothing here yet — keep gathering and crafting!)"
+- Inventory empty state: more encouraging, mentions next step
+
+### Verified unchanged (no need to touch)
+- Interaction prompt placement (bottom-centre, validated)
+- F9/wardrobe, nameplates, HUD time sync
+- Inventory/HUD area label agreement
+- Clothed NPCs, no bare Body_2 presentations
+- Terrain boot advisory (calm, info-level only)
+- Only contracted objects show F prompts
+
+### First 5 minutes — expected new-player path
+1. Welcome panel appears → read 4 short sections
+2. Nearest interactable glows (mailbox, farm plot, or Rowan)
+3. Player presses F → first action lands with clear feedback
+4. HUD shows area, comfort, materials — compact, no debug labels
+5. Player opens H for full controls including the Getting Started list
+6. Mailbox shows tasks, Rowan gives a Land Token
+7. Build (B), Inventory (I), crafting (K), Esc menu all work
+
+### What remains deferred
+- Directed tutorial sequence (no quest framework yet)
+- NPC dialogue system (Rowan's staged talk is lightweight but adequate)
+- Interior access (cottage door sign is appropriately coy)
+- Shop/economy systems
+- Kid avatar assets (incompatible layout)
+
+### Test results (2026-06-25)
+- `smoke_homestead_loop.gd` — PASS
+- `smoke_object_contracts.gd` — PASS
+- `smoke_character_identity.gd` — PASS
+- `smoke_avatar_customization.gd` — PASS
+- `smoke_animation_terrain_contracts.gd` — PASS
+- `validate_project.gd` — PASS ("Project smoke test passed")
+- `audit_live_visuals.gd` — PASS (0 disallowed sources)
+- Godot import — no new import errors
+
+---
+
 ## Interaction/placement polish pass (2026-06-25)
 
 A focused live playtest (via `tools/live_visual_capture.gd` → gitignored screenshots) of

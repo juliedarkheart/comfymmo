@@ -86,16 +86,16 @@ func get_plot_prompt(plot_id: String) -> String:
 			return "Select Seed Packet + F to plant %s" % crop_name
 		STAGE_PLANTED_SEED, STAGE_CROP_STAGE_1, STAGE_CROP_STAGE_2:
 			if bool(plot_state.get("watered", false)):
-				return "Watered crop. Rest or Grow Crops to advance"
+				return "Watered! Crops grow while you explore — rest at the cottage door to skip time."
 			return "Select Watering Can + F to water"
 		STAGE_CROP_STAGE_3:
-			return "Press F to harvest %s" % crop_name
+			return "Ready to harvest! Press F to collect %s" % crop_name
 		STAGE_PLANTED_DRY:
 			return "Select Watering Can + F to water"
 		STAGE_PLANTED_WATERED:
-			return "Watered crop. Rest or Grow Crops to advance"
+			return "Watered! Crops grow while you explore — rest at the cottage door to skip time."
 		STAGE_GROWN:
-			return "Press F to harvest %s" % crop_name
+			return "Ready to harvest! Press F to collect %s" % crop_name
 		_:
 			return "Press F to inspect plot"
 

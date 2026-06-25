@@ -22,9 +22,9 @@ const CATEGORY_LABELS := {
 	BuildCategories.DOORS_WINDOWS: "Doors",
 	BuildCategories.ROOFS: "Roofs",
 	BuildCategories.FENCES_GATES: "Fence",
-	BuildCategories.STRUCTURES: "Homes",
+	BuildCategories.STRUCTURES: "Struct",
 	BuildCategories.CRAFTING: "Craft",
-	BuildCategories.STORAGE: "Store",
+	BuildCategories.STORAGE: "Storage",
 	BuildCategories.FARMING: "Farm",
 	BuildCategories.PATHS: "Paths",
 	BuildCategories.FURNITURE: "Furn",
@@ -158,7 +158,7 @@ func refresh() -> void:
 	var ids: Array = BuildCategories.ids_in(_active_category, all_ids)
 	if ids.is_empty():
 		var empty := Label.new()
-		empty.text = "(no pieces in this category yet)"
+		empty.text = "(nothing here yet — keep gathering and crafting!)"
 		CozyUITheme.apply_secondary_label(empty, 13)
 		_item_list.add_child(empty)
 		return
