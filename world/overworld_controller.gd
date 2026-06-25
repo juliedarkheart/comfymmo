@@ -313,12 +313,22 @@ func _inventory_get_identity() -> Dictionary:
 func _local_player_name() -> String:
 	return String(_profile_manager.get_active_profile().get("display_name", "You"))
 
-## Short plot-status label for the HUD/inventory: where the player is standing.
+## Short plot-status label for the inventory header: where the player is standing.
+## Off-plot it reports the SAME authored area the HUD area line shows (Farmer
+## Training / Town / Forest Edge / Neighborhood / Wilderness) so the inventory and
+## HUD never disagree — e.g. it no longer says "Town/Commons" while the HUD says the
+## player is in Farmer Training. On a plot it keeps the ownership-focused status.
 func _player_plot_status_text() -> String:
-	var tile: Vector2i = map.world_to_grid(get_player_position())
+	var pos: Vector2 = get_player_position()
+	var tile: Vector2i = map.world_to_grid(pos)
 	var plot: Dictionary = LandRegistry.plot_at_tile(tile)
 	if plot.is_empty():
-		return "Town/Commons"
+		var area: Dictionary = WorldAreaRegistry.area_at(pos)
+		if not area.is_empty():
+			return String(area["display_name"])
+		if map.is_tile_in_bounds(tile):
+			return "Neighborhood"
+		return "Wilderness"
 	if bool(plot.get("npc_owned", false)):
 		return "Rowan's Farm"
 	var profile_id: String = String(_profile_manager.get_active_profile().get("profile_id", ""))

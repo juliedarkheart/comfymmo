@@ -19,8 +19,20 @@ controls), inventory panel, and the gold edit-selection highlight all read clear
 feet; placement ghost/cost feedback is honest. Time header, clothed NPCs, and placement-text
 (prior pass) still hold.
 
-**Deferrals (minor cosmetic, not normal-play bugs):** the inventory header region label
-("Town/Commons") vs the HUD area ("Farmland") is a profile-vs-current-area mismatch, left as-is.
+## Current-area label consistency pass (2026-06-25)
+
+**Fixed:** the inventory header region label ("Town/Commons") disagreed with the HUD area line
+("Farmer Training / Farmland") because the inventory used a hardcoded off-plot fallback while the
+HUD classified the area via `WorldAreaRegistry`. Now both use the same authored source.
+
+**Current-area label rule:**
+- The **HUD area line** (`PrototypeHud.set_area_line` ← `OverworldController._player_area_text`) is
+  the rich source of truth: `<area/plot> — <status> · <biome>`.
+- The **inventory header** (`OverworldController._player_plot_status_text`) shows a short label that,
+  off-plot, names the **same** authored area the HUD shows (Farmer Training / Town / Forest Edge /
+  Neighborhood / Wilderness); on a plot it shows ownership status (Your plot / Rowan's Farm / …).
+- Never show a location (e.g. "Town/Commons") that contradicts the visible play area. A panel that
+  isn't a location (Inventory/Build) may stay neutral, but must not claim a wrong area.
 
 ## Live homestead polish pass (2026-06-25)
 
@@ -44,12 +56,13 @@ minimap, hotbar/quickbar, player + NPC nameplates, terrain/barn/trees/cow/crate,
 
 **Deferrals (not normal-play issues):** the clean-checkout fallback `body_presentation_sheet`
 "feminine" mapping still points at Body_2 (only used when the licensed pack is absent — the live
-player is layered; left to avoid breaking its smoke assertion). The inventory header region label
-("Town/Commons") vs the HUD area is a minor cosmetic mismatch.
+player is layered; left to avoid breaking its smoke assertion). (The inventory-header vs HUD area
+mismatch is now fixed — see the current-area label consistency pass above.)
 
-**Manual recheck checklist:** boot → header phase matches the clock; Hazel/NPCs are clothed; build
-mode shows the full placement cost; F9 wardrobe + facing + nameplates still work; no naked/placeholder
-sprites in view.
+**Manual recheck checklist:** boot → header phase matches the clock; **inventory header area matches
+the HUD area line (no "Town/Commons" while the HUD says Farmer Training/Farmland)**; Hazel/NPCs are
+clothed; build mode shows the full placement cost; F9 wardrobe + facing + nameplates still work; no
+naked/placeholder sprites in view; inventory + build menu open/close cleanly with no clipped labels.
 
 ## Nameplates + full dev wardrobe (2026-06-25)
 

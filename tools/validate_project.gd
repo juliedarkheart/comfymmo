@@ -4629,6 +4629,33 @@ func _initialize() -> void:
 			push_error("OverworldController is missing terrain-paint wiring '%s'" % required_snippet)
 			quit(1)
 			return
+	# --- Inventory header vs HUD current-area agreement -------------------------
+	# Regression guard for the "HUD says Farmer Training / inventory says Town/Commons"
+	# mismatch: the inventory header plot-status label and the HUD area line must
+	# classify the player's location through the SAME authored source
+	# (WorldAreaRegistry), so off-plot they never disagree. The hardcoded
+	# "Town/Commons" fallback was the bug.
+	if overworld_runtime.has_method("_player_plot_status_text") and overworld_runtime.has_method("_player_area_text"):
+		var inventory_area_label: String = String(overworld_runtime.call("_player_plot_status_text"))
+		var hud_area_label: String = String(overworld_runtime.call("_player_area_text"))
+		if inventory_area_label == "Town/Commons":
+			push_error("Inventory header still hardcodes 'Town/Commons' instead of the player's current authored area")
+			quit(1)
+			return
+		var player_world_pos: Vector2 = overworld_runtime.call("get_player_position")
+		var player_tile: Vector2i = terrain_map.call("world_to_grid", player_world_pos)
+		var on_land_plot: bool = not LandRegistry.plot_at_tile(player_tile).is_empty()
+		var authored_area: Dictionary = WorldAreaRegistry.area_at(player_world_pos)
+		if not on_land_plot and not authored_area.is_empty():
+			var expected_area_name: String = String(authored_area["display_name"])
+			if inventory_area_label != expected_area_name:
+				push_error("Inventory area label '%s' disagrees with authored area '%s'" % [inventory_area_label, expected_area_name])
+				quit(1)
+				return
+			if not hud_area_label.contains(expected_area_name):
+				push_error("HUD area line '%s' does not reflect authored area '%s'" % [hud_area_label, expected_area_name])
+				quit(1)
+				return
 	overworld_runtime.queue_free()
 	await process_frame
 
