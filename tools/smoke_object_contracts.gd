@@ -81,6 +81,22 @@ func _initialize() -> void:
 	ok = _expect(AssetWorldMetadata.is_blocking(crate_asset) and AssetWorldMetadata.has_toast_interaction(crate_asset), "save/load: crate collision + interaction rebuildable from id") and ok
 
 	_remove_temp_save()
+
+	# --- 7) Buildable objects have player-facing names and prompts ------------
+	var buildable_ids: Array = ["crate", "signpost", "fence_segment", "well", "workbench", "mailbox"]
+	for bid in buildable_ids:
+		var asset_id: String = AssetWorldMetadata.asset_id_for_placeable(bid)
+		if asset_id.is_empty():
+			continue
+		var entry: Dictionary = ContentRegistry.placeables().get(bid, {}) as Dictionary
+		var name_text: String = String(entry.get("display_name", ""))
+		ok = _expect(not name_text.is_empty(), "buildable '%s' has a display name" % bid) and ok
+		ok = _expect(not name_text.contains("admin"), "buildable '%s' name has no debug language" % bid) and ok
+		if AssetWorldMetadata.interaction_enabled(asset_id):
+			var prompt: String = AssetWorldMetadata.interaction_prompt(asset_id)
+			ok = _expect(not prompt.is_empty(), "interactive buildable '%s' has a prompt" % bid) and ok
+			ok = _expect(not prompt.contains("admin"), "buildable '%s' prompt has no debug language" % bid) and ok
+
 	print("SMOKE object contracts: ", "PASS" if ok else "FAIL")
 	quit(0 if ok else 1)
 

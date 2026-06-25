@@ -49,7 +49,7 @@ func _ready() -> void:
 	_build_header()
 	_build_selected_info()
 	_build_category_buttons()
-	_help_label.text = "Place: click/Enter/A | Edit: E | Rotate: Q/RB\nDelete: Del/Y | Cancel: Esc/B"
+	_help_label.text = "Place: click/Enter | Edit: E | Rotate: Q\nDelete: Del/Y | Cancel: Esc/B"
 	CozyUITheme.apply_secondary_label(_help_label, 11)
 
 func _apply_safe_dock() -> void:
@@ -169,7 +169,7 @@ func _refresh_selected_info(active_id: String) -> void:
 	if _selected_info == null:
 		return
 	if active_id.is_empty() or not ContentRegistry.placeables().has(active_id):
-		_selected_info.text = "Selected: none. Choose a piece below."
+		_selected_info.text = "Pick a piece from the list below to start building."
 		return
 	var entry: Dictionary = ContentRegistry.placeables().get(active_id, {}) as Dictionary
 	var name_text: String = String(entry.get("display_name", active_id.capitalize()))

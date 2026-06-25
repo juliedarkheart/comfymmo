@@ -1202,3 +1202,76 @@ A focused feel/readability/microinteraction pass on the basic farming loop. No n
 - No licensed assets touched (`git ls-files licensed_assets` = empty).
 - No PNGs, screenshots, or logs tracked.
 - Git working tree: only expected docs/tools changes.
+
+## Build/edit loop feel pass (2026-06-25)
+
+A focused feel/readability/microinteraction pass on the building, editing, moving, and deleting flow. No new systems, no new categories, no economy.
+
+### Skills applied
+- **UX Heuristics:** visibility of mode state (mode name + hint in HUD), clear affordance (ghost color, world space hint), error prevention (two-step delete), consistency (all modes use "Esc to cancel", "Click to place").
+- **Microinteractions:** trigger (B to build, E to edit, click on ghost/object), rules (valid vs invalid placement via footprint + collision + cost + tool checks), feedback (ghost tint, world space hint text, edit toolbar feedback, toast on placement), loop (build → place → edit/move → exit).
+- **Design of Everyday Things:** narrowed the gulf of execution (mode label says what to do, world hint says "Click to place" not "Valid") and gulf of evaluation (toast confirms "Placed Crate!", edit feedback confirms selection/deletion, move preview matches final).
+- **Refactoring UI:** cleaned up help text (removed noisy `/A`/`/RB` key labels), tightened mode labels to shorter action verbs.
+- **Jobs to Be Done:** "I want to place one object successfully" → clear world hint + toast. "I want to know why placement is invalid" → reason text in world hint. "I want to safely remove something" → two-step delete with per-object arming.
+
+### Changes made
+
+**Build menu (`ui/build_menu_panel.gd`):**
+- Help text: removed `/A` and `/RB` control keys (noise), tighter layout
+- Selected-info when nothing is chosen: `"Selected: none. Choose a piece below."` → `"Pick a piece from the list below to start building."`
+
+**Mode labels (`systems/building_placement_system.gd:_emit_mode_label_changed`):**
+- `"Placement Mode"` → `"Build Mode"` (shorter, matches B key)
+- Build hint: `"%s selected. Tab to switch. Click or confirm to place. Cancel exits placement."` → `"%s. Tab to cycle pieces. Click to place. Esc to cancel."`
+- Edit hint: `"Click an object to select. Move (M). Delete twice to confirm. Cancel/Esc exits edit."` → `"Click an object to edit. M to move. Del twice to delete. Esc to cancel."`
+- Move hint: `"Move the selected object. Click or confirm to place it. Cancel reverts."` → `"Click a new spot to move the object here. Esc to cancel."`
+- Explore hint: `"Move with WASD or arrow keys. B to place. E to edit."` → `"WASD to move. B to build. E to edit. Esc for menu."`
+
+**World space hint (`_show_world_space_hint`):**
+- Valid placement: `"Valid"` (debug language) → `"Click to place"` (action-oriented)
+
+**Placement feedback (`_enter_placement_mode`):**
+- `"Placement preview active."` → `"Move your mouse to choose a spot, then click to place."`
+
+**Placement success toast (`homestead_controller.gd:_on_object_placed_for_xp`):**
+- Added: `"Placed Crate!"` / `"Placed Sign!"` etc. via `_announce` using the display_name from ContentRegistry.
+
+**Edit / move / delete feedback (`building_placement_system.gd`):**
+- Empty click: `"No placed object here. Click a placed object to select it."` → `"Nothing to select here. Click a placed object to edit."`
+- Delete arm: `"Delete [X]? Press Delete again (or the Delete button) to confirm."` → `"Press Delete again to remove [X]."`
+- Move start: `"Move [X] to a new tile, then click or confirm."` → `"Click a new spot to move [X] here."`
+- Cancel: `"Edit controls closed."` → `"Cancelled."` (both occurrences)
+
+### Files changed
+- `systems/building_placement_system.gd`
+- `world/homestead_controller.gd`
+- `ui/build_menu_panel.gd`
+- `tools/smoke_object_contracts.gd`
+- `docs/playtest_readiness.md`
+
+### Tests added/updated
+- `smoke_object_contracts.gd`: new section 7 asserts buildable objects (crate, signpost, fence_segment, well, workbench, mailbox) have player-facing display names with no debug language and, when interactive, have non-empty prompts without debug language.
+
+### Smoke/validation results
+- `smoke_object_contracts.gd` — PASS (49/49 assertions)
+- `smoke_homestead_loop.gd` — PASS (23/23)
+- `smoke_character_identity.gd` — PASS
+- `smoke_animation_terrain_contracts.gd` — PASS
+- `validate_project.gd` — PASS
+- Godot import — no new errors
+- Godot `--quit-after 8` — boots cleanly
+
+### Known deferrals
+- Rotation system (not wired for placed pieces yet)
+- True undo for deletions (two-step delete is the safety mechanism)
+- Full drag-to-move (current is click-to-preview-then-click-to-confirm)
+- Grid snap toggle / free placement mode
+- Build menu search/filter
+- Placeable-object category icons
+- Multi-select / batch operations
+
+### Final safety
+- Nothing committed.
+- No licensed assets touched (`git ls-files licensed_assets` = empty).
+- No PNGs, screenshots, or logs tracked.
+- Git working tree: only expected docs/tools/build changes.

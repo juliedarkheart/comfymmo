@@ -111,7 +111,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if _interaction_mode != InteractionMode.NONE and event.is_action_pressed("cancel_action"):
 		_exit_current_mode()
-		_set_edit_feedback("Edit controls closed.", false)
+		_set_edit_feedback("Cancelled.", false)
 		_mark_input_handled()
 		return
 	if _interaction_mode == InteractionMode.PLACEMENT and event.is_action_pressed("confirm_action"):
@@ -159,7 +159,7 @@ func _enter_placement_mode() -> void:
 	_interaction_mode = InteractionMode.PLACEMENT
 	_current_tile = map.world_to_grid(map.get_global_mouse_position())
 	_spawn_preview()
-	_set_edit_feedback("Placement preview active.", false)
+	_set_edit_feedback("Move your mouse to choose a spot, then click to place.", false)
 	_emit_decorating_mode_changed()
 	_emit_mode_label_changed()
 
@@ -590,7 +590,7 @@ func _select_hovered_object() -> void:
 		if not _selected_record_id.is_empty():
 			_set_edit_feedback("Selection cleared.", false)
 		else:
-			_set_edit_feedback("No placed object here. Click a placed object to select it.", true)
+			_set_edit_feedback("Nothing to select here. Click a placed object to edit.", true)
 		_clear_selection()
 		_refresh_edit_toolbar()
 		return
@@ -625,7 +625,7 @@ func _start_move_selected_object() -> void:
 	_rebuild_occupied_tiles_excluding(_moving_record_id)
 	moving_node.set_selected(false)
 	moving_node.set_preview_mode(true)
-	_set_edit_feedback("Move %s to a new tile, then click or confirm." % _record_summary(_moving_record_id), false)
+	_set_edit_feedback("Click a new spot to move %s here." % _record_summary(_moving_record_id), false)
 	_update_move_preview()
 	_emit_decorating_mode_changed()
 	_emit_mode_label_changed()
@@ -762,7 +762,7 @@ func _remove_selected_object() -> void:
 	if not armed:
 		_delete_armed_record_id = _selected_record_id
 		_delete_armed_ms = now_ms
-		_set_edit_feedback("Delete %s? Press Delete again (or the Delete button) to confirm." % _record_summary(_selected_record_id), true)
+		_set_edit_feedback("Press Delete again to remove %s." % _record_summary(_selected_record_id), true)
 		_refresh_edit_toolbar()
 		return
 	_disarm_delete()
@@ -899,23 +899,23 @@ func _emit_mode_label_changed() -> void:
 			var cost_text: String = BuildCosts.cost_text(_active_placeable_id)
 			var cost_suffix: String = "" if cost_text.is_empty() else " (Cost: %s)" % cost_text
 			decorating_mode_label_changed.emit(
-				"Placement Mode",
-				"%s selected%s. Tab to switch. Click or confirm to place. Cancel exits placement." % [placeable_data.display_name, cost_suffix]
+				"Build Mode",
+				"%s%s. Tab to cycle pieces. Click to place. Esc to cancel." % [placeable_data.display_name, cost_suffix]
 			)
 		InteractionMode.EDIT:
 			decorating_mode_label_changed.emit(
 				"Edit Mode",
-				"Click an object to select. Move (M). Delete twice to confirm. Cancel/Esc exits edit."
+				"Click an object to edit. M to move. Del twice to delete. Esc to cancel."
 			)
 		InteractionMode.MOVE:
 			decorating_mode_label_changed.emit(
 				"Move Mode",
-				"Move the selected object. Click or confirm to place it. Cancel reverts."
+				"Click a new spot to move the object here. Esc to cancel."
 			)
 		_:
 			decorating_mode_label_changed.emit(
 				"Explore",
-				"Move with WASD or arrow keys. B to place. E to edit."
+				"WASD to move. B to build. E to edit. Esc for menu."
 			)
 	_refresh_edit_toolbar()
 
@@ -962,7 +962,7 @@ func _toolbar_cancel() -> void:
 	if _interaction_mode == InteractionMode.NONE:
 		return
 	_exit_current_mode()
-	_set_edit_feedback("Edit controls closed.", false)
+	_set_edit_feedback("Cancelled.", false)
 	_refresh_edit_toolbar()
 
 func _attempt_rotate_selected_object() -> void:
@@ -1023,7 +1023,7 @@ func _show_world_space_hint(is_valid: bool, reason_text: String, world_position:
 	if _world_space_hint == null:
 		return
 
-	var text: String = "Valid" if is_valid else reason_text if not reason_text.is_empty() else "Blocked"
+	var text: String = "Click to place" if is_valid else reason_text if not reason_text.is_empty() else "Blocked"
 	_world_space_hint.show_hint(text, is_valid, world_position)
 
 func _hide_world_space_hint() -> void:

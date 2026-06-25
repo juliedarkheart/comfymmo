@@ -414,6 +414,9 @@ func _on_object_placed_for_xp(object_id: String) -> void:
 		ProgressionRegistry.SKILL_BUILDING,
 		ProgressionRegistry.building_xp_for_cost(BuildCosts.cost_of(object_id)), 0
 	)
+	var entry: Dictionary = ContentRegistry.placeables().get(object_id, {}) as Dictionary
+	var name_text: String = String(entry.get("display_name", object_id.capitalize()))
+	_announce("Placed %s!" % name_text)
 
 func _setup_progression_panel() -> void:
 	_progression_panel = preload("res://ui/progression_panel.tscn").instantiate() as CanvasLayer
