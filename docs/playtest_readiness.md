@@ -1,5 +1,28 @@
 # Playtest Readiness
 
+## Validation log hygiene pass (2026-06-25)
+
+Cleaned up two misleading validation warnings so the log only warns when something is actionable.
+No checks were removed — both conditions are still asserted, just at the right severity.
+
+**Log hygiene rule:** validation `push_warning`/`push_error` is reserved for conditions that are
+actually broken or player-facing. Expected states (acceptable off-camera fallback, intentional
+negative tests) are reported as plain `print` info lines, with a loud backstop if they ever exceed a
+documented budget.
+
+- **Off-camera legacy/generated sprites** (`validate_project.gd`, live-opening audit): the broad-map
+  scan counts ~6 `legacy_generated` sprites that sit *outside* the opening view. The
+  **camera-filtered category audit and the playable-area audit are authoritative** and HARD-FAIL on
+  any legacy/generated/Sprout/missing source that is actually visible. So the broad count is now an
+  info line, not a warning — with a generous `BROAD_OFFCAMERA_LEGACY_BUDGET` (30) that still fails
+  loudly if legacy art ever leaks back in wholesale. Off-camera/generated fallback is allowed only
+  while it stays off the opening + playable area.
+- **`Ignoring invalid bind address: not_an_ip`** (`server/server_config.gd::normalize_bind`): this is
+  the correct *runtime* warning for real user-supplied junk. Validation's negative test intentionally
+  probes `"not_an_ip"`, so it now passes `quiet=true` to suppress the warning during that one expected
+  test. Runtime callers keep the default (`quiet=false`) and still warn; the test still proves invalid
+  input normalizes safely to `""`.
+
 ## First 5 Minutes UX polish pass (2026-06-25)
 
 A focused copy/feedback/affordance pass on the first 5 minutes of live gameplay, targeting new-player

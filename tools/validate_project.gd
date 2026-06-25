@@ -1540,7 +1540,17 @@ func _initialize() -> void:
 				push_error("LimeZu opening still instantiates %d '%s' sprite(s)" % [int(opening[forbidden_opening_tier]), forbidden_opening_tier])
 				ow.queue_free(); quit(1); return
 		if int(opening.get("legacy_generated", 0)) > 0:
-			push_warning("Broad LimeZu map still has %d off-camera legacy/generated sprite(s); camera-filtered category audit below is authoritative for opening visuals" % int(opening["legacy_generated"]))
+			# Broad-map legacy/generated sprites are acceptable off-camera fallback/dev markers: the
+			# camera-filtered category audit (below) and the playable-area audit both HARD-FAIL on any
+			# legacy_generated that is actually visible, so the broad count is informational here, not a
+			# scary warning. A runaway broad count would mean legacy art is leaking back wholesale, so a
+			# generous backstop still fails loudly on a real regression.
+			const BROAD_OFFCAMERA_LEGACY_BUDGET := 30
+			var broad_legacy_generated: int = int(opening["legacy_generated"])
+			if broad_legacy_generated > BROAD_OFFCAMERA_LEGACY_BUDGET:
+				push_error("Broad LimeZu map has %d legacy/generated sprite(s), over the off-camera budget of %d — legacy art is leaking back in" % [broad_legacy_generated, BROAD_OFFCAMERA_LEGACY_BUDGET])
+				ow.queue_free(); quit(1); return
+			print("[visual-source] broad map has %d off-camera legacy/generated sprite(s) (acceptable; camera-filtered opening + playable-area audits below are authoritative and strict)" % broad_legacy_generated)
 		var opening_limezu_count: int = _audit_limezu_family_count(opening)
 		var opening_procedural_count: int = int(opening.get("procedural", 0))
 		if opening_limezu_count < 1 or opening_limezu_count < opening_procedural_count:
@@ -3753,7 +3763,10 @@ func _initialize() -> void:
 		push_error("server_config.example.json did not merge as expected")
 		quit(1)
 		return
-	if ServerConfig.normalize_bind("not_an_ip") != "" or ServerConfig.normalize_bind("192.168.1.10") != "192.168.1.10":
+	# Negative test: invalid input must normalize to "" (caller keeps previous bind). Pass quiet=true
+	# so this intentional probe does not emit the runtime "Ignoring invalid bind address" warning into
+	# the validation log — runtime callers still warn for real user-supplied junk.
+	if ServerConfig.normalize_bind("not_an_ip", true) != "" or ServerConfig.normalize_bind("192.168.1.10") != "192.168.1.10":
 		push_error("ServerConfig.normalize_bind() validation regressed")
 		quit(1)
 		return

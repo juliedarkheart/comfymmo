@@ -90,13 +90,17 @@ static func merge(base: Dictionary, overrides: Dictionary) -> Dictionary:
 
 ## ENet's wildcard is "*"; people will type "0.0.0.0", so accept both. Anything
 ## else must be a valid IP; junk falls back to empty (caller keeps previous).
-static func normalize_bind(bind: String) -> String:
+## `quiet` suppresses the invalid-address warning for callers that intentionally probe
+## bad input (e.g. validation's negative test); runtime callers leave it false so real
+## user-supplied junk is still surfaced.
+static func normalize_bind(bind: String, quiet: bool = false) -> String:
 	var trimmed: String = bind.strip_edges()
 	if trimmed == "0.0.0.0" or trimmed == "*" or trimmed.is_empty():
 		return "*"
 	if trimmed.is_valid_ip_address():
 		return trimmed
-	push_warning("Ignoring invalid bind address: %s" % trimmed)
+	if not quiet:
+		push_warning("Ignoring invalid bind address: %s" % trimmed)
 	return ""
 
 ## True when the bind accepts non-local connections (firewall reminder).

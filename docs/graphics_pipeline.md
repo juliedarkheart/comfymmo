@@ -446,7 +446,11 @@ its assets resolve (`LiveVisualPolicy.live_limezu_slice()`):
   meadow + generated roads), village/forest decor, plot-skirt decor, and the wardrobe
   mirror are suppressed in LimeZu mode; resource nodes re-skin to LimeZu. The road uses
   the LimeZu `terrain.dirt_path` tile or is hidden. `VisualSourceReport.live_opening_sources()`
-  audits the live opening and validation hard-fails on any Sprout/legacy sprite.
+  audits the live opening. The **camera-filtered category audit and the playable-area audit are
+  authoritative**: validation hard-fails on any Sprout/legacy/generated/missing sprite that is
+  actually visible. A broad-map scan may still count a few `legacy_generated` sprites that sit
+  *off-camera* in the deferred overworld — that count is reported as an info line (acceptable
+  fallback), with a generous budget that still hard-fails if legacy art leaks back in wholesale.
 
 - The small playable-area expansion remains bounded by
   `OverworldMap.LIMEZU_PLAYABLE_AREA_BOUNDS`. It extends LimeZu ground/props only
