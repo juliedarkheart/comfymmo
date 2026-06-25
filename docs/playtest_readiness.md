@@ -54,10 +54,19 @@ obvious polish bugs, all fixed safely:
 minimap, hotbar/quickbar, player + NPC nameplates, terrain/barn/trees/cow/crate, the
 "Select Watering Can + F to water" interaction prompt.
 
-**Deferrals (not normal-play issues):** the clean-checkout fallback `body_presentation_sheet`
-"feminine" mapping still points at Body_2 (only used when the licensed pack is absent — the live
-player is layered; left to avoid breaking its smoke assertion). (The inventory-header vs HUD area
-mismatch is now fixed — see the current-area label consistency pass above.)
+## Clean-checkout fallback presentation pass (2026-06-25)
+
+**Fixed:** the clean-checkout fallback `body_presentation_sheet("feminine")` mapped to **Body_2**,
+which is a bare/base body (no clothes/hair — it once rendered as a bald pink figure). When the
+licensed packs are absent, the player renders on a full-body sheet rather than the layered
+compositor, so a saved "feminine" presentation could appear bare. Now **feminine → Farmer_2**
+(clothed); masculine → Farmer_1, neutral → Farmer_2 — no presentation resolves to the bare Body_2.
+Body_2 remains a valid animation/base-body layer for the layered compositor, just never a
+player-facing presentation sprite. Guarded by `smoke_character_identity.gd`.
+
+**Deferrals (not normal-play issues):** none outstanding from prior passes. (The inventory-header vs
+HUD area mismatch was fixed in the current-area label consistency pass above; the feminine
+fallback-presentation mismatch is fixed by this pass.)
 
 **Manual recheck checklist:** boot → header phase matches the clock; **inventory header area matches
 the HUD area line (no "Town/Commons" while the HUD says Farmer Training/Farmland)**; Hazel/NPCs are
@@ -138,10 +147,10 @@ LimeZu base sheet + a pale palette tint.
   show "(unavailable)" with disabled buttons — they are baked into the full-body LimeZu
   sheets and cannot affect the rendered sprite. See `docs/character_customization.md` for
   the full slot table and rationale.
-- **Body/presentation presets:** feminine → Body_2 (closest available silhouette to
-  neutral/feminine, documented limitation: still male-presenting, no true female body exists
-  in LimeZu packs), masculine → Farmer_1 (classic farmer, has a hat), neutral → Farmer_2
-  (default). Default Julie uses neutral, not masculine.
+- **Body/presentation presets:** feminine → Farmer_2 (clothed; never the bare Body_2),
+  masculine → Farmer_1 (classic farmer, has a hat), neutral → Farmer_2 (default). Body_2 is a
+  bare base body and is no longer used as a player-facing presentation sprite. Default Julie uses
+  neutral, not masculine.
 - **Hat removal:** Not supported. Farmer_1 has a hat baked into the sheet (no hatless variant).
   Farmer_2 and Body_2 already have no hat. Choosing a hatless presentation is the only "hat
   removal" available. No fake hat toggle is exposed.

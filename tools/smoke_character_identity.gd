@@ -46,6 +46,19 @@ func _initialize() -> void:
 		ok = _expect(CharacterProfileRegistry.sheet_id(clothed_npc) != "character.body2_idle",
 			"NPC '%s' uses a clothed sheet (not the bare Body_2)" % clothed_npc) and ok
 
+	# Clean-checkout body-presentation fallback must never resolve to the bare Body_2 for ANY
+	# presentation option — the full-body fallback sprites are the clothed Farmer sheets.
+	for presentation_id in CharacterAppearanceRegistry.body_presentations().keys():
+		ok = _expect(CharacterAppearanceRegistry.body_presentation_sheet(String(presentation_id)) != "character.body2_idle",
+			"body presentation '%s' falls back to a clothed sheet (not bare Body_2)" % String(presentation_id)) and ok
+	ok = _expect(CharacterAppearanceRegistry.body_presentation_sheet("feminine") != "character.body2_idle",
+		"feminine fallback presentation is clothed (not the bare Body_2)") and ok
+	# A player who saved a feminine body_presentation in clean-checkout mode must render clothed.
+	CharacterProfileRegistry.apply_player_appearance({"body_presentation": "feminine", "outfit_color": "rose"})
+	ok = _expect(CharacterProfileRegistry.sheet_id("player") != "character.body2_idle",
+		"player feminine fallback presentation is clothed (not bare Body_2)") and ok
+	CharacterProfileRegistry.clear_player_appearance()
+
 	# --- 5) Customization default serialize/deserialize ---------------------
 	var default_look: Dictionary = CharacterAppearance.default_appearance()
 	ok = _expect(not default_look.is_empty() and default_look.has("outfit_color"), "customization default exists") and ok

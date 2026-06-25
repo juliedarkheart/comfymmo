@@ -61,7 +61,7 @@ Three body_presentation options exist:
 | option | LimeZu sheet | description |
 |---|---|---|
 | `neutral` | Farmer_2 | Middle-ground. Default for Julie. No hat on sheet. |
-| `feminine` | Body_2 | Closest available silhouette to neutral/feminine. Documented limitation: still a male-presenting base body — no true female body exists in any LimeZu pack. Tinted with warm palette. |
+| `feminine` | Farmer_2 | Clothed alternate. Was previously Body_2, but Body_2 is a **bare base body** (it once rendered as a bald pink figure), so it is no longer used as a player-facing presentation sprite — only as a raw body layer for the layered compositor. Differentiated from neutral by the palette tint. |
 | `masculine` | Farmer_1 | Classic farmer — most masculine-presenting. Has a hat (cannot be removed). |
 
 Each body_presentation changes the player's base LimeZu sheet immediately. The
@@ -88,7 +88,7 @@ default is `neutral` (Farmer_2) so the player does not default to masculine.
 
 1. The F9 panel's body_presentation < > buttons change `_appearance["body_presentation"]`
 2. `_apply_appearance()` calls `AvatarVisual.rebuild()` which calls `CharacterProfileRegistry.apply_player_appearance()`
-3. The profile maps `body_presentation` → LimeZu sheet ID (Farmer_2 / Body_2 / Farmer_1)
+3. The profile maps `body_presentation` → clothed LimeZu sheet ID (Farmer_2 / Farmer_1; never the bare Body_2)
 4. `AvatarVisual.rebuild()` then creates the sprite via `CharacterArtRegistry`, which reads the updated sheet from the profile
 5. For `outfit_color`, the palette tint is applied as `sprite.modulate` immediately
 6. Changes persist to `player.appearance` in the save

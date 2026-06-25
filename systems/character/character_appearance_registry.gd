@@ -161,12 +161,16 @@ static func eyes() -> Dictionary:
 
 ## The LimeZu base sheet id mapped from a body_presentation option.
 ## Falls back to Farmer_2 when the presentation id is unknown or missing.
-## NOTE: All three map to male-presenting sheets — no true female body exists.
+## NOTE: the only full-body fallback presentation sheets are the CLOTHED Farmer_1 /
+## Farmer_2. Body_2 (character.body2_idle) is a BARE base body, so it must NEVER be a
+## player-facing presentation sprite (it once rendered as a bald pink figure) — it
+## stays a raw body layer for the layered compositor only. Presentation variety here
+## comes from the palette tint, not a bare silhouette.
 static func body_presentation_sheet(presentation_id: String) -> String:
 	match String(presentation_id):
-		"feminine":
-			return "character.body2_idle"   # closest available silhouette
 		"masculine":
-			return "character.farmer_idle"  # classic farmer
+			return "character.farmer_idle"  # classic farmer (clothed)
+		"feminine":
+			return "character.farmer2_idle" # clothed alternate (never the bare Body_2)
 		_:
-			return "character.farmer2_idle" # neutral / default
+			return "character.farmer2_idle" # neutral / default (clothed)
