@@ -40,6 +40,12 @@ func _initialize() -> void:
 	ok = _expect(all_sigs.size() == CharacterProfileRegistry.required_profile_ids().size(),
 		"all required actor signatures are unique") and ok
 
+	# Named NPCs must use a CLOTHED base sheet — never the bare Body_2 (that rendered Hazel as a
+	# naked pink figure in live play).
+	for clothed_npc in ["rowan", "maribel_tock", "bram_nettle", "land_clerk", "generic_villager_1", "generic_villager_2"]:
+		ok = _expect(CharacterProfileRegistry.sheet_id(clothed_npc) != "character.body2_idle",
+			"NPC '%s' uses a clothed sheet (not the bare Body_2)" % clothed_npc) and ok
+
 	# --- 5) Customization default serialize/deserialize ---------------------
 	var default_look: Dictionary = CharacterAppearance.default_appearance()
 	ok = _expect(not default_look.is_empty() and default_look.has("outfit_color"), "customization default exists") and ok

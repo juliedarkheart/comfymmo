@@ -166,6 +166,10 @@ func _process(delta: float) -> void:
 		if _day_night != null:
 			area_line += "   ·   %s %s" % [_day_night.phase_label(), _day_night.clock_label()]
 		hud.call("set_area_line", area_line)
+	# Keep the "Day N | <phase>" header in step with the real clock phase (avoids the
+	# header reading "Afternoon" while the clock says "Morning 7:57 am").
+	if _day_night != null and hud.has_method("set_time_phase"):
+		hud.call("set_time_phase", _day_night.phase_label())
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_minimap"):

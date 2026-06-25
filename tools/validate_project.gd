@@ -3095,11 +3095,17 @@ func _initialize() -> void:
 		return
 	get_root().add_child(prototype_hud)
 	await process_frame
-	for required_method in ["set_identity_line", "set_area_line", "set_mode_text", "set_materials_text"]:
+	for required_method in ["set_identity_line", "set_area_line", "set_mode_text", "set_materials_text", "set_time_phase"]:
 		if not prototype_hud.has_method(required_method):
 			push_error("Prototype HUD is missing method '%s'" % required_method)
 			quit(1)
 			return
+	# The "Day N | <phase>" header must be synced to the real day-night clock (set_time_phase),
+	# so it never contradicts the area line's clock readout (e.g. "Afternoon" vs "Morning 7:57 am").
+	if not FileAccess.get_file_as_string("res://world/overworld_controller.gd").contains("set_time_phase"):
+		push_error("Overworld HUD day-phase is not synced to the day-night clock (set_time_phase not called)")
+		quit(1)
+		return
 	var controls_label: Label = prototype_hud.get_node_or_null("Panel/Rows/ControlsLabel") as Label
 	if controls_label == null:
 		push_error("Prototype HUD is missing ControlsLabel")

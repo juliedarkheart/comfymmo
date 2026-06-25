@@ -50,7 +50,7 @@ const DATA := {
 	},
 	"land_clerk": {
 		"display_name": "Hazel", "role": "clerk",
-		"sheet": SHEET_BODY_2, "palette_variant": "lilac", "palette": "#e6d6f0",
+		"sheet": SHEET_FARMER_2, "palette_variant": "lilac", "palette": "#e6d6f0",
 		"hair_style": "cozy_bun", "outfit_style": "cozy_tunic", "accessory": "round_glasses",
 	},
 	"remote_player": {
@@ -65,7 +65,7 @@ const DATA := {
 	},
 	"generic_villager_2": {
 		"display_name": "Villager", "role": "villager",
-		"sheet": SHEET_BODY_2, "palette_variant": "pond", "palette": "#cfe6ef",
+		"sheet": SHEET_FARMER_1, "palette_variant": "pond", "palette": "#cfe6ef",
 		"hair_style": "leafy_pigtails", "outfit_style": "forest_apron", "accessory": "leaf_clip",
 	},
 }

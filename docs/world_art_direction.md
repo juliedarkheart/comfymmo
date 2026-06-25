@@ -30,6 +30,12 @@ audited). See [docs/playtest_readiness.md](playtest_readiness.md) for the manual
 
 ## Actor identity (no clones)
 
+NPCs must use a **clothed** LimeZu base sheet (Farmer_1 / Farmer_2). The bare **Body_2** sheet (a
+naked/bald body from the character-generator base) must NOT be assigned to a visible NPC — doing so
+rendered Clerk Hazel as a pink naked figure (fixed 2026-06-25). Uniqueness still comes from the
+per-actor palette tint. A smoke check asserts no named NPC uses `character.body2_idle`.
+
+
 Each named actor has a visual profile in `systems/character/character_profile_registry.gd`: a
 distinct LimeZu base sheet (`Farmer_1`/`Farmer_2`/`Body_2`) + a pale palette tint, so the player
 (Farmer_2), Farmer Rowan (Farmer_1), and the villagers are visibly different instead of all

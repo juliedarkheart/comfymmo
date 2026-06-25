@@ -1,5 +1,34 @@
 # Playtest Readiness
 
+## Live homestead polish pass (2026-06-25)
+
+A live playtest (via `tools/live_visual_capture.gd` → gitignored screenshots) surfaced three
+obvious polish bugs, all fixed safely:
+
+1. **HUD time contradiction** — the header showed "Day 1 | Afternoon" while the clock/area line
+   said "Morning 7:57 am". The day-label was reading the old `WorldMood` time-of-day, not the real
+   `DayNightCycle`. Fixed: `PrototypeHud.set_time_phase()` syncs the header phase to the clock each
+   HUD tick (`OverworldController._process`). The header now reads "Day 1 | Morning".
+2. **Clerk Hazel rendered nude** — `land_clerk` (and `generic_villager_2`) used the LimeZu **Body_2**
+   sheet, which is a *bare body* (no clothes/hair), so Hazel appeared as a bald pink figure. Fixed:
+   switched those NPCs to clothed Farmer_1/Farmer_2 sheets, keeping their distinct palette tints
+   (uniqueness preserved — 0 duplicate actor signatures).
+3. **Build placement text clipped** — the HUD mode line truncated at 34 chars ("Cost: 1 Wo…").
+   Fixed: raised the cap to 80 (the mode label already autowraps), so the full cost/action shows.
+
+**Looked good, left as-is:** inventory panel, build menu (tabs/costs/locked reasons/controls),
+minimap, hotbar/quickbar, player + NPC nameplates, terrain/barn/trees/cow/crate, the
+"Select Watering Can + F to water" interaction prompt.
+
+**Deferrals (not normal-play issues):** the clean-checkout fallback `body_presentation_sheet`
+"feminine" mapping still points at Body_2 (only used when the licensed pack is absent — the live
+player is layered; left to avoid breaking its smoke assertion). The inventory header region label
+("Town/Commons") vs the HUD area is a minor cosmetic mismatch.
+
+**Manual recheck checklist:** boot → header phase matches the clock; Hazel/NPCs are clothed; build
+mode shows the full placement cost; F9 wardrobe + facing + nameplates still work; no naked/placeholder
+sprites in view.
+
 ## Nameplates + full dev wardrobe (2026-06-25)
 
 - **Name labels** (player + NPCs) now sit clearly **above** the avatar's head/hat (offset derived

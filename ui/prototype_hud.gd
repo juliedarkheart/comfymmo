@@ -170,6 +170,16 @@ func set_mood(mood_id: String) -> void:
 		mood_tint.color = WorldMood.tint_color(mood_id)
 	_refresh_text()
 
+## Sync the "Day N | <phase>" header to the REAL day-night clock phase (Morning/Afternoon/…), so
+## it never contradicts the area line's clock readout. The overworld controller calls this each
+## HUD tick; the mood tint set by set_mood() is left untouched.
+func set_time_phase(phase: String) -> void:
+	var p := String(phase).strip_edges()
+	if p.is_empty() or p == _mood_display:
+		return
+	_mood_display = p
+	_refresh_text()
+
 func set_day(day_count: int) -> void:
 	_day_number = maxi(1, day_count)
 	_refresh_text()
@@ -185,7 +195,9 @@ func _compact_help_text(help_text: String) -> String:
 		return "Explore"
 	text = text.replace("Press ", "")
 	text = text.replace("Use ", "")
-	return text.substr(0, 34) + ("..." if text.length() > 34 else "")
+	# The mode label autowraps (AUTOWRAP_WORD_SMART), so allow enough text to show the full
+	# placement cost/size instead of clipping it ("Cost: 1 Wo..."); cap only absurdly long help.
+	return text.substr(0, 80) + ("..." if text.length() > 80 else "")
 
 func set_interaction_prompt(prompt_text: String) -> void:
 	_interaction_prompt_text = prompt_text
