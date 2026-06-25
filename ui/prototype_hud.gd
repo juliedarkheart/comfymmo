@@ -313,15 +313,24 @@ func _format_mailbox_text(messages: Array[Dictionary]) -> String:
 		if not bool(message.get("seen", false)):
 			new_count += 1
 
+	var header: String = "Mailbox"
+	if new_count > 0:
+		header = "Mailbox — %d new" % new_count
+
 	var lines: Array[String] = [
-		"Mailbox (%s new)" % new_count,
+		header,
 		"",
 	]
 	for message in messages:
-		var seen_label: String = "[Done]" if bool(message.get("completed", false)) else ("[Seen]" if bool(message.get("seen", false)) else "[New]")
+		var is_completed: bool = bool(message.get("completed", false))
+		var is_new: bool = not is_completed and not bool(message.get("seen", false))
+		var prefix: String = "✔" if is_completed else ("★" if is_new else "")
 		var title: String = String(message.get("title", message.get("label", "")))
 		var body: String = String(message.get("body", ""))
-		lines.append("- %s %s" % [seen_label, title])
+		if not prefix.is_empty():
+			lines.append("- %s %s" % [prefix, title])
+		else:
+			lines.append("- %s" % title)
 		if not body.is_empty():
 			lines.append("  %s" % body)
 	lines.append("")

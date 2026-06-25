@@ -1275,3 +1275,69 @@ A focused feel/readability/microinteraction pass on the building, editing, movin
 - No licensed assets touched (`git ls-files licensed_assets` = empty).
 - No PNGs, screenshots, or logs tracked.
 - Git working tree: only expected docs/tools/build changes.
+
+## Mailbox / first task loop feel pass (2026-06-25)
+
+A focused UX/readability/microinteraction pass on the mailbox interaction, task display, and completion feedback. No new quest system, no economy, no progression changes.
+
+### Skills applied
+- **UX Heuristics:** visibility of system status (task completion state, new/unread/complete markers), clarity (mailbox prompt says "your mailbox", not generic), consistency (★ for new, ✔ for done), recognition over recall (task state is visible in mailbox panel).
+- **Microinteractions:** trigger (approach mailbox + F), rules (tasks shown in mailbox, completion via watering/harvesting), feedback (star/checkmark prefixes, completion toast), loop (new → read → progress → complete → done state).
+- **Design of Everyday Things:** narrowed Gulf of Execution (clear prompt says what F does) and Gulf of Evaluation (mailbox header shows count of new messages, completion toast is exclamatory).
+- **Jobs to Be Done:** "I want to understand why I should check the mailbox" → cozy header with new-message count. "I want to know when the task is complete" → ★ prefix in completion toast + ✔ in mailbox. "I want the next step to feel obvious" → task bodies give clear, cozy directions.
+
+### Changes made
+
+**Mailbox prompt (3 files):**
+- `systems/interactable_system.gd` — `"Press F to check mailbox"` → `"Press F to check your mailbox"`
+- `systems/world/asset_world_metadata.gd` — both prompt and response: `"No mail right now."` → `"The mailbox stands quiet and waiting."`
+- `systems/building_placement_system.gd` — placed mailbox registration: `"Press F to check mailbox"` → `"Press F to check your mailbox"`
+
+**Mailbox message formatting (`ui/prototype_hud.gd:_format_mailbox_text`):**
+- Header: `"Mailbox (%s new)"` → `"Mailbox"` (with count shown inline as `"Mailbox — %d new"` only when >0)
+- Message prefixes: `[New]` / `[Seen]` / `[Done]` (debug-bracket style) → `★` (new) / `""` (read) / `✔` (completed)
+
+**Task copy (`systems/task_integration_system.gd`):**
+- "Water the garden" body: `"Give the farm plot a little care."` → `"A quick drink for the farm plot — it'll thank you!"`
+- "Harvest a carrot" body: `"Pick a grown carrot from the farm plot."` → `"Pick a ripe carrot from the farm plot."`
+- "Pick up groceries" body: `"Market board reminder"` → `"Rosie left a list at the market board."`
+- "Community cookout Saturday" body: `"Bring something cozy and shareable"` → `"Bring something cozy to share at the village green."`
+- "Creature feed delivery arrived" body: `"Dani sent you blueberries"` → `"Dani sent blueberries from the eastern meadows."`
+
+**Completion feedback (`world/homestead_controller.gd:_grant_task_reward`):**
+- `"Task complete: [name]  (+2 Wood, +2 Fiber, +10 Stewardship XP)"` → `"✔ [name]! (+2 Wood, +2 Fiber, +10 Stewardship XP)"`
+- Removed debug-like "Task complete:" prefix; replaced with checkmark marker.
+
+### Files changed
+- `ui/prototype_hud.gd`
+- `systems/task_integration_system.gd`
+- `systems/interactable_system.gd`
+- `systems/world/asset_world_metadata.gd`
+- `systems/building_placement_system.gd`
+- `world/homestead_controller.gd`
+- `docs/playtest_readiness.md`
+
+### Smoke/validation results
+- `smoke_object_contracts.gd` — PASS (49/49)
+- `smoke_homestead_loop.gd` — PASS (23/23)
+- `smoke_character_identity.gd` — PASS
+- `smoke_avatar_customization.gd` — PASS
+- `smoke_animation_terrain_contracts.gd` — PASS
+- `audit_live_visuals.gd` — PASS (mailbox prompt now shows "check your mailbox")
+- `validate_project.gd` — PASS
+- Godot import — no new errors
+- Godot `--quit-after 8` — boots cleanly
+
+### Known deferrals
+- Active-task HUD line (no persistent task indicator — tasks only visible in mailbox panel)
+- Directed tutorial sequence (no quest framework)
+- Full NPC dialogue system for task-giving
+- Multiple active tasks / task journal
+- Economy/quest rewards beyond the material bundle
+- Task category filtering in mailbox
+
+### Final safety
+- Nothing committed.
+- No licensed assets touched (`git ls-files licensed_assets` = empty).
+- No PNGs, screenshots, or logs tracked.
+- Git working tree: only expected docs/UI/system changes.

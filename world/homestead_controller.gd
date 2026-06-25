@@ -531,7 +531,7 @@ func _grant_task_reward(task_label: String) -> void:
 	inventory_system.add_item(ResourceIds.MATERIAL_WOOD, 2)
 	inventory_system.add_item(ResourceIds.MATERIAL_FIBER, 2)
 	_grant_xp(ProgressionRegistry.SKILL_STEWARDSHIP, 10, 5)
-	_announce("Task complete: %s  (+2 Wood, +2 Fiber, +10 Stewardship XP)" % task_label)
+	_announce("✔ %s! (+2 Wood, +2 Fiber, +10 Stewardship XP)" % task_label)
 
 func _on_survival_changed() -> void:
 	_save_survival_state()
