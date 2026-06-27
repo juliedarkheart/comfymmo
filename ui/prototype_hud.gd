@@ -11,12 +11,12 @@ extends CanvasLayer
 @onready var _mode_label: Label = $Panel/Rows/ModeLabel
 @onready var _controls_label: Label = $Panel/Rows/ControlsLabel
 
-var _controls_text: String = "Esc Menu | I Inv | B Build | E Edit\nM Map | H Help | F11 Window"
+var _controls_text: String = "Esc Menu | I Inv | B Build | E Edit\nM Map | H Help | F11 Fullscreen"
 var _mood_display: String = "Morning"
 var _day_number: int = 1
 var _current_mode_name: String = "Explore"
 var _current_help_text: String = "Explore"
-var _survival_text: String = "Comfort: 100"
+var _survival_text: String = "Comfort 100"
 var _interaction_prompt_text: String = ""
 var _inventory_text: String = "Carrots: 0 | Turnips: 0 | Berries: 0"
 var _inventory_counts: Dictionary = {
@@ -161,7 +161,7 @@ func set_identity_line(text: String) -> void:
 
 func set_area_line(text: String) -> void:
 	if _area_label != null:
-		_area_label.text = "Area: %s" % text
+		_area_label.text = text
 
 func set_mood(mood_id: String) -> void:
 	_mood_display = WorldMood.display_name(mood_id)

@@ -1341,3 +1341,185 @@ A focused UX/readability/microinteraction pass on the mailbox interaction, task 
 - No licensed assets touched (`git ls-files licensed_assets` = empty).
 - No PNGs, screenshots, or logs tracked.
 - Git working tree: only expected docs/UI/system changes.
+
+## Minimap / navigation readability pass (2026-06-25)
+
+A focused readability pass on the minimap display and HUD area label. No new map systems, no fast travel, no quest markers.
+
+### Changes made
+
+**HUD area label (`ui/prototype_hud.gd:set_area_line`):**
+- Removed the `"Area: "` prefix — area labels now read cleanly as e.g. `"Hearthvale Landing — Public, protected · Meadow"` instead of `"Area: Hearthvale Landing — Public, protected · Meadow"`. The label slot's position in the HUD already identifies it as location context.
+
+**Minimap player marker (`ui/minimap_panel.gd:_draw_map`):**
+- Center dot: 3.6px → 4.0px for better visibility at a glance.
+- Added subtle glow ring (radius 4.8, white-gold at 25% alpha) around the player dot so it's easier to spot on the minimap.
+
+**Minimap background (`ui/minimap_panel.gd:_draw_map`):**
+- Inner green: `#7da964` → `#5e8a4c` (darker for better contrast with dots and features drawn on top).
+
+### Files changed
+- `ui/prototype_hud.gd`
+- `ui/minimap_panel.gd`
+- `docs/playtest_readiness.md`
+
+### Skills applied
+- **UX Heuristics:** visibility of system status (player dot easier to spot, no misleading "Area:" prefix on location), consistency (minimap dot contrast improved).
+- **Refactoring UI:** removed unnecessary label prefix (the slot already communicates "this is where you are"), improved contrast (darker minimap bg, larger player dot).
+- **Microinteractions:** feedback (player dot with glow ring), loop (minimap updates as player moves).
+
+### Smoke/validation results
+- `smoke_object_contracts.gd` — PASS
+- `smoke_homestead_loop.gd` — PASS
+- `smoke_character_identity.gd` — PASS
+- `validate_project.gd` — PASS
+- `audit_live_visuals.gd` — PASS
+- Godot import — clean
+- Godot `--quit-after 8` — boots cleanly
+
+### Known deferrals
+- Full map screen (M currently toggles the minimap)
+- Fast travel
+- Quest/objective markers
+- Biome-specific minimap background tints
+- Directional compass on minimap
+
+### Final safety
+- Nothing committed.
+- No licensed assets touched.
+- No PNGs/screenshots/logs tracked.
+
+## Sign / notice board readability pass (2026-06-25)
+
+A focused UX/readability pass on public informational objects: the welcome board, village notice board, shrine marker, and world signs.
+
+### Changes made
+
+**Sign toast response (`systems/world/asset_world_metadata.gd`):**
+- Added `interaction_response`: `"The sign reads: Welcome to Hearthvale."` — pressing F on a sign now gives feedback instead of being silent.
+- Added `INTERACT_READ` to `TOAST_INTERACTION_KINDS` — this fixes a UX bug where signs showed a prompt but F did nothing. Signs now deliver their response text via the toast/observe channel.
+- Updated the `TOAST_INTERACTION_KINDS` comment to reflect that "read" is now a self-contained toast kind.
+
+**Welcome board text (`world/overworld_controller.gd:_read_welcome_board`):**
+- Removed 7 low-frequency keys from the controls list (arrows, Start, Chat, Profile F8, Wardrobe F9, Fullscreen F11) — they're documented in Help (H) and the system menu.
+- Tightened formatting to 2 lines (core controls only).
+- Fixed punctuation: dash → period, lowercase "Claim" → "claim".
+
+**Notice board repeat text (`world/overworld_controller.gd:_open_notice_board`):**
+- Added repeat-visit variant: `"A few new notices, a few old ones. The board is the village memory — errands, invitations, and little celebrations pinned up for all."`
+- First visit text unchanged: `"Welcome to the village square..."`
+
+### Files changed
+- `systems/world/asset_world_metadata.gd`
+- `world/overworld_controller.gd`
+- `docs/playtest_readiness.md`
+
+### Skills applied
+- **UX Heuristics:** visibility (sign now responds to F), usefulness (notice board distinguishes first vs repeat read), no misleading prompts (sign no longer shows a prompt with no action).
+- **Microinteractions:** trigger (approach sign/board + F), feedback (toast "The sign reads..." / observe panel), loop (repeat reads get slightly different text).
+- **Web Typography / Refactoring UI:** trimmed the welcome board to essentials — only the most-used 7 controls remain; removed 7 less-common keys (noise).
+
+### Smoke/validation results
+- `smoke_object_contracts.gd` — PASS (51/51; new assertion: sign has toast response)
+- `smoke_homestead_loop.gd` — PASS (23/23)
+- `validate_project.gd` — PASS
+- `audit_live_visuals.gd` — PASS (sign: kind=read, prompt="Press F to read the sign")
+- Godot import — no new errors
+- Godot `--quit-after 8` — boots cleanly
+
+### Known deferrals
+- Multiple signs per area (currently a single world sign at spawn)
+- Notice board posting system
+- Shrine interaction expansion
+- Quest/job board
+
+### Final safety
+- Nothing committed.
+- No licensed assets touched.
+- No PNGs/screenshots/logs tracked.
+
+## NPC / villager interaction feel pass (2026-06-25)
+
+A focused UX/readability pass on NPC interaction prompts, default dialogue, and naming consistency.
+
+### Changes made
+
+**SimpleVillager default dialogue (`villagers/simple_villager.gd`):**
+- First visit: `"Hello."` → `"Hello there. Always nice to see a new face about the village."`
+- Repeat visit: `"Good to see you again."` → `"Good to see you again. The village feels brighter for it."`
+
+**NPC prompt naming (`world/overworld_controller.gd`):**
+- Hazel/land clerk prompt: `"Press F to talk to the land clerk"` → `"Press F to talk to Clerk Hazel"` (matches her nameplate)
+
+### Files changed
+- `villagers/simple_villager.gd`
+- `world/overworld_controller.gd`
+- `docs/playtest_readiness.md`
+
+### Skills applied
+- **UX Heuristics:** consistency (Hazel prompt matches her nameplate), clear affordance (named NPCs identified by name in prompt), useful feedback (cozier default dialogue, no "Hello.")
+- **Microinteractions:** trigger (approach NPC + F), feedback (dialogue line reflects personality), loop (repeat visits rotate through comfort dialogue)
+- **Design of Everyday Things:** narrowed Gulf of Execution (prompt identifies who you'll talk to)
+
+### Smoke/validation results
+- `smoke_character_identity.gd` — PASS (47/47)
+- `smoke_object_contracts.gd` — PASS (49/49)
+- `smoke_homestead_loop.gd` — PASS (23/23)
+- `validate_project.gd` — PASS
+- Godot import — no new errors
+- Godot `--quit-after 8` — boots cleanly
+
+### Known deferrals
+- Full dialogue system (NPCs use observe panel + toast)
+- Relationship/affection system
+- Quest-giving NPCs beyond current mailbox tasks
+- NPC schedules/pathing
+- Shop UI
+- Hazel's land-office scene export/`first_visit_text` (uses BramVillager default)
+
+### Final safety
+- Nothing committed.
+- No licensed assets touched.
+- No PNGs/screenshots/logs tracked.
+
+## Comfort / day mood loop feel pass (2026-06-25)
+
+A focused UX/readability pass on the comfort, day/time, mood, and rest display. No new survival systems, no economy, no penalties.
+
+### Changes made
+
+**HUD comfort label (5 files):**
+- `homestead_controller.gd`, `village_square_region_controller.gd`, `forest_edge_region_controller.gd` — `"Comfort: %d"` → `"Comfort %d"` (removed debug colon)
+- `ui/prototype_hud.gd` — default `_survival_text`: `"Comfort: 100"` → `"Comfort 100"`
+
+### Files changed
+- `world/homestead_controller.gd`
+- `world/regions/village_square/village_square_region_controller.gd`
+- `world/regions/forest_edge/forest_edge_region_controller.gd`
+- `ui/prototype_hud.gd`
+- `docs/playtest_readiness.md`
+
+### Skills applied
+- **UI Heuristics:** consistency — "Comfort 100" is a label-value pair, not a colon-separated debug line; all 4 controller sites updated in lockstep.
+- **Refactoring UI:** removed the visual weight of the debug colon; comfort now reads as a first-class HUD stat, not a diagnostic readout.
+- **Microinteractions:** the comfort number is the primary feedback channel; rest restores it to 100 with a warm message panel.
+- **Design of Everyday Things:** already narrow Gulf of Evaluation (rest panel + HUD update is good) — just cleaned the label.
+- **Jobs to Be Done:** "I want the HUD to feel cozy, not like a spreadsheet" → colon removed, label feels native.
+
+### Smoke/validation results
+- `smoke_homestead_loop.gd` — PASS (23/23)
+- `smoke_object_contracts.gd` — PASS (49/49)
+- `validate_project.gd` — PASS
+- Godot import — no new errors
+- Godot `--quit-after 8` — boots cleanly
+
+### Known deferrals
+- Energy/hunger stats exist in SurvivalSystem but are unused in HUD — no fake display added
+- WorldMood tint overlay is controlled independently from DayNightCycle (intentional — calm atmosphere)
+- No auto-phase-change feedback toast (phase cycles silently in background)
+- No survival penalties (intentional — cozy prototype)
+
+### Final safety
+- Nothing committed.
+- No licensed assets touched.
+- No PNGs/screenshots/logs tracked.

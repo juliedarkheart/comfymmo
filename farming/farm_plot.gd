@@ -108,7 +108,7 @@ func _build_visuals() -> void:
 	_moist = Polygon2D.new()
 	_moist.name = "LiveSoilMoisture"
 	_moist.polygon = _square(13.0)
-	_moist.color = Color(0.30, 0.46, 0.62, 0.42)
+	_moist.color = Color(0.30, 0.46, 0.62, 0.50)
 	_moist.z_index = -1
 	_moist.visible = false
 	add_child(_moist)
@@ -141,7 +141,7 @@ func _build_visuals() -> void:
 	_ready_ring = Line2D.new()
 	_ready_ring.name = "LiveReadyRing"
 	_ready_ring.closed = true
-	_ready_ring.width = 2.0
+	_ready_ring.width = 2.5
 	_ready_ring.default_color = Color(1.0, 0.86, 0.36, 0.95)
 	_ready_ring.points = _square(15.0)
 	_ready_ring.z_index = 2

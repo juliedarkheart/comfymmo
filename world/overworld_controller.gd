@@ -537,8 +537,14 @@ func _talk_villager(interactable_id: String) -> void:
 	_grant_xp_once("talk_%s" % interactable_id, ProgressionRegistry.SKILL_SOCIAL, 2, 1)
 
 func _open_notice_board() -> void:
-	_open_observe_panel("Village Notice Board", "Welcome to the village square. Plans, errands, and little celebrations get pinned here.")
-	if not bool(save_system.get_region_flags(VILLAGE_REGION_ID).get(NOTICE_SEEN_FLAG, false)):
+	var seen: bool = bool(save_system.get_region_flags(VILLAGE_REGION_ID).get(NOTICE_SEEN_FLAG, false))
+	var body: String
+	if seen:
+		body = "A few new notices, a few old ones. The board is the village memory — errands, invitations, and little celebrations pinned up for all."
+	else:
+		body = "Welcome to the village square. Plans, errands, and little celebrations get pinned here."
+	_open_observe_panel("Village Notice Board", body)
+	if not seen:
 		save_system.set_region_flag(VILLAGE_REGION_ID, NOTICE_SEEN_FLAG, true)
 	_grant_xp_once("visit_notice_board", ProgressionRegistry.SKILL_STEWARDSHIP, 1, 0)
 
@@ -720,11 +726,10 @@ func _read_welcome_board() -> void:
 	_open_observe_panel(
 		"Welcome to Hearthvale Landing",
 		"Farmer Rowan's training farm is your safe place to learn before claiming a plot.\n\n"
-		+ "Move: WASD/arrows | Interact/gather/claim: F\n"
-		+ "Inventory I | Craft K | Build B | Edit E | Map M | Help H\n"
-		+ "Menu Esc/Start | Chat Enter | Profile F8 | Wardrobe F9 | Fullscreen F11\n\n"
-		+ "Plot signs east and north mark claimable lots - talk to Farmer Rowan for a Land Token, "
-		+ "then press F at a sign to Claim it. The village square (east) has the town stalls and notice board."
+		+ "Move: WASD | Interact/gather: F | Inventory I | Craft K\n"
+		+ "Build B | Edit E | Map M | Help H | Menu Esc\n\n"
+		+ "Plot signs east and north mark claimable lots. Talk to Farmer Rowan for a Land Token, "
+		+ "then press F at a sign to claim it. The village square east of here has town stalls and a notice board."
 	)
 
 ## Rowan's staged tutorial: each talk reads your actual progress and gives the

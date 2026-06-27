@@ -297,7 +297,7 @@ func _sync_slot_item_ids() -> void:
 
 func _refresh_selected_name() -> void:
 	if not _pending_assignment_item_id.is_empty():
-		_selected_name.text = "Assign %s: click a slot" % _item_label(_pending_assignment_item_id)
+		_selected_name.text = "Assign to a slot: click any hotbar slot"
 		_selected_name.visible = true
 		return
 	var item_id: String = selected_item_id()

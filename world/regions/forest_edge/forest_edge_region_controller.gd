@@ -126,7 +126,7 @@ func _refresh_survival_hud() -> void:
 	if hud.has_method("set_survival_text"):
 		hud.call(
 			"set_survival_text",
-			"Comfort: %d" % int(snappedf(survival_system.get_stat("comfort"), 1.0))
+			"Comfort %d" % int(snappedf(survival_system.get_stat("comfort"), 1.0))
 		)
 
 func _consume_carrot() -> void:

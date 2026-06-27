@@ -112,35 +112,35 @@ func _seed_default_tasks() -> void:
 		{
 			"id": ContentIds.TASK_GROCERIES,
 			"title": "Pick up groceries",
-			"body": "Market board reminder",
+			"body": "Rosie left a list at the market board.",
 			"source": "mock",
 			"status": "pending",
 		},
 		{
 			"id": WATER_GARDEN_TASK_ID,
 			"title": "Water the garden",
-			"body": "Give the farm plot a little care.",
+			"body": "A quick drink for the farm plot — it'll thank you!",
 			"source": "mock",
 			"status": "pending",
 		},
 		{
 			"id": HARVEST_CARROT_TASK_ID,
 			"title": "Harvest a carrot",
-			"body": "Pick a grown carrot from the farm plot.",
+			"body": "Pick a ripe carrot from the farm plot.",
 			"source": "mock",
 			"status": "pending",
 		},
 		{
 			"id": ContentIds.TASK_COOKOUT,
 			"title": "Community cookout Saturday",
-			"body": "Bring something cozy and shareable",
+			"body": "Bring something cozy to share at the village green.",
 			"source": "mock",
 			"status": "upcoming",
 		},
 		{
 			"id": ContentIds.TASK_DELIVERY,
 			"title": "Creature feed delivery arrived",
-			"body": "Dani sent you blueberries",
+			"body": "Dani sent blueberries from the eastern meadows.",
 			"source": "mock",
 			"status": "new",
 		},
@@ -160,7 +160,7 @@ func _ensure_default_task_present() -> void:
 		_mock_tasks.append({
 			"id": WATER_GARDEN_TASK_ID,
 			"title": "Water the garden",
-			"body": "Give the farm plot a little care.",
+			"body": "A quick drink for the farm plot — it'll thank you!",
 			"source": "mock",
 			"status": "pending",
 		})
@@ -169,7 +169,7 @@ func _ensure_default_task_present() -> void:
 		_mock_tasks.append({
 			"id": HARVEST_CARROT_TASK_ID,
 			"title": "Harvest a carrot",
-			"body": "Pick a grown carrot from the farm plot.",
+			"body": "Pick a ripe carrot from the farm plot.",
 			"source": "mock",
 			"status": "pending",
 		})

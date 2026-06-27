@@ -1063,7 +1063,7 @@ func _register_interactable_for_object(record_id: String, object_id: String, pla
 			record_id,
 			placed_object,
 			ContentIds.INTERACTION_MAILBOX,
-			"Press F to check mailbox"
+			"Press F to check your mailbox"
 		)
 		return
 

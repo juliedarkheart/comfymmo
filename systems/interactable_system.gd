@@ -4,7 +4,7 @@ class_name InteractableSystem
 signal interaction_prompt_changed(prompt_text: String)
 signal interaction_requested(interactable_id: String, interaction_type: String)
 
-const MAILBOX_PROMPT: String = "Press F to check mailbox"
+const MAILBOX_PROMPT: String = "Press F to check your mailbox"
 const DEFAULT_INTERACTION_RADIUS: float = 54.0
 
 var _interactables: Dictionary = {}
@@ -160,7 +160,7 @@ func _get_prompt_text(interactable_id: String) -> String:
 
 	match String(interaction_data.get("interaction_type", "")):
 		ContentIds.INTERACTION_MAILBOX:
-			return MAILBOX_PROMPT
+			return "Press F to check your mailbox"
 		ContentIds.INTERACTION_FARM_PLOT:
 			return "Press F to tend plot"
 		ContentIds.INTERACTION_NOTICE_BOARD:

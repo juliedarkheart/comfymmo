@@ -178,7 +178,7 @@ func _draw_feature(feature: Dictionary) -> void:
 func _draw_map() -> void:
 	var size: Vector2 = _map_rect.size
 	_map_rect.draw_rect(Rect2(Vector2.ZERO, size), Color("#d7c58f"))
-	_map_rect.draw_rect(Rect2(Vector2(3, 3), size - Vector2(6, 6)), Color("#7da964"))
+	_map_rect.draw_rect(Rect2(Vector2(3, 3), size - Vector2(6, 6)), Color("#5e8a4c"))
 	# Schematic bands + broad-overworld plot squares are phantom in the curated LimeZu slice;
 	# only draw them outside truth mode (or in admin/debug, where the old plan is useful).
 	var show_schematic: bool = (not _truth_mode) or _admin_debug
@@ -217,5 +217,6 @@ func _draw_map() -> void:
 	# Player marker.
 	var p: Vector2 = _world_to_map(_player_pos)
 	_map_rect.draw_circle(p, 5.0, Color("#3e2e23"))
-	_map_rect.draw_circle(p, 3.6, Color("#ffe066"))
+	_map_rect.draw_circle(p, 4.0, Color("#ffe066"))
+	_map_rect.draw_circle(p, 4.8, Color(1, 0.88, 0.4, 0.25))
 	_map_rect.draw_rect(Rect2(Vector2(1, 1), size - Vector2(2, 2)), Color("#4a3420"), false, 2.0)

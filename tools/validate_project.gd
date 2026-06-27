@@ -970,13 +970,13 @@ func _initialize() -> void:
 		return
 	var compact_hud_source: String = FileAccess.get_file_as_string("res://ui/prototype_hud.gd")
 	var compact_hud_scene_source: String = FileAccess.get_file_as_string("res://ui/prototype_hud.tscn")
-	for compact_hint in ["Esc Menu", "I Inv", "B Build", "E Edit", "M Map", "H Help", "F11 Window"]:
+	for compact_hint in ["Esc Menu", "I Inv", "B Build", "E Edit", "M Map", "H Help", "F11 Fullscreen"]:
 		if not compact_hud_source.contains(compact_hint) or not compact_hud_scene_source.contains(compact_hint):
 			push_error("Normal HUD controls line is missing compact LimeZu hint '%s'" % compact_hint)
 			compact_hud_probe.free()
 			quit(1)
 			return
-	if compact_hud_source.contains("F11 Full") or compact_hud_scene_source.contains("Fullscreen F11"):
+	if compact_hud_source.contains("Fullscreen F11") or compact_hud_scene_source.contains("Fullscreen F11"):
 		push_error("Normal HUD controls line still uses the long fullscreen copy that wraps/clips")
 		compact_hud_probe.free()
 		quit(1)

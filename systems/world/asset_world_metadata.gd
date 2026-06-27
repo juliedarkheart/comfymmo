@@ -55,11 +55,11 @@ const INTERACT_USE_WORKBENCH := "use_workbench_placeholder"
 const INTERACT_CHECK_MAILBOX := "check_mailbox_placeholder"
 const INTERACT_TEND_PLOT := "tend_plot"
 const INTERACT_TALK := "talk"
-## interaction_kinds whose F action is a self-contained toast/observe response (so the live
-## map can auto-register them). Panel/handler kinds (read sign, tend plot, talk) are wired by
+## Toast-response interaction kinds (self-contained `interaction_response` text; the live
+## map can auto-register them). Panel/handler kinds (tend plot, talk) are wired by
 ## their owning controller and are NOT auto-registered here.
 const TOAST_INTERACTION_KINDS: Array[String] = [
-	INTERACT_INSPECT, INTERACT_OPEN_STORAGE, INTERACT_USE_WORKBENCH, INTERACT_CHECK_MAILBOX,
+	INTERACT_INSPECT, INTERACT_OPEN_STORAGE, INTERACT_USE_WORKBENCH, INTERACT_CHECK_MAILBOX, INTERACT_READ,
 ]
 
 # --- minimap_kind ---
@@ -296,8 +296,8 @@ const DATA := {
 		"interaction_enabled": true,
 		"interaction_label": "check",
 		"interaction_kind": INTERACT_CHECK_MAILBOX,
-		"interaction_prompt": "Press F to check mailbox",
-		"interaction_response": "No mail right now.",
+		"interaction_prompt": "Press F to check your mailbox",
+		"interaction_response": "The mailbox stands quiet and waiting.",
 		"interaction_point_offset": Vector2(0, -10),
 		"minimap_visible": true,
 		"minimap_kind": MINIMAP_SIGN_DOT,
@@ -321,6 +321,7 @@ const DATA := {
 		"interaction_label": "view",
 		"interaction_kind": INTERACT_READ,
 		"interaction_prompt": "Press F to read the sign",
+		"interaction_response": "The sign reads: Welcome to Hearthvale.",
 		"interaction_point_offset": Vector2(0, -6),
 		"minimap_visible": true,
 		"minimap_kind": MINIMAP_SIGN_DOT,
