@@ -66,12 +66,12 @@ static func starter_loadout() -> Dictionary:
 
 static func definitions() -> Dictionary:
 	return {
-		TOOL_WORN_AXE: {"display_name": "Worn Axe", "category": CATEGORY_TOOL, "job": "chop trees"},
-		TOOL_WORN_PICKAXE: {"display_name": "Worn Pickaxe", "category": CATEGORY_TOOL, "job": "mine boulders"},
-		TOOL_WORN_HOE: {"display_name": "Worn Hoe", "category": CATEGORY_TOOL, "job": "plant crops"},
+		TOOL_WORN_AXE: {"display_name": "Axe", "category": CATEGORY_TOOL, "job": "chop trees"},
+		TOOL_WORN_PICKAXE: {"display_name": "Pickaxe", "category": CATEGORY_TOOL, "job": "mine boulders"},
+		TOOL_WORN_HOE: {"display_name": "Hoe", "category": CATEGORY_TOOL, "job": "till soil"},
 		TOOL_WATERING_CAN: {"display_name": "Watering Can", "category": CATEGORY_TOOL, "job": "water crops"},
-		TOOL_SIMPLE_HAMMER: {"display_name": "Simple Hammer", "category": CATEGORY_TOOL, "job": "build and place"},
-		TOOL_BASIC_SHOVEL: {"display_name": "Basic Shovel", "category": CATEGORY_TOOL, "job": "dig clay, lay paths"},
+		TOOL_SIMPLE_HAMMER: {"display_name": "Build Tool", "category": CATEGORY_TOOL, "job": "place objects"},
+		TOOL_BASIC_SHOVEL: {"display_name": "Path Tool", "category": CATEGORY_TOOL, "job": "dig clay, lay paths"},
 		WEAPON_WOODEN_STAFF: {"display_name": "Wooden Staff", "category": CATEGORY_WEAPON, "job": "future adventures"},
 		WEAPON_PRACTICE_SWORD: {"display_name": "Practice Sword", "category": CATEGORY_WEAPON, "job": "future adventures"},
 		WEAPON_SLINGSHOT: {"display_name": "Slingshot", "category": CATEGORY_WEAPON, "job": "future adventures"},

@@ -1,5 +1,12 @@
 # Playtest Readiness
 
+## Inventory / Hotbar readability polish pass (2026-06-27)
+
+- Selected hotbar item now names what you are holding and, where useful, gives a tiny purpose hint.
+- Empty hotbar slots read as intentional empty slots instead of broken/missing items.
+- Inventory and hotbar copy now clarifies: inventory is all carried items; hotbar is quick items.
+- Item counts use `x#`, and farming/building/gathering feedback is clearer when items are gained or used.
+
 ## Validation log hygiene pass (2026-06-25)
 
 Cleaned up two misleading validation warnings so the log only warns when something is actionable.

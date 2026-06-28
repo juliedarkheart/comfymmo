@@ -416,7 +416,11 @@ func _on_object_placed_for_xp(object_id: String) -> void:
 	)
 	var entry: Dictionary = ContentRegistry.placeables().get(object_id, {}) as Dictionary
 	var name_text: String = String(entry.get("display_name", object_id.capitalize()))
-	_announce("Placed %s!" % name_text)
+	var cost_text: String = BuildCosts.cost_text(object_id)
+	if cost_text.is_empty():
+		_announce("Placed %s!" % name_text)
+	else:
+		_announce("Placed %s — used %s." % [name_text, cost_text])
 
 func _setup_progression_panel() -> void:
 	_progression_panel = preload("res://ui/progression_panel.tscn").instantiate() as CanvasLayer
@@ -609,7 +613,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 					_announce("Need a Seed Packet in your inventory.")
 					return
 				if farming_system.plant_seed(interactable_id, crop_id):
-					interaction_result = {"changed": true, "action": "plant"}
+					interaction_result = {"changed": true, "action": "plant", "seed_id": selected_item_id}
 				else:
 					inventory_system.add_item(selected_item_id, 1)
 					_announce("This plot is not ready for seeds yet.")
@@ -648,7 +652,8 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 			_announce("Tilled! Now plant a seed with a Seed Packet.")
 		"plant":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
-			_announce("Planted %s!" % _crop_label(_plot_crop_id(interactable_id)))
+			var planted_seed_id: String = String(interaction_result.get("seed_id", ContentIds.ITEM_PLACEHOLDER_SEED_PACKET))
+			_announce("Planted %s — -1 %s." % [_crop_label(_plot_crop_id(interactable_id)), _item_label(planted_seed_id)])
 		"water":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
 			_announce("Watered! Rest at the cottage to help it grow.")
@@ -704,6 +709,14 @@ func _crop_label(crop_id: String) -> String:
 	if typeof(item) == TYPE_DICTIONARY and (item as Dictionary).has("display_name"):
 		return String((item as Dictionary)["display_name"])
 	return crop_id.capitalize()
+
+func _item_label(item_id: String) -> String:
+	if ItemIds.is_storable(item_id):
+		return ItemIds.display_name(item_id)
+	var item: Variant = ContentRegistry.items().get(item_id, {})
+	if typeof(item) == TYPE_DICTIONARY and (item as Dictionary).has("display_name"):
+		return String((item as Dictionary)["display_name"])
+	return item_id.capitalize()
 
 func admin_grow_crops() -> void:
 	var changed_count: int = farming_system.advance_all_plots(true)

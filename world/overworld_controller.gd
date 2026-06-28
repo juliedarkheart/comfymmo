@@ -631,7 +631,7 @@ func _handle_gather(node_id: String) -> void:
 	inventory_system.add_item(material_id, amount)
 	node.start_cooldown()
 	_grant_xp(ProgressionRegistry.skill_for_material(material_id), 2, 1)
-	_chat_toast("+%d %s (now %d)" % [amount, ResourceIds.display_name(material_id), inventory_system.get_quantity(material_id)])
+	_chat_toast("+%d %s (now x%d)" % [amount, ResourceIds.display_name(material_id), inventory_system.get_quantity(material_id)])
 
 func _chat_toast(text: String) -> void:
 	if _chat_panel != null and _chat_panel.has_method("add_system_line"):
@@ -740,7 +740,7 @@ func _talk_rowan() -> void:
 	if not bool(save_system.get_overworld_flag(ROWAN_TOKEN_FLAG, false)):
 		save_system.set_overworld_flag(ROWAN_TOKEN_FLAG, true)
 		inventory_system.add_item(ItemIds.QUEST_LAND_TOKEN, 1)
-		_chat_toast("Farmer Rowan gave you a Land Token!")
+		_chat_toast("Farmer Rowan gave you +1 Land Token!")
 		_open_observe_panel("Farmer Rowan",
 			"Welcome to Hearthvale, neighbor! This is my training farm — practice anything here. "
 			+ "Start by gathering: branches, pebbles, fiber, and that soft clay by the fence, all bare-handed. "

@@ -21,9 +21,9 @@ const ITEM_GLYPHS := {
 	ItemIds.TOOL_WORN_AXE: "Axe",
 	ItemIds.TOOL_WORN_PICKAXE: "Pick",
 	ItemIds.TOOL_WORN_HOE: "Hoe",
-	ItemIds.TOOL_WATERING_CAN: "Can",
-	ItemIds.TOOL_SIMPLE_HAMMER: "Hmr",
-	ItemIds.TOOL_BASIC_SHOVEL: "Shvl",
+	ItemIds.TOOL_WATERING_CAN: "Water",
+	ItemIds.TOOL_SIMPLE_HAMMER: "Build",
+	ItemIds.TOOL_BASIC_SHOVEL: "Path",
 	ResourceIds.MATERIAL_WOOD: "Wood",
 	ResourceIds.MATERIAL_STONE: "Stn",
 	ResourceIds.MATERIAL_FIBER: "Fib",
@@ -32,6 +32,17 @@ const ITEM_GLYPHS := {
 	ContentIds.ITEM_TURNIP: "Trn",
 	ContentIds.ITEM_BERRY: "Ber",
 	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET: "Seed",
+}
+
+const TOOL_HINTS := {
+	ItemIds.TOOL_WORN_AXE: "chop trees",
+	ItemIds.TOOL_WORN_PICKAXE: "mine stone",
+	ItemIds.TOOL_WORN_HOE: "till soil",
+	ItemIds.TOOL_WATERING_CAN: "water crops",
+	ItemIds.TOOL_SIMPLE_HAMMER: "place objects",
+	ItemIds.TOOL_BASIC_SHOVEL: "dig clay, lay paths",
+	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET: "plant on tilled soil",
+	ResourceIds.COMPONENT_SEED_PACKET: "plant on tilled soil",
 }
 
 const HELD_TOOL_VISUAL_IDS := {
@@ -281,10 +292,10 @@ func refresh() -> void:
 		else:
 			icon.visible = false
 			glyph.visible = true
-			glyph.text = "+"
+			glyph.text = "Empty"
 			glyph.modulate = Color(1, 1, 1, 0.28)
 		count.visible = owned and int(_get_count.call(item_id)) > 1
-		count.text = "%d" % int(_get_count.call(item_id)) if count.visible else ""
+		count.text = _count_text(int(_get_count.call(item_id))) if count.visible else ""
 
 	_refresh_selected_name()
 	_emit_selected_tool_changed()
@@ -297,15 +308,15 @@ func _sync_slot_item_ids() -> void:
 
 func _refresh_selected_name() -> void:
 	if not _pending_assignment_item_id.is_empty():
-		_selected_name.text = "Assign to a slot: click any hotbar slot"
+		_selected_name.text = "Assign to hotbar: %s" % _item_summary(_pending_assignment_item_id)
 		_selected_name.visible = true
 		return
 	var item_id: String = selected_item_id()
 	if item_id.is_empty():
-		_selected_name.text = "Hands empty"
+		_selected_name.text = "Hotbar: Empty Slot — hands empty"
 		_selected_name.visible = true
 		return
-	_selected_name.text = _item_label(item_id)
+	_selected_name.text = "Hotbar: %s" % _item_summary(item_id)
 	_selected_name.visible = true
 
 func _emit_selected_tool_changed() -> void:
@@ -324,3 +335,16 @@ func _item_label(item_id: String) -> String:
 	if not item.is_empty():
 		return String(item.get("display_name", item_id.capitalize()))
 	return item_id.capitalize()
+
+func _item_summary(item_id: String) -> String:
+	var label := _item_label(item_id)
+	var hint := _item_hint(item_id)
+	if hint.is_empty():
+		return label
+	return "%s — %s" % [label, hint]
+
+func _item_hint(item_id: String) -> String:
+	return String(TOOL_HINTS.get(item_id, ""))
+
+func _count_text(count: int) -> String:
+	return "x%d" % count

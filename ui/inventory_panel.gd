@@ -116,7 +116,7 @@ func refresh() -> void:
 		return
 	_refresh_identity()
 	if _detail_label != null:
-		_detail_label.text = ASSIGN_DETAIL
+		_detail_label.text = "Inventory: all carried items. Hotbar: quick items."
 	for child in _body.get_children():
 		child.queue_free()
 	# Owned items only, grouped; empty categories are skipped entirely (no header, no
@@ -206,11 +206,11 @@ func _build_inventory_slot(item_id: String, count: int) -> Control:
 		slot.add_child(glyph)
 
 	var count_label := Label.new()
-	count_label.text = "%d" % count
+	count_label.text = "x%d" % count
 	LimeZuUITheme.apply_slot_count_layout(count_label, SLOT_PX)
 	slot.add_child(count_label)
 
-	var detail: String = "%s   x%d" % [_item_label(item_id), count]
+	var detail: String = "%s   x%d%s" % [_item_label(item_id), count, _detail_hint_suffix(item_id)]
 	slot.mouse_entered.connect(func() -> void: _set_detail(detail))
 	slot.gui_input.connect(func(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -237,3 +237,16 @@ func _item_label(item_id: String) -> String:
 	if not item.is_empty():
 		return String(item.get("display_name", item_id.capitalize()))
 	return item_id.capitalize()
+
+func _detail_hint_suffix(item_id: String) -> String:
+	if item_id == ItemIds.TOOL_WORN_HOE:
+		return " — till soil"
+	if item_id == ItemIds.TOOL_WATERING_CAN:
+		return " — water crops"
+	if item_id == ItemIds.TOOL_SIMPLE_HAMMER:
+		return " — place objects"
+	if item_id == ItemIds.TOOL_BASIC_SHOVEL:
+		return " — dig clay, lay paths"
+	if item_id == ContentIds.ITEM_PLACEHOLDER_SEED_PACKET or item_id == ResourceIds.COMPONENT_SEED_PACKET:
+		return " — plant on tilled soil"
+	return ""
