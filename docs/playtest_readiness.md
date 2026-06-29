@@ -1,5 +1,19 @@
 # Playtest Readiness
 
+## Soften mailbox notes into village happenings (2026-06-29)
+
+- Copy-only pass: the mocked mailbox notes now read as in-world **village happenings**, not live
+  real-life integrations. "Community cookout Saturday" → "A village cookout is brewing"; "Creature
+  feed delivery arrived" → "A neighbor left a basket" (with cozy, low-pressure bodies). The
+  actionable tutorial notes (notice board, water the garden, harvest a carrot) are unchanged.
+- The real-life-task integration stays **aspirational/deferred** — no calendar/task APIs, no
+  external accounts, no synced/imported sources. Task ids, completion mechanics, and save/load are
+  unchanged (ids like `mock_cookout`/`mock_delivery` are internal, never player-facing).
+- Guarded by `validate_project.gd`: seeded mailbox copy must avoid external-integration wording
+  (synced/imported/delivery/Google/ClickUp/Gmail/productivity/real-life/etc.).
+- **Known placeholder (honest current state):** mailbox notes are cozy flavor + a few tutorial
+  nudges; they are not connected to any outside service.
+
 ## Teach "rest grows crops" at point of need (2026-06-29)
 
 - Copy-only pass making it unmissable that crops grow when the player rests at the **cottage door**.

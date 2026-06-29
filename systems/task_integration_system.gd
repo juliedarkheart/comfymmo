@@ -107,6 +107,10 @@ func mark_message_completed(message_id: String) -> bool:
 	_mailbox_message_state[normalized_id] = message_state
 	return true
 
+# The default mailbox notes are in-world "village happenings" — cozy, low-pressure prototype
+# flavor. They must NOT read as a live external integration (calendar/delivery/productivity app);
+# the real-life-task integration remains aspirational/deferred, not wired. Guarded by
+# validate_project.gd (mailbox copy must avoid external-integration wording).
 func _seed_default_tasks() -> void:
 	_mock_tasks = [
 		{
@@ -132,15 +136,15 @@ func _seed_default_tasks() -> void:
 		},
 		{
 			"id": ContentIds.TASK_COOKOUT,
-			"title": "Community cookout Saturday",
-			"body": "Bring something cozy to share at the village green.",
+			"title": "A village cookout is brewing",
+			"body": "Folks are planning a cozy cookout at the village green — bring something to share.",
 			"source": "mock",
 			"status": "upcoming",
 		},
 		{
 			"id": ContentIds.TASK_DELIVERY,
-			"title": "Creature feed delivery arrived",
-			"body": "Dani sent blueberries from the eastern meadows.",
+			"title": "A neighbor left a basket",
+			"body": "Dani dropped off blueberries by the lane, from the eastern meadows.",
 			"source": "mock",
 			"status": "new",
 		},

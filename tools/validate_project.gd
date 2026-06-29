@@ -3372,6 +3372,26 @@ func _initialize() -> void:
 			push_error("Content id mismatch: got '%s', expected '%s'" % [pair[0], pair[1]])
 			quit(1)
 			return
+
+	# Mailbox notes are in-world "village happenings" prototype flavor; their player-facing copy
+	# must never imply a live external integration (calendar/delivery/productivity app). The
+	# real-life-task integration stays aspirational/deferred, not wired.
+	var mailbox_probe: TaskIntegrationSystem = TaskIntegrationSystem.new()
+	get_root().add_child(mailbox_probe)
+	mailbox_probe.load_from_data({})
+	var banned_mailbox_phrases: Array[String] = [
+		"synced", "imported", "real-life", "real life", "real-world", "delivery",
+		"google", "clickup", "gmail", "external account", "productivity",
+	]
+	for mailbox_message in mailbox_probe.get_mailbox_messages():
+		var mailbox_copy: String = ("%s %s" % [String(mailbox_message.get("title", "")), String(mailbox_message.get("body", ""))]).to_lower()
+		for banned_phrase in banned_mailbox_phrases:
+			if mailbox_copy.contains(banned_phrase):
+				push_error("Mailbox note copy implies an external integration ('%s'): %s" % [banned_phrase, str(mailbox_message)])
+				mailbox_probe.queue_free()
+				quit(1)
+				return
+	mailbox_probe.queue_free()
 	if not ContentRegistry.items().has(ContentIds.ITEM_PLACEHOLDER_SEED_PACKET):
 		push_error("Seed packet item id is missing from ContentRegistry.items(), so quickbar assignment cannot plant seeds")
 		quit(1)
