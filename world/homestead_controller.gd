@@ -764,6 +764,86 @@ func _refresh_inventory_hud() -> void:
 		hud.call("set_materials_text", "%s · Tokens %d" % [_format_materials_text(), _crafting_get_count(ItemIds.QUEST_LAND_TOKEN)])
 	if hud.has_method("set_area_line"):
 		hud.call("set_area_line", _player_area_text())
+	if hud.has_method("set_task_hint"):
+		hud.call("set_task_hint", _compute_task_hint())
+
+# --- Gentle current-task HUD nudge ------------------------------------------
+# One short "Today: …" line pointing a new player at their next cozy step, derived
+# ENTIRELY from existing mailbox/farming/progress state — no quest system, no new
+# saved state. The base homestead only knows mailbox + farming; subclasses (the
+# overworld) add the Rowan/build milestones through the two hooks below.
+const _PLANTED_GROWING_STAGES: Array[String] = [
+	FarmingSystem.STAGE_PLANTED_SEED, FarmingSystem.STAGE_CROP_STAGE_1,
+	FarmingSystem.STAGE_CROP_STAGE_2, FarmingSystem.STAGE_PLANTED_DRY,
+	FarmingSystem.STAGE_PLANTED_WATERED,
+]
+
+func _compute_task_hint() -> String:
+	if task_integration_system != null and task_integration_system.has_unseen_mailbox_messages():
+		return "Today: Check the mailbox."
+	var active := _farming_active_hint()
+	if not active.is_empty():
+		return active
+	var milestone := _milestone_task_hint()
+	if not milestone.is_empty():
+		return milestone
+	var seedbed := _farming_seedbed_hint()
+	if not seedbed.is_empty():
+		return seedbed
+	var placing := _placing_task_hint()
+	if not placing.is_empty():
+		return placing
+	return "Today: Explore Hearthvale at your own pace."
+
+## Time-sensitive steps for crops already in the ground: harvest > water > rest.
+func _farming_active_hint() -> String:
+	var any_ready := false
+	var any_planted_dry := false
+	var any_growing_watered := false
+	for plot_id_variant in _farm_plots.keys():
+		var plot_id := String(plot_id_variant)
+		if farming_system.can_harvest(plot_id):
+			any_ready = true
+			continue
+		var state: Dictionary = farming_system.get_plot_state(plot_id)
+		if String(state.get("stage", FarmingSystem.STAGE_EMPTY)) in _PLANTED_GROWING_STAGES:
+			if bool(state.get("watered", false)):
+				any_growing_watered = true
+			else:
+				any_planted_dry = true
+	if any_ready:
+		return "Today: Harvest a carrot."
+	if any_planted_dry:
+		return "Today: Water a crop."
+	if any_growing_watered:
+		return "Today: Rest at the cottage door to grow crops."
+	return ""
+
+## Steps for plots not yet growing anything: plant a tilled bed, else till a fresh one.
+func _farming_seedbed_hint() -> String:
+	var any_tilled := false
+	var plot_count := 0
+	var empty_count := 0
+	for plot_id_variant in _farm_plots.keys():
+		var plot_id := String(plot_id_variant)
+		plot_count += 1
+		var stage := String(farming_system.get_plot_state(plot_id).get("stage", FarmingSystem.STAGE_EMPTY))
+		if stage == FarmingSystem.STAGE_TILLED_SOIL:
+			any_tilled = true
+		elif stage == FarmingSystem.STAGE_EMPTY:
+			empty_count += 1
+	if any_tilled:
+		return "Today: Plant seeds in tilled soil."
+	if plot_count > 0 and empty_count == plot_count:
+		return "Today: Till a garden plot."
+	return ""
+
+## Subclass hooks: the base homestead has neither Farmer Rowan nor land tokens.
+func _milestone_task_hint() -> String:
+	return ""
+
+func _placing_task_hint() -> String:
+	return ""
 
 ## Player XP for the HUD level readout (server value when connected).
 func _player_xp_for_hud() -> int:

@@ -76,6 +76,13 @@ theme_override_colors/font_color = Color(0.972549, 0.870588, 0.603922, 1)
 theme_override_font_sizes/font_size = 15
 text = "Hearthvale"
 
+[node name="TaskHintLabel" type="Label" parent="Panel/Rows"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.992157, 0.886275, 0.623529, 1)
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
+text = "Today: Check the mailbox."
+
 [node name="DayRow" type="HBoxContainer" parent="Panel/Rows"]
 layout_mode = 2
 theme_override_constants/separation = 8

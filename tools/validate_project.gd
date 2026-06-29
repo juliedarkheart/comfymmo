@@ -3105,11 +3105,28 @@ func _initialize() -> void:
 		return
 	get_root().add_child(prototype_hud)
 	await process_frame
-	for required_method in ["set_identity_line", "set_area_line", "set_mode_text", "set_materials_text", "set_time_phase"]:
+	for required_method in ["set_identity_line", "set_area_line", "set_mode_text", "set_materials_text", "set_time_phase", "set_task_hint"]:
 		if not prototype_hud.has_method(required_method):
 			push_error("Prototype HUD is missing method '%s'" % required_method)
 			quit(1)
 			return
+	# Gentle current-task nudge: set_task_hint must render a visible "Today: …" line (and an
+	# empty hint hides it), so a first-time player always has a readable next step.
+	var task_hint_label: Label = prototype_hud.get_node_or_null("Panel/Rows/TaskHintLabel") as Label
+	if task_hint_label == null:
+		push_error("Prototype HUD is missing the TaskHintLabel current-task nudge")
+		quit(1)
+		return
+	prototype_hud.call("set_task_hint", "Today: Check the mailbox.")
+	if not task_hint_label.visible or not task_hint_label.text.begins_with("Today:"):
+		push_error("HUD task hint did not show the 'Today: …' nudge (visible=%s text=%s)" % [task_hint_label.visible, task_hint_label.text])
+		quit(1)
+		return
+	prototype_hud.call("set_task_hint", "")
+	if task_hint_label.visible:
+		push_error("HUD task hint should hide when the nudge is empty")
+		quit(1)
+		return
 	# The "Day N | <phase>" header must be synced to the real day-night clock (set_time_phase),
 	# so it never contradicts the area line's clock readout (e.g. "Afternoon" vs "Morning 7:57 am").
 	if not FileAccess.get_file_as_string("res://world/overworld_controller.gd").contains("set_time_phase"):

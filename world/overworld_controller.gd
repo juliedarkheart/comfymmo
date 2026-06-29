@@ -170,6 +170,10 @@ func _process(delta: float) -> void:
 	# header reading "Afternoon" while the clock says "Morning 7:57 am").
 	if _day_night != null and hud.has_method("set_time_phase"):
 		hud.call("set_time_phase", _day_night.phase_label())
+	# Refresh the gentle "Today: …" nudge here too, so it tracks mailbox/farming/rest
+	# actions that don't touch the inventory HUD (watering, resting, opening the mailbox).
+	if hud.has_method("set_task_hint"):
+		hud.call("set_task_hint", _compute_task_hint())
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_minimap"):
@@ -767,6 +771,18 @@ func _player_owns_any_plot() -> bool:
 		if String((plot_state as Dictionary).get("owner_profile_id", "")) == profile_id:
 			return true
 	return false
+
+## HUD nudge hooks (see HomesteadController._compute_task_hint). The first milestone is
+## meeting Farmer Rowan for the Land Token; once the player holds one, gently suggest building.
+func _milestone_task_hint() -> String:
+	if not bool(save_system.get_overworld_flag(ROWAN_TOKEN_FLAG, false)):
+		return "Today: Talk to Rowan."
+	return ""
+
+func _placing_task_hint() -> String:
+	if _crafting_get_count(ItemIds.QUEST_LAND_TOKEN) > 0:
+		return "Today: Try placing something cozy."
+	return ""
 
 ## The plot id the active profile owns, preferring the one under the player's
 ## feet (so /invite targets the right lot when they own several); "" if none.

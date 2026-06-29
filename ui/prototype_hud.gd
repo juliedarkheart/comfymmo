@@ -1,5 +1,6 @@
 extends CanvasLayer
 
+@onready var _task_hint_label: Label = $Panel/Rows/TaskHintLabel
 @onready var _day_label: Label = $Panel/Rows/DayRow/DayLabel
 @onready var _comfort_label: Label = $Panel/Rows/ComfortRow/ComfortLabel
 @onready var _carrot_label: Label = $Panel/Rows/InvRow/CarrotLabel
@@ -44,7 +45,8 @@ func _ready() -> void:
 func _compose_card() -> void:
 	_enable_row_icon("Panel/Rows/DayRow/DayIcon", 18)
 	_enable_row_icon("Panel/Rows/ComfortRow/ComfortIcon", 18)
-	_insert_hud_divider_after(get_node_or_null("Panel/Rows/TitleLabel"))
+	# Divider sits BELOW the title + "Today: …" nudge so they group as a header/call-to-action.
+	_insert_hud_divider_after(_task_hint_label if _task_hint_label != null else get_node_or_null("Panel/Rows/TitleLabel"))
 	_insert_hud_divider_after(_materials_label)
 
 func _enable_row_icon(path: String, px: int) -> void:
@@ -100,7 +102,7 @@ func _apply_style() -> void:
 	CozyUITheme.apply_secondary_label(_mode_label, 11)
 	# The area + controls lines are the longest; wrap them inside the panel so they never
 	# clip past the border on the fixed-width compact card (300px) regardless of skin.
-	for wrap_label in [_area_label, _controls_label, _mode_label]:
+	for wrap_label in [_area_label, _controls_label, _mode_label, _task_hint_label]:
 		if wrap_label != null:
 			wrap_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
@@ -162,6 +164,15 @@ func set_identity_line(text: String) -> void:
 func set_area_line(text: String) -> void:
 	if _area_label != null:
 		_area_label.text = text
+
+## Gentle one-line current-task nudge ("Today: …") shown under the title. The controller
+## recomputes it from existing mailbox/farming/progress state; an empty string hides the line.
+func set_task_hint(text: String) -> void:
+	if _task_hint_label == null:
+		return
+	var hint := String(text).strip_edges()
+	_task_hint_label.text = hint
+	_task_hint_label.visible = not hint.is_empty()
 
 func set_mood(mood_id: String) -> void:
 	_mood_display = WorldMood.display_name(mood_id)

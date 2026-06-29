@@ -1,5 +1,21 @@
 # Playtest Readiness
 
+## Gentle current-task HUD nudge (2026-06-29)
+
+- The HUD status card now shows one short **"Today: …"** line under the title that points a
+  first-time player at their next cozy step. It is derived entirely from existing
+  mailbox/farming/progress state — **not a quest system, tracker, tutorial framework, or new
+  saved state** — and updates live (refreshed on the throttled HUD tick + inventory refresh).
+- Priority order (first match wins): unseen mailbox → "Check the mailbox"; a ready crop →
+  "Harvest a carrot"; a dry planted crop → "Water a crop"; a watered, growing crop → "Rest at the
+  cottage door to grow crops"; Land Token not yet earned → "Talk to Rowan"; a tilled bed →
+  "Plant seeds in tilled soil"; all plots empty → "Till a garden plot"; holding a token →
+  "Try placing something cozy"; otherwise "Explore Hearthvale at your own pace."
+- Implementation: `HomesteadController._compute_task_hint()` (+ `_farming_active_hint` /
+  `_farming_seedbed_hint`) with `_milestone_task_hint` / `_placing_task_hint` hooks the overworld
+  overrides for the Rowan/build steps; `PrototypeHud.set_task_hint()` renders the line (empty hint
+  hides it). Verified by `validate_project.gd` (HUD `set_task_hint` + visible "Today:" line).
+
 ## First 5 Minutes Player Flow Polish pass (2026-06-28)
 
 - Test first: read the opening welcome, check the mailbox by the cottage, select hotbar tools, farm one plot, gather one material, talk to Farmer Rowan, read a plot sign, and open the minimap.
