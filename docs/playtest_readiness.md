@@ -1,5 +1,11 @@
 # Playtest Readiness
 
+## First 5 Minutes Player Flow Polish pass (2026-06-28)
+
+- Test first: read the opening welcome, check the mailbox by the cottage, select hotbar tools, farm one plot, gather one material, talk to Farmer Rowan, read a plot sign, and open the minimap.
+- Clearer now: the opening copy names where you are, prompts identify boards/signs/plots, farming/gathering/build feedback says what happened and what to try next, and Rowan/Clerk Hazel/Neighborhood copy connect Land Tokens, plot signs, building, and the minimap.
+- Still intentionally out of scope: no quest tracker, tutorial framework, crafting/shop/economy/progression/combat additions, major HUD redesign, or new save/load behavior.
+
 ## Inventory / Hotbar readability polish pass (2026-06-27)
 
 - Selected hotbar item now names what you are holding and, where useful, gives a tiny purpose hint.

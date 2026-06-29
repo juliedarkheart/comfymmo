@@ -111,22 +111,22 @@ func _seed_default_tasks() -> void:
 	_mock_tasks = [
 		{
 			"id": ContentIds.TASK_GROCERIES,
-			"title": "Pick up groceries",
-			"body": "Rosie left a list at the market board.",
+			"title": "Read the village notice board",
+			"body": "Head east to the village square when you are ready to meet the town.",
 			"source": "mock",
 			"status": "pending",
 		},
 		{
 			"id": WATER_GARDEN_TASK_ID,
 			"title": "Water the garden",
-			"body": "A quick drink for the farm plot — it'll thank you!",
+			"body": "Select the Watering Can on the hotbar, then press F at a planted crop.",
 			"source": "mock",
 			"status": "pending",
 		},
 		{
 			"id": HARVEST_CARROT_TASK_ID,
 			"title": "Harvest a carrot",
-			"body": "Pick a ripe carrot from the farm plot.",
+			"body": "When a crop says it is ready, press F and check your inventory.",
 			"source": "mock",
 			"status": "pending",
 		},
@@ -160,7 +160,7 @@ func _ensure_default_task_present() -> void:
 		_mock_tasks.append({
 			"id": WATER_GARDEN_TASK_ID,
 			"title": "Water the garden",
-			"body": "A quick drink for the farm plot — it'll thank you!",
+			"body": "Select the Watering Can on the hotbar, then press F at a planted crop.",
 			"source": "mock",
 			"status": "pending",
 		})
@@ -169,7 +169,7 @@ func _ensure_default_task_present() -> void:
 		_mock_tasks.append({
 			"id": HARVEST_CARROT_TASK_ID,
 			"title": "Harvest a carrot",
-			"body": "Pick a ripe carrot from the farm plot.",
+			"body": "When a crop says it is ready, press F and check your inventory.",
 			"source": "mock",
 			"status": "pending",
 		})

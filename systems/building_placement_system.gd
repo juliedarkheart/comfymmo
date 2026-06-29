@@ -159,7 +159,7 @@ func _enter_placement_mode() -> void:
 	_interaction_mode = InteractionMode.PLACEMENT
 	_current_tile = map.world_to_grid(map.get_global_mouse_position())
 	_spawn_preview()
-	_set_edit_feedback("Move your mouse to choose a spot, then click to place.", false)
+	_set_edit_feedback("Pick a clear spot nearby, then click to place.", false)
 	_emit_decorating_mode_changed()
 	_emit_mode_label_changed()
 
@@ -427,8 +427,12 @@ func _current_plots_state() -> Dictionary:
 	return {}
 
 func _try_place_active_object() -> void:
-	if not _is_valid_placement(_current_tile):
+	var placement_result: Dictionary = _get_active_place_result(_current_tile)
+	if not bool(placement_result.get("valid", false)):
+		var friendly_reason: String = _friendly_place_reason(String(placement_result.get("reason", "")))
 		_update_preview_state()
+		_set_edit_feedback(friendly_reason, true)
+		_refresh_edit_toolbar()
 		return
 
 	# Connected to a server: placement is server-authoritative. Send a request;
@@ -1019,11 +1023,33 @@ func _set_edit_feedback(text: String, is_error: bool) -> void:
 	_edit_feedback_text = text
 	_edit_feedback_is_error = is_error
 
+func _friendly_place_reason(reason_text: String) -> String:
+	var reason: String = reason_text.strip_edges()
+	match reason:
+		"":
+			return "Pick a clear spot nearby."
+		"Out of bounds":
+			return "Pick a spot inside the playable area."
+		"Reserved spawn":
+			return "Keep the arrival spot clear. Pick a nearby tile."
+		"Occupied":
+			return "That spot is occupied. Pick a clear spot nearby."
+		"Blocked", "Blocked by cottage", "Blocked by tree", "Blocked by fence":
+			return "%s. Pick a clear spot nearby." % reason
+		_:
+			if reason.begins_with("Needs "):
+				return "%s. Gather more materials or check inventory." % reason
+			if reason.begins_with("Requires "):
+				return "%s. Select or craft the right tool first." % reason
+			if reason.find("permission") >= 0 or reason.find("owner") >= 0 or reason.find("plot") >= 0:
+				return "%s. Claim a plot first, then build inside it." % reason
+			return reason
+
 func _show_world_space_hint(is_valid: bool, reason_text: String, world_position: Vector2) -> void:
 	if _world_space_hint == null:
 		return
 
-	var text: String = "Click to place" if is_valid else reason_text if not reason_text.is_empty() else "Blocked"
+	var text: String = "Click to place" if is_valid else _friendly_place_reason(reason_text)
 	_world_space_hint.show_hint(text, is_valid, world_position)
 
 func _hide_world_space_hint() -> void:

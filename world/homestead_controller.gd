@@ -590,7 +590,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 	match plot_stage:
 		FarmingSystem.STAGE_EMPTY:
 			if selected_item_id != ItemIds.TOOL_WORN_HOE:
-				_announce("Need Worn Hoe equipped to till this plot.")
+				_announce("Select Worn Hoe on the hotbar, then press F to till this soil.")
 				return
 			if farming_system.till_plot(interactable_id):
 				interaction_result = {"changed": true, "action": "till"}
@@ -603,14 +603,14 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 					return
 			elif _is_seed_item(selected_item_id):
 				if inventory_system.get_quantity(selected_item_id) < 1:
-					_announce("Need a Seed Packet in your inventory.")
+					_announce("No Seed Packets left. Check inventory or gather more seeds.")
 					return
 				var crop_id: String = _plot_crop_id(interactable_id)
 				if not farming_system.can_plant(interactable_id, crop_id):
 					_announce("Seeds need tilled soil.")
 					return
 				if not inventory_system.remove_item(selected_item_id, 1):
-					_announce("Need a Seed Packet in your inventory.")
+					_announce("No Seed Packets left. Check inventory or gather more seeds.")
 					return
 				if farming_system.plant_seed(interactable_id, crop_id):
 					interaction_result = {"changed": true, "action": "plant", "seed_id": selected_item_id}
@@ -619,14 +619,14 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 					_announce("This plot is not ready for seeds yet.")
 					return
 			else:
-				_announce("Equip a Seed Packet to plant, or Watering Can to water.")
+				_announce("Use Seed Packet to plant, or Watering Can to water this soil.")
 				return
 		FarmingSystem.STAGE_PLANTED_SEED, FarmingSystem.STAGE_CROP_STAGE_1, FarmingSystem.STAGE_CROP_STAGE_2:
 			if bool(plot_state.get("watered", false)):
 				_announce("Already watered! Rest at the cottage to help it grow.")
 				return
 			if selected_item_id != ItemIds.TOOL_WATERING_CAN:
-				_announce("Need Watering Can equipped to water this crop.")
+				_announce("Select Watering Can on the hotbar, then press F to water this crop.")
 				return
 			if farming_system.water_plot(interactable_id):
 				interaction_result = {"changed": true, "action": "water"}
@@ -653,7 +653,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 		"plant":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
 			var planted_seed_id: String = String(interaction_result.get("seed_id", ContentIds.ITEM_PLACEHOLDER_SEED_PACKET))
-			_announce("Planted %s — -1 %s." % [_crop_label(_plot_crop_id(interactable_id)), _item_label(planted_seed_id)])
+			_announce("Planted %s — -1 %s. Water it next." % [_crop_label(_plot_crop_id(interactable_id)), _item_label(planted_seed_id)])
 		"water":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
 			_announce("Watered! Rest at the cottage to help it grow.")
@@ -669,7 +669,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 		if object_registry.get_item_definition(harvested_crop_id).is_empty():
 			harvested_crop_id = CARROT_ITEM_ID
 		inventory_system.add_item(harvested_crop_id, 1)
-		_announce("+1 %s! (now %d in inventory)" % [_crop_label(harvested_crop_id), inventory_system.get_quantity(harvested_crop_id)])
+		_announce("Harvested +1 %s. Check inventory: now x%d." % [_crop_label(harvested_crop_id), inventory_system.get_quantity(harvested_crop_id)])
 		if task_integration_system.mark_message_completed(
 			TaskIntegrationSystem.HARVEST_CARROT_TASK_ID
 		):
@@ -1080,11 +1080,11 @@ func _on_interior_closed() -> void:
 func _open_help_panel() -> void:
 	_open_observe_panel(
 		"Hearthvale — Getting Started",
-		"New to Hearthvale? Here's your first cozy loop:\n\n"
-		+ "1  Gather: walk up to wood piles, stones, fiber, or clay and press F.\n"
-		+ "2  Farm: select a tool with number keys 1-9 — Hoe tills, Seed Packet plants, Watering Can waters, then harvest mature crops with F.\n"
-		+ "3  Check your mailbox (by the cottage) for today's tasks.\n"
-		+ "4  Talk to Farmer Rowan — she'll give you a Land Token.\n\n"
+		"Welcome to Hearthvale. Start small and follow the prompts near you:\n\n"
+		+ "1  Check the mailbox by the cottage for today's note.\n"
+		+ "2  Use the hotbar (1-9): Hoe tills, Seed Packet plants, Watering Can waters.\n"
+		+ "3  Gather wood, stone, fiber, or clay with F when a prompt appears.\n"
+		+ "4  Talk to Farmer Rowan for a Land Token, then read plot signs to claim land.\n\n"
 		+ "——— Full Controls ———\n\n"
 		+ "Move: WASD / Arrow keys\n"
 		+ "Interact / talk / gather / claim: F\n"
@@ -1094,7 +1094,7 @@ func _open_help_panel() -> void:
 		+ "Chat Enter | Profile F8 | Wardrobe F9 | Admin F7 | Fullscreen F11\n"
 		+ "System menu: Esc when no other panel is open\n\n"
 		+ "Esc closes any open panel first; with nothing open it opens the system menu.\n\n"
-		+ "Craft tools (K) from gathered materials. Claim a plot at a plot sign, then build (B). Talk to Farmer Rowan for help."
+		+ "Open the minimap (M) to see landmarks. Build (B) after you claim a plot."
 	)
 
 # _mark_input_handled() is inherited from OutdoorAreaController.

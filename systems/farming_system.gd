@@ -81,19 +81,19 @@ func get_plot_prompt(plot_id: String) -> String:
 	var crop_name: String = _crop_display_name(crop_id)
 	match stage:
 		STAGE_EMPTY:
-			return "Equip Worn Hoe + F to till"
+			return "Select Worn Hoe on hotbar + F to till soil"
 		STAGE_TILLED_SOIL:
-			return "Equip Seed Packet + F to plant %s" % crop_name
+			return "Select Seed Packet + F to plant %s" % crop_name
 		STAGE_PLANTED_SEED, STAGE_CROP_STAGE_1, STAGE_CROP_STAGE_2:
 			if bool(plot_state.get("watered", false)):
-				return "Watered! Rest at the cottage to help it grow."
-			return "Equip Watering Can + F to water"
+				return "Watered! Rest at cottage to grow."
+			return "Select Watering Can + F to water crop"
 		STAGE_CROP_STAGE_3:
 			return "Ready! Press F to harvest %s" % crop_name
 		STAGE_PLANTED_DRY:
-			return "Equip Watering Can + F to water"
+			return "Select Watering Can + F to water crop"
 		STAGE_PLANTED_WATERED:
-			return "Watered! Rest at the cottage to help it grow."
+			return "Watered! Rest at cottage to grow."
 		STAGE_GROWN:
 			return "Ready! Press F to harvest %s" % crop_name
 		_:

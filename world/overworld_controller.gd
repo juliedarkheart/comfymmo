@@ -451,7 +451,7 @@ func _spawn_village_content(player: AvatarController) -> void:
 
 	var notice: Node2D = _build_notice_marker(c + Vector2(176, 160))
 	register_world_interactable(
-		"ow_notice", notice, ContentIds.INTERACTION_NOTICE_BOARD, "Press F to read notice board",
+		"ow_notice", notice, ContentIds.INTERACTION_NOTICE_BOARD, "Press F to read Village Notice Board",
 		_open_notice_board
 	)
 
@@ -620,10 +620,10 @@ func _handle_gather(node_id: String) -> void:
 	# inventory_changed handler), with a non-modal toast in the chat log.
 	var required_tool: String = node.get_required_tool()
 	if not required_tool.is_empty() and inventory_system.get_quantity(required_tool) < 1:
-		_chat_toast("Requires %s (craft one with K)." % ItemIds.display_name(required_tool))
+		_chat_toast("Select or craft %s first (K opens crafting)." % ItemIds.display_name(required_tool))
 		return
 	if not node.is_ready():
-		_chat_toast("This spot is still recovering (%ds)." % node.remaining_seconds())
+		_chat_toast("This spot is resting. Try another gather spot for %ds." % node.remaining_seconds())
 		return
 	var result: Dictionary = node.roll_yield(_gather_rng)
 	var material_id: String = String(result.get("material_id", ""))
@@ -631,7 +631,7 @@ func _handle_gather(node_id: String) -> void:
 	inventory_system.add_item(material_id, amount)
 	node.start_cooldown()
 	_grant_xp(ProgressionRegistry.skill_for_material(material_id), 2, 1)
-	_chat_toast("+%d %s (now x%d)" % [amount, ResourceIds.display_name(material_id), inventory_system.get_quantity(material_id)])
+	_chat_toast("Gathered +%d %s. Inventory now x%d." % [amount, ResourceIds.display_name(material_id), inventory_system.get_quantity(material_id)])
 
 func _chat_toast(text: String) -> void:
 	if _chat_panel != null and _chat_panel.has_method("add_system_line"):
@@ -708,7 +708,7 @@ func _setup_landing_area() -> void:
 	var board: Node2D = _make_sign(map.grid_to_world(Vector2i(9, 12)), Color("#e8a0b4"))
 	register_world_interactable(
 		"landing_welcome_board", board, ContentIds.INTERACTION_GENERIC,
-		"Press F to read the welcome board", _read_welcome_board
+		"Press F to read Welcome Board", _read_welcome_board
 	)
 
 	var rowan: SimpleVillager = SimpleVillager.new()
@@ -725,11 +725,11 @@ func _setup_landing_area() -> void:
 func _read_welcome_board() -> void:
 	_open_observe_panel(
 		"Welcome to Hearthvale Landing",
-		"Farmer Rowan's training farm is your safe place to learn before claiming a plot.\n\n"
+		"You are at Farmer Rowan's training farm — the safe place to learn before claiming a plot.\n\n"
 		+ "Move: WASD | Interact/gather: F | Inventory I | Craft K\n"
 		+ "Build B | Edit E | Map M | Help H | Menu Esc\n\n"
-		+ "Plot signs east and north mark claimable lots. Talk to Farmer Rowan for a Land Token, "
-		+ "then press F at a sign to claim it. The village square east of here has town stalls and a notice board."
+		+ "Try next: check the mailbox, pick a hotbar tool, farm a plot, or gather materials. "
+		+ "Plot signs east and north mark claimable lots. The village square east of here has Clerk Hazel and the notice board."
 	)
 
 ## Rowan's staged tutorial: each talk reads your actual progress and gives the
@@ -740,12 +740,11 @@ func _talk_rowan() -> void:
 	if not bool(save_system.get_overworld_flag(ROWAN_TOKEN_FLAG, false)):
 		save_system.set_overworld_flag(ROWAN_TOKEN_FLAG, true)
 		inventory_system.add_item(ItemIds.QUEST_LAND_TOKEN, 1)
-		_chat_toast("Farmer Rowan gave you +1 Land Token!")
+		_chat_toast("+1 Land Token. Try a plot sign east or north when you're ready.")
 		_open_observe_panel("Farmer Rowan",
-			"Welcome to Hearthvale, neighbor! This is my training farm — practice anything here. "
-			+ "Start by gathering: branches, pebbles, fiber, and that soft clay by the fence, all bare-handed. "
-			+ "Press K to craft your tools if you ever lose them. And take this Land Token — "
-			+ "when you've found your feet, claim a lot at the plot signs east of here.")
+			"Welcome to Hearthvale, neighbor. This is the training farm — a safe place to try tools, crops, and building. "
+			+ "Start with the mailbox, then gather branches, pebbles, fiber, or clay when a prompt appears. "
+			+ "Take this Land Token; when you're ready, read a plot sign east or north to claim land of your own.")
 		return
 	if inventory_system.get_quantity(ItemIds.TOOL_WORN_AXE) < 1:
 		_open_observe_panel("Farmer Rowan",
@@ -800,7 +799,7 @@ func _setup_plot_markers() -> void:
 	var entrance: Node2D = _make_plot_sign(map.grid_to_world(Vector2i(16, 18)), "Hearthvale Neighborhood", Color("#e8c060"))
 	register_world_interactable(
 		"neighborhood_entrance", entrance, ContentIds.INTERACTION_GENERIC,
-		"Press F to read the neighborhood board", _read_neighborhood_board
+		"Press F to read Neighborhood Board", _read_neighborhood_board
 	)
 	for plot_id_variant in LandRegistry.definitions().keys():
 		var plot_id: String = String(plot_id_variant)
@@ -837,7 +836,7 @@ func _spawn_plot_furniture(plot_id: String) -> void:
 	)
 	register_world_interactable(
 		"plot_marker_%s" % plot_id, marker, ContentIds.INTERACTION_GENERIC,
-		"Press F to view %s" % String(plot.get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
+		"Press F to view/claim %s" % String(plot.get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
 	)
 	var ground: Node2D = map.call("paint_plot_ground", plot) if map.has_method("paint_plot_ground") else null
 	_plot_furniture[plot_id] = {"container": container, "ground": ground}
@@ -950,11 +949,9 @@ func _decor_flowers(parent: Node2D, world_pos: Vector2) -> void:
 func _read_neighborhood_board() -> void:
 	_open_observe_panel(
 		"Hearthvale Neighborhood",
-		"Homestead lots for cozy folk! Each lot is a full yard — room for a cottage shell, garden, shed, "
-		+ "fences, paths and decor. Walk up to a lot's sign and press F to Claim it (one Land Token; "
-		+ "Farmer Rowan hands those out). Lots are marked by corner posts and a boundary. "
-		+ "Own one? Build anywhere inside it (B), and /invite <username> a friend on a server. "
-		+ "Open the minimap (M) to find your way around."
+		"These are claimable homestead plots — room for a cottage shell, garden, shed, fences, paths, and decor. "
+		+ "Read a lot sign and choose Claim (one Land Token from Farmer Rowan). "
+		+ "Once you own one, press B to place objects inside its boundary. Open the minimap (M) to find landmarks."
 	)
 
 ## Draw corner posts + a soft boundary outline so a plot reads as a real yard.
@@ -1063,7 +1060,7 @@ func _talk_land_clerk() -> void:
 	for plot_id in LandRegistry.definitions().keys():
 		lines.append("· %s" % LandClaimSystem.describe(String(plot_id), plots))
 	lines.append("")
-	lines.append("To claim: walk to a plot sign (the blue-ribbon posts east and north) and press F — a panel will let you Claim it. One token each. Town and Rowan's farm stay public. Own a plot? Share it with /invite <username> on a server.")
+	lines.append("To claim: walk to a plot sign east or north, press F, then choose Claim. One Land Token each. Town and Rowan's farm stay public. Own a plot? Build there with B; server friends can be invited with /invite <username>.")
 	_open_observe_panel("Clerk Hazel — Land Office", "\n".join(lines))
 
 ## Plot sign interaction: opens the land panel with full info + a Claim button.
@@ -2074,11 +2071,10 @@ func _show_welcome_if_first_boot() -> void:
 	save_system.set_overworld_flag("welcome_seen", true)
 	_open_observe_panel(
 		"Welcome to Hearthvale",
-		"Your cozy homestead is ready! Here's how to get started:\n\n"
-		+ "Gather materials: walk up to wood piles, stone outcrops, fiber tufts, or clay patches and press F.\n\n"
-		+ "Try farming: use the quickbar (number keys 1-9) to select the Hoe, till a plot, plant seeds, and water.\n\n"
-		+ "Check your mailbox — it's by the cottage with today's tasks.\n\n"
-		+ "Press H anytime for the full control list. Press Esc to open the menu."
+		"You are at Farmer Rowan's training farm. Start with the mailbox by the cottage for today's note.\n\n"
+		+ "Use the hotbar (1-9) to pick a tool: Hoe tills soil, Seed Packet plants, Watering Can waters.\n\n"
+		+ "When a prompt appears, press F to talk, read signs, gather materials, or harvest crops.\n\n"
+		+ "Try next: check mailbox, farm a plot, gather materials, then talk to Rowan. Press H for help or M for the minimap."
 	)
 
 func _build_notice_marker(world_pos: Vector2) -> Node2D:
