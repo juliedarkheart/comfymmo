@@ -623,7 +623,7 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 				return
 		FarmingSystem.STAGE_PLANTED_SEED, FarmingSystem.STAGE_CROP_STAGE_1, FarmingSystem.STAGE_CROP_STAGE_2:
 			if bool(plot_state.get("watered", false)):
-				_announce("Already watered! Rest at the cottage to help it grow.")
+				_announce("Already watered. Rest at the cottage door to grow it.")
 				return
 			if selected_item_id != ItemIds.TOOL_WATERING_CAN:
 				_announce("Select Watering Can on the hotbar, then press F to water this crop.")
@@ -653,10 +653,10 @@ func _handle_farm_plot_interaction(interactable_id: String) -> void:
 		"plant":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
 			var planted_seed_id: String = String(interaction_result.get("seed_id", ContentIds.ITEM_PLACEHOLDER_SEED_PACKET))
-			_announce("Planted %s — -1 %s. Water it next." % [_crop_label(_plot_crop_id(interactable_id)), _item_label(planted_seed_id)])
+			_announce("Planted %s — -1 %s. Water it, then rest at the cottage door to grow it." % [_crop_label(_plot_crop_id(interactable_id)), _item_label(planted_seed_id)])
 		"water":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 1, 0)
-			_announce("Watered! Rest at the cottage to help it grow.")
+			_announce("Crop watered. Rest at the cottage door to let it grow.")
 		"harvest":
 			_grant_xp(ProgressionRegistry.SKILL_FARMING, 5, 2)
 	if not bool(interaction_result.get("changed", false)):
@@ -1053,7 +1053,7 @@ func _open_rest_panel() -> void:
 		hud.call(
 			"show_message_panel",
 			"Rest for a while?",
-			"The cottage feels warm and quiet.",
+			"The cottage feels warm and quiet. Resting passes time and grows your watered crops.",
 			"F = Rest   Esc = Cancel"
 		)
 

@@ -55,6 +55,8 @@ func _initialize() -> void:
 	var prompt_watered: String = prompt_plot.get_plot_prompt("prompt_plot")
 	ok = _expect(not prompt_watered.is_empty(), "watered plot prompt is not empty") and ok
 	ok = _expect(prompt_watered.contains("Watered") or prompt_watered.contains("watered"), "watered prompt mentions watered state") and ok
+	# Teach the growth rule at point of need: a watered, growing crop must point the player at resting.
+	ok = _expect(prompt_watered.contains("rest") or prompt_watered.contains("Rest"), "watered prompt teaches that resting grows the crop") and ok
 
 	# Grow to mature
 	prompt_plot.grow_plot("prompt_plot", true)

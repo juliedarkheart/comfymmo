@@ -1,5 +1,19 @@
 # Playtest Readiness
 
+## Teach "rest grows crops" at point of need (2026-06-29)
+
+- Copy-only pass making it unmissable that crops grow when the player rests at the **cottage door**.
+  No mechanics change. Updated feedback: planting now says "Water it, then rest at the cottage door
+  to grow it."; watering says "Crop watered. Rest at the cottage door to let it grow."; interacting
+  with an already-watered, growing crop says "Already watered. Rest at the cottage door to grow it.";
+  the watered plot prompt reads "Watered! Rest at the cottage door to grow."; and the rest
+  confirmation panel now notes "Resting passes time and grows your watered crops."
+- The "Today:" HUD nudge already used the matching "Rest at the cottage door to grow crops." line, so
+  all farming/rest copy now reinforces the same rule. `smoke_homestead_loop.gd` asserts the watered
+  prompt mentions resting.
+- **Tester check:** confirm that planting and watering clearly teach that crops grow by resting at the
+  cottage door (the message should appear at the moment of planting/watering, not only in Help).
+
 ## Gentle current-task HUD nudge (2026-06-29)
 
 - The HUD status card now shows one short **"Today: …"** line under the title that points a
