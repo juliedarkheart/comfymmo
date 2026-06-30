@@ -3136,6 +3136,24 @@ func _initialize() -> void:
 		push_error("HUD task hint did not show the 'Today: …' nudge (visible=%s text=%s)" % [task_hint_label.visible, task_hint_label.text])
 		quit(1)
 		return
+	var overworld_source: String = FileAccess.get_file_as_string("res://world/overworld_controller.gd")
+	if not overworld_source.contains("+1 Land Token. Use it at a plot sign"):
+		push_error("Rowan Land Token reward copy must point to a plot sign")
+		quit(1)
+		return
+	if not overworld_source.contains("Today: Claim a plot sign."):
+		push_error("HUD handoff must nudge Land Token holders to claim a plot sign")
+		quit(1)
+		return
+	if not overworld_source.contains("Press B and place something cozy inside your plot"):
+		push_error("Claim success copy must mention placing inside the claimed plot")
+		quit(1)
+		return
+	var building_source: String = FileAccess.get_file_as_string("res://systems/building_placement_system.gd")
+	if not building_source.contains("Claim a plot sign before building here."):
+		push_error("Building failure copy must tell players to claim a plot sign first")
+		quit(1)
+		return
 	prototype_hud.call("set_task_hint", "")
 	if task_hint_label.visible:
 		push_error("HUD task hint should hide when the nudge is empty")

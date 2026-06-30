@@ -787,12 +787,12 @@ func _compute_task_hint() -> String:
 	var milestone := _milestone_task_hint()
 	if not milestone.is_empty():
 		return milestone
-	var seedbed := _farming_seedbed_hint()
-	if not seedbed.is_empty():
-		return seedbed
 	var placing := _placing_task_hint()
 	if not placing.is_empty():
 		return placing
+	var seedbed := _farming_seedbed_hint()
+	if not seedbed.is_empty():
+		return seedbed
 	return "Today: Explore Hearthvale at your own pace."
 
 ## Time-sensitive steps for crops already in the ground: harvest > water > rest.

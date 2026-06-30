@@ -744,11 +744,11 @@ func _talk_rowan() -> void:
 	if not bool(save_system.get_overworld_flag(ROWAN_TOKEN_FLAG, false)):
 		save_system.set_overworld_flag(ROWAN_TOKEN_FLAG, true)
 		inventory_system.add_item(ItemIds.QUEST_LAND_TOKEN, 1)
-		_chat_toast("+1 Land Token. Try a plot sign east or north when you're ready.")
+		_chat_toast("+1 Land Token. Use it at a plot sign, then build inside your claimed plot.")
 		_open_observe_panel("Farmer Rowan",
 			"Welcome to Hearthvale, neighbor. This is the training farm — a safe place to try tools, crops, and building. "
 			+ "Start with the mailbox, then gather branches, pebbles, fiber, or clay when a prompt appears. "
-			+ "Take this Land Token; when you're ready, read a plot sign east or north to claim land of your own.")
+			+ "Take this Land Token; it lets you claim one small plot. Read a plot sign east or north, claim it, then build inside the marked space.")
 		return
 	if inventory_system.get_quantity(ItemIds.TOOL_WORN_AXE) < 1:
 		_open_observe_panel("Farmer Rowan",
@@ -758,7 +758,7 @@ func _talk_rowan() -> void:
 	if not _player_owns_any_plot():
 		_open_observe_panel("Farmer Rowan",
 			"You're handling those tools well! Chop the marked trees for proper wood, mine the boulder out east with a pickaxe. "
-			+ "When you're ready for land of your own, take your token to a plot sign — Meadow Lots east, Orchard Lots north.")
+			+ "Claim a plot sign first — Meadow Lots east, Orchard Lots north. Once it's yours, try placing something cozy inside it.")
 		return
 	_open_observe_panel("Farmer Rowan",
 		"Look at you, a landholder! Build something cozy on your lot — walls, a shed, even a cottage shell. "
@@ -780,8 +780,13 @@ func _milestone_task_hint() -> String:
 	return ""
 
 func _placing_task_hint() -> String:
+	if _player_owns_any_plot():
+		if building_placement_system != null and building_placement_system.has_method("has_placed_objects"):
+			if bool(building_placement_system.call("has_placed_objects")):
+				return ""
+		return "Today: Place something cozy inside your plot."
 	if _crafting_get_count(ItemIds.QUEST_LAND_TOKEN) > 0:
-		return "Today: Try placing something cozy."
+		return "Today: Claim a plot sign."
 	return ""
 
 ## The plot id the active profile owns, preferring the one under the player's
@@ -852,7 +857,7 @@ func _spawn_plot_furniture(plot_id: String) -> void:
 	)
 	register_world_interactable(
 		"plot_marker_%s" % plot_id, marker, ContentIds.INTERACTION_GENERIC,
-		"Press F to view/claim %s" % String(plot.get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
+		"Press F to Claim Plot Sign: %s" % String(plot.get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
 	)
 	var ground: Node2D = map.call("paint_plot_ground", plot) if map.has_method("paint_plot_ground") else null
 	_plot_furniture[plot_id] = {"container": container, "ground": ground}
@@ -1106,9 +1111,9 @@ func _interact_plot_marker(plot_id: String) -> void:
 	else:
 		if tokens >= cost:
 			can_claim = true
-			permission_text = "Available! Claim it to build here."
+			permission_text = "Available! Use one Land Token to claim it, then build inside the marked space."
 		else:
-			permission_text = "You need %d Land Token to claim this (talk to Farmer Rowan)." % cost
+			permission_text = "You need %d Land Token. Talk to Farmer Rowan first." % cost
 
 	var rect: Rect2i = plot.get("rect", Rect2i()) as Rect2i
 	_land_panel.call("open_for_plot", {
@@ -1147,7 +1152,7 @@ func _do_claim_plot(plot_id: String) -> void:
 	_grant_xp(ProgressionRegistry.SKILL_STEWARDSHIP, 5, 3)
 	refresh_inventory_panel()
 	_refresh_minimap_plots()
-	_chat_toast("You claimed %s! Build anywhere inside it (B)." % String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)))
+	_chat_toast("Plot claimed: %s. Press B and place something cozy inside your plot." % String(LandRegistry.get_plot(plot_id).get("display_name", plot_id)))
 
 # === World builder: runtime plots, markers, overlay (offline / admin) ===========
 #

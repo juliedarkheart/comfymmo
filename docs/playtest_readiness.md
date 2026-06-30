@@ -1,5 +1,10 @@
 # Playtest Readiness
 
+## Land Token / claim plot / build handoff clarity (2026-06-30)
+
+- Copy-only handoff polish for the First Plot vertical slice: Rowan's Land Token reward now points the player to a claimable plot sign, plot signs/claim feedback explain the Land Token cost, and the "Today:" nudge now sequences **Talk to Rowan → Claim a plot sign → Place something cozy inside your plot → Explore**.
+- No new land, quest, progression, crafting, economy, multiplayer, HUD redesign, save/load, or asset changes. Tester check: after receiving the Land Token, confirm the next understood action is to claim a plot sign before building inside the claimed plot.
+
 ## First-plot farm visual polish (carrot/plot only) (2026-06-29)
 
 - Light procedural-only polish to reduce the farm-plot seam against the LimeZu art — **no new
@@ -52,9 +57,9 @@
   saved state** — and updates live (refreshed on the throttled HUD tick + inventory refresh).
 - Priority order (first match wins): unseen mailbox → "Check the mailbox"; a ready crop →
   "Harvest a carrot"; a dry planted crop → "Water a crop"; a watered, growing crop → "Rest at the
-  cottage door to grow crops"; Land Token not yet earned → "Talk to Rowan"; a tilled bed →
-  "Plant seeds in tilled soil"; all plots empty → "Till a garden plot"; holding a token →
-  "Try placing something cozy"; otherwise "Explore Hearthvale at your own pace."
+  cottage door to grow crops"; Land Token not yet earned → "Talk to Rowan"; holding a token →
+  "Claim a plot sign"; owning an empty plot → "Place something cozy inside your plot"; a tilled bed →
+  "Plant seeds in tilled soil"; all plots empty → "Till a garden plot"; otherwise "Explore Hearthvale at your own pace."
 - Implementation: `HomesteadController._compute_task_hint()` (+ `_farming_active_hint` /
   `_farming_seedbed_hint`) with `_milestone_task_hint` / `_placing_task_hint` hooks the overworld
   overrides for the Rowan/build steps; `PrototypeHud.set_task_hint()` renders the line (empty hint

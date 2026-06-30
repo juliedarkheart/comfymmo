@@ -193,6 +193,9 @@ func set_active_placeable(placeable_id: String) -> void:
 func get_active_placeable_id() -> String:
 	return _active_placeable_id
 
+func has_placed_objects() -> bool:
+	return not _placed_objects.is_empty()
+
 func is_placement_active() -> bool:
 	return _interaction_mode == InteractionMode.PLACEMENT
 
@@ -1029,7 +1032,7 @@ func _friendly_place_reason(reason_text: String) -> String:
 		"":
 			return "Pick a clear spot nearby."
 		"Out of bounds":
-			return "Pick a spot inside the playable area."
+			return "Pick a clear spot inside your claimed plot."
 		"Reserved spawn":
 			return "Keep the arrival spot clear. Pick a nearby tile."
 		"Occupied":
@@ -1041,8 +1044,10 @@ func _friendly_place_reason(reason_text: String) -> String:
 				return "%s. Gather more materials or check inventory." % reason
 			if reason.begins_with("Requires "):
 				return "%s. Select or craft the right tool first." % reason
+			if reason.begins_with("Claim "):
+				return "Claim a plot sign before building here."
 			if reason.find("permission") >= 0 or reason.find("owner") >= 0 or reason.find("plot") >= 0:
-				return "%s. Claim a plot first, then build inside it." % reason
+				return "%s. Place this inside your claimed plot." % reason
 			return reason
 
 func _show_world_space_hint(is_valid: bool, reason_text: String, world_position: Vector2) -> void:
