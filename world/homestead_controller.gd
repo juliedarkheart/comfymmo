@@ -39,7 +39,11 @@ const LEGACY_FARM_PLOT_ID: String = ContentIds.FARM_PLOT_LEGACY_MAIN
 const FARM_PLOT_CARROT_ID: String = ContentIds.FARM_PLOT_CARROT
 const FARM_PLOT_TURNIP_ID: String = ContentIds.FARM_PLOT_TURNIP
 const FARM_PLOT_BERRY_ID: String = ContentIds.FARM_PLOT_BERRY
-const STARTER_SEED_PACKET_COUNT: int = 6
+const STARTER_SEED_PACKET_COUNT: int = 9
+const STARTER_FIRST_PLOT_MATERIALS: Dictionary = {
+	ResourceIds.MATERIAL_WOOD: 2,
+	ResourceIds.MATERIAL_FIBER: 2,
+}
 const FARM_SEED_ITEM_IDS: Array[String] = [
 	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET,
 	ResourceIds.COMPONENT_SEED_PACKET,
@@ -520,6 +524,8 @@ func _grant_starter_kit_once() -> void:
 	var loadout: Dictionary = ItemIds.starter_loadout()
 	for tool_id in loadout.keys():
 		inventory_system.add_item(String(tool_id), int(loadout[tool_id]))
+	for material_id in STARTER_FIRST_PLOT_MATERIALS.keys():
+		inventory_system.add_item(String(material_id), int(STARTER_FIRST_PLOT_MATERIALS[material_id]))
 	_save_inventory_state()
 
 func _grant_starter_seed_packet_once() -> void:

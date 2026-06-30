@@ -1,5 +1,10 @@
 # Playtest Readiness
 
+## First Plot starter supplies / manual testability (2026-06-30)
+
+- Fresh-start supplies now support manual testing of the First Plot slice without grinding: starter seed packets increased from 6 → 9, and the starter kit includes a tiny first-build material bundle (`2 Wood`, `2 Fiber`).
+- This is enough to plant the first carrots and place at least one simple starter object (stool/fence/lantern/shrub options) while keeping material gathering, crafting, and larger builds meaningful.
+
 ## Land Token / claim plot / build handoff clarity (2026-06-30)
 
 - Copy-only handoff polish for the First Plot vertical slice: Rowan's Land Token reward now points the player to a claimable plot sign, plot signs/claim feedback explain the Land Token cost, and the "Today:" nudge now sequences **Talk to Rowan → Claim a plot sign → Place something cozy inside your plot → Explore**.

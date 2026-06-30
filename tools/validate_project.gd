@@ -3428,6 +3428,22 @@ func _initialize() -> void:
 		push_error("Seed packet item id is missing from ContentRegistry.items(), so quickbar assignment cannot plant seeds")
 		quit(1)
 		return
+	if HomesteadController.STARTER_SEED_PACKET_COUNT < 9:
+		push_error("Fresh-start seed packets must be enough for a manual first-plot farming test")
+		quit(1)
+		return
+	var starter_materials: Dictionary = HomesteadController.STARTER_FIRST_PLOT_MATERIALS
+	if int(starter_materials.get(ResourceIds.MATERIAL_WOOD, 0)) < 2 or int(starter_materials.get(ResourceIds.MATERIAL_FIBER, 0)) < 2:
+		push_error("Fresh-start materials must cover at least one simple starter object")
+		quit(1)
+		return
+	for starter_object_id in [ContentIds.PLACEABLE_STOOL, ContentIds.PLACEABLE_FENCE_SEGMENT, ContentIds.PLACEABLE_LANTERN]:
+		var starter_cost: Dictionary = BuildCosts.cost_of(starter_object_id)
+		for material_id in starter_cost.keys():
+			if int(starter_materials.get(String(material_id), 0)) < int(starter_cost[material_id]):
+				push_error("Starter materials no longer cover starter object '%s'" % starter_object_id)
+				quit(1)
+				return
 
 	# No critical id may be empty.
 	for critical_id in [
