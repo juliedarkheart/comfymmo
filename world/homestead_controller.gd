@@ -44,6 +44,20 @@ const STARTER_FIRST_PLOT_MATERIALS: Dictionary = {
 	ResourceIds.MATERIAL_WOOD: 2,
 	ResourceIds.MATERIAL_FIBER: 2,
 }
+const FIRST_PLOT_BOOTSTRAP_MINIMUMS: Dictionary = {
+	ItemIds.TOOL_WORN_HOE: 1,
+	ItemIds.TOOL_WATERING_CAN: 1,
+	ItemIds.TOOL_SIMPLE_HAMMER: 1,
+	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET: STARTER_SEED_PACKET_COUNT,
+	ResourceIds.MATERIAL_WOOD: 2,
+	ResourceIds.MATERIAL_FIBER: 2,
+}
+const FIRST_PLOT_BOOTSTRAP_QUICKBAR_ITEMS: Array[String] = [
+	ItemIds.TOOL_WORN_HOE,
+	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET,
+	ItemIds.TOOL_WATERING_CAN,
+	ItemIds.TOOL_SIMPLE_HAMMER,
+]
 const FARM_SEED_ITEM_IDS: Array[String] = [
 	ContentIds.ITEM_PLACEHOLDER_SEED_PACKET,
 	ResourceIds.COMPONENT_SEED_PACKET,
@@ -71,6 +85,7 @@ var _session_xp_marks: Dictionary = {}
 # Network-committed station positions (content_id, world position) so the
 # panel's preview matches the server's station check while connected.
 var _network_stations: Array = []
+var _first_plot_bootstrap_repaired: bool = false
 
 func _ready() -> void:
 	game_state_manager.configure(save_system, object_registry)
@@ -78,6 +93,7 @@ func _ready() -> void:
 	inventory_system.load_from_data(game_state_manager.get_player_section("inventory"))
 	_grant_starter_kit_once()
 	_grant_starter_seed_packet_once()
+	_repair_first_plot_starter_kit_if_needed()
 	farming_system.load_from_data(game_state_manager.get_region_section(REGION_ID, "farming"))
 	_configure_farm_plots()
 	creature_system.load_from_data(game_state_manager.get_world_section("creatures"))
@@ -535,6 +551,53 @@ func _grant_starter_seed_packet_once() -> void:
 	if inventory_system.get_quantity(ContentIds.ITEM_PLACEHOLDER_SEED_PACKET) < STARTER_SEED_PACKET_COUNT:
 		inventory_system.add_item(ContentIds.ITEM_PLACEHOLDER_SEED_PACKET, STARTER_SEED_PACKET_COUNT)
 	_save_inventory_state()
+
+## Repair old prototype saves that already have starter flags but are missing the
+## practical first-plot loadout. This is deliberately tiny and idempotent: it only
+## raises missing counts to the minimum needed for the vertical slice, never removes
+## progress, never resets land, and stops once the player has placed any object.
+func _repair_first_plot_starter_kit_if_needed() -> void:
+	_first_plot_bootstrap_repaired = false
+	if _has_first_plot_build_progress():
+		return
+	var changed := false
+	for item_id_variant in FIRST_PLOT_BOOTSTRAP_MINIMUMS.keys():
+		var item_id: String = String(item_id_variant)
+		var minimum: int = int(FIRST_PLOT_BOOTSTRAP_MINIMUMS[item_id_variant])
+		var current: int = inventory_system.get_quantity(item_id)
+		if current < minimum:
+			inventory_system.add_item(item_id, minimum - current)
+			changed = true
+	if _repair_first_plot_quickbar_if_needed():
+		changed = true
+	if changed:
+		_first_plot_bootstrap_repaired = true
+		save_system.set_overworld_flag("first_plot_starter_bootstrap_repaired", true)
+		_save_inventory_state()
+
+func _has_first_plot_build_progress() -> bool:
+	return save_system.get_region_placed_objects(REGION_ID).size() > 0
+
+func _repair_first_plot_quickbar_if_needed() -> bool:
+	var quickbar: Dictionary = save_system.get_player_quickbar()
+	var slots: Array = quickbar.get("slots", []) as Array
+	var changed := false
+	for required_id in FIRST_PLOT_BOOTSTRAP_QUICKBAR_ITEMS:
+		if slots.has(required_id):
+			continue
+		var empty_index: int = slots.find("")
+		if empty_index == -1:
+			continue
+		slots[empty_index] = required_id
+		changed = true
+	if changed:
+		save_system.set_player_quickbar(slots, int(quickbar.get("selected_index", 0)))
+	return changed
+
+func _show_first_plot_bootstrap_notice_if_needed() -> void:
+	if not _first_plot_bootstrap_repaired:
+		return
+	_announce("Starter kit ready: Hoe, carrot seeds, watering can, build tool, and first cozy-object materials.")
 
 ## Reward hook for mailbox/task completions: a small material bundle + XP.
 func _grant_task_reward(task_label: String) -> void:

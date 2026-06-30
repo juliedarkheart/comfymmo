@@ -4,6 +4,10 @@
 
 - Fresh-start supplies now support manual testing of the First Plot slice without grinding: starter seed packets increased from 6 → 9, and the starter kit includes a tiny first-build material bundle (`2 Wood`, `2 Fiber`).
 - This is enough to plant the first carrots and place at least one simple starter object (stool/fence/lantern/shrub options) while keeping material gathering, crafting, and larger builds meaningful.
+- Old prototype saves can have `starter_kit_granted` / `starter_seed_packet_granted` flags from earlier builds but still be missing the actual manual-test supplies. Until the player has placed an object, boot now repairs only missing First Plot minimums: Hoe, Seed Packet x9, Watering Can, Build Tool, `2 Wood`, and `2 Fiber`; it does not remove inventory, reset land, or wipe saves.
+- Watering model for this slice: the Watering Can is an inventory/hotbar tool and works immediately; there is no separate fill step yet. Select Watering Can on the hotbar and press `F` at a dry crop.
+- Manual supply check in Julie's current save: open Inventory (`I`) and confirm Hoe, Seed Packet, Watering Can, Build Tool, Wood x2+, and Fiber x2+; the hotbar should expose Hoe / Seed / Watering Can / Build. If the save already says Julie owns land, Rowan/HUD should point to building inside the claimed plot instead of asking her to claim again.
+- Clean manual retest guidance: use a fresh Godot user profile/save or manually move the local prototype save aside before launch if you want a true first-run path. The project save path is `user://homestead_save.json` (`LocalSaveSystem.HOMESTEAD_SAVE_PATH`); on Windows/Godot this lives under the app's user-data folder, not in the repo. Do not delete repo files or anything under `licensed_assets/` for a save reset.
 
 ## Land Token / claim plot / build handoff clarity (2026-06-30)
 

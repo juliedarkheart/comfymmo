@@ -100,6 +100,7 @@ func _ready() -> void:
 	_setup_day_night()          # cozy world lighting tint (world layer only)
 	_setup_town_services()
 	_setup_network(player)
+	_show_first_plot_bootstrap_notice_if_needed()
 	_show_welcome_if_first_boot.call_deferred()
 	# Dev-only: log which art tier the live world is actually rendering, so a
 	# manual playtester can confirm Sprout/Hearthvale top-down (not old art).
@@ -761,7 +762,7 @@ func _talk_rowan() -> void:
 			+ "Claim a plot sign first — Meadow Lots east, Orchard Lots north. Once it's yours, try placing something cozy inside it.")
 		return
 	_open_observe_panel("Farmer Rowan",
-		"Look at you, a landholder! Build something cozy on your lot — walls, a shed, even a cottage shell. "
+		"You already claimed a plot. Press B and place something cozy inside your claimed plot. "
 		+ "Craft planks and stone blocks at the workbench. And bring friends; Hearthvale grows best together.")
 
 func _player_owns_any_plot() -> bool:
@@ -784,7 +785,9 @@ func _placing_task_hint() -> String:
 		if building_placement_system != null and building_placement_system.has_method("has_placed_objects"):
 			if bool(building_placement_system.call("has_placed_objects")):
 				return ""
-		return "Today: Place something cozy inside your plot."
+		var owned_plot_id: String = _player_owned_plot_id()
+		var plot_name: String = String(LandRegistry.get_plot(owned_plot_id).get("display_name", "your plot"))
+		return "Today: Press B and build inside %s." % plot_name
 	if _crafting_get_count(ItemIds.QUEST_LAND_TOKEN) > 0:
 		return "Today: Claim a plot sign."
 	return ""
@@ -857,7 +860,7 @@ func _spawn_plot_furniture(plot_id: String) -> void:
 	)
 	register_world_interactable(
 		"plot_marker_%s" % plot_id, marker, ContentIds.INTERACTION_GENERIC,
-		"Press F to Claim Plot Sign: %s" % String(plot.get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
+		"Press F to View Plot Sign: %s" % String(plot.get("display_name", "plot")), _interact_plot_marker.bind(plot_id)
 	)
 	var ground: Node2D = map.call("paint_plot_ground", plot) if map.has_method("paint_plot_ground") else null
 	_plot_furniture[plot_id] = {"container": container, "ground": ground}

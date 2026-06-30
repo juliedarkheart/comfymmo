@@ -49,6 +49,7 @@ func _initialize() -> void:
 	var prompt_planted: String = prompt_plot.get_plot_prompt("prompt_plot")
 	ok = _expect(not prompt_planted.is_empty(), "planted plot prompt is not empty") and ok
 	ok = _expect(prompt_planted.contains("water"), "unwatered plot prompt mentions water") and ok
+	ok = _expect(prompt_planted.contains("Watering Can"), "unwatered plot prompt names Watering Can") and ok
 
 	# Watered
 	prompt_plot.water_plot("prompt_plot")
@@ -77,6 +78,15 @@ func _initialize() -> void:
 	# --- Inventory: harvested crop increases ---------------------------------
 	var inv := InventorySystem.new()
 	get_root().add_child(inv)
+	for starter_item_id in HomesteadController.FIRST_PLOT_BOOTSTRAP_MINIMUMS.keys():
+		var starter_minimum: int = int(HomesteadController.FIRST_PLOT_BOOTSTRAP_MINIMUMS[starter_item_id])
+		ok = _expect(starter_minimum > 0, "first-plot bootstrap minimum exists for %s" % String(starter_item_id)) and ok
+		if inv.get_quantity(String(starter_item_id)) < starter_minimum:
+			inv.add_item(String(starter_item_id), starter_minimum - inv.get_quantity(String(starter_item_id)))
+	ok = _expect(inv.get_quantity(ItemIds.TOOL_WORN_HOE) >= 1, "first-plot bootstrap grants Hoe") and ok
+	ok = _expect(inv.get_quantity(ItemIds.TOOL_WATERING_CAN) >= 1, "first-plot bootstrap grants Watering Can") and ok
+	ok = _expect(inv.get_quantity(ContentIds.ITEM_PLACEHOLDER_SEED_PACKET) >= HomesteadController.STARTER_SEED_PACKET_COUNT, "first-plot bootstrap grants seed packets") and ok
+	ok = _expect(inv.get_quantity(ResourceIds.MATERIAL_WOOD) >= 2 and inv.get_quantity(ResourceIds.MATERIAL_FIBER) >= 2, "first-plot bootstrap grants cozy-object materials") and ok
 	inv.add_item("carrot", 1)
 	inv.add_item("carrot", 1)
 	ok = _expect(inv.get_quantity("carrot") == 2, "inventory carrot count = 2") and ok

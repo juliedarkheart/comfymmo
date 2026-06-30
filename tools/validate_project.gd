@@ -3432,6 +3432,16 @@ func _initialize() -> void:
 		push_error("Fresh-start seed packets must be enough for a manual first-plot farming test")
 		quit(1)
 		return
+	for required_bootstrap_item in [ItemIds.TOOL_WORN_HOE, ItemIds.TOOL_WATERING_CAN, ItemIds.TOOL_SIMPLE_HAMMER, ContentIds.ITEM_PLACEHOLDER_SEED_PACKET]:
+		if int(HomesteadController.FIRST_PLOT_BOOTSTRAP_MINIMUMS.get(required_bootstrap_item, 0)) < 1:
+			push_error("Existing-save first-plot bootstrap is missing required item '%s'" % required_bootstrap_item)
+			quit(1)
+			return
+	for required_quickbar_item in [ItemIds.TOOL_WORN_HOE, ItemIds.TOOL_WATERING_CAN, ItemIds.TOOL_SIMPLE_HAMMER, ContentIds.ITEM_PLACEHOLDER_SEED_PACKET]:
+		if not HomesteadController.FIRST_PLOT_BOOTSTRAP_QUICKBAR_ITEMS.has(required_quickbar_item):
+			push_error("First-plot bootstrap quickbar does not surface required item '%s'" % required_quickbar_item)
+			quit(1)
+			return
 	var starter_materials: Dictionary = HomesteadController.STARTER_FIRST_PLOT_MATERIALS
 	if int(starter_materials.get(ResourceIds.MATERIAL_WOOD, 0)) < 2 or int(starter_materials.get(ResourceIds.MATERIAL_FIBER, 0)) < 2:
 		push_error("Fresh-start materials must cover at least one simple starter object")
