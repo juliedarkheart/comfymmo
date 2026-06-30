@@ -1,5 +1,21 @@
 # Playtest Readiness
 
+## First-plot farm visual polish (carrot/plot only) (2026-06-29)
+
+- Light procedural-only polish to reduce the farm-plot seam against the LimeZu art — **no new
+  assets, no mechanics/save changes, carrot/plot only**. All farm visuals remain procedural
+  `Polygon2D`/`Line2D` nodes (`LiveBedCue` / `LiveLimeZuSoil` / `LiveSoilMoisture` /
+  `LiveLimeZuCrop` / `LiveReadyRing`); names, stage logic, collision, and interactions are unchanged.
+- Changes: warmer/softer soil + a darker base rim and a two-tone prepared-bed cue; the watered tint
+  is now a **damp warm-earth darkening instead of the old radioactive blue**; a soft grounding
+  shadow under the crop so sprouts/carrot sit in the soil; a clearer two-leaf seedling sprout
+  silhouette; cozier carrot green + warmer carrot-orange root; slightly softened harvest-ready ring.
+- States stay distinct at a glance: empty/tilled soil → planted sprout → damp watered → mature
+  carrot patch with the gold ready-ring. Playable-area procedural count stays well within budget
+  (15 / 28). Guarded by `validate_project.gd` (watered tint must be warm/damp, not blue-dominant).
+- Remaining farm art work is still intentionally limited to this first-plot slice (turnip/berry and
+  reviewed LimeZu crop sprites remain deferred).
+
 ## Soften mailbox notes into village happenings (2026-06-29)
 
 - Copy-only pass: the mocked mailbox notes now read as in-world **village happenings**, not live

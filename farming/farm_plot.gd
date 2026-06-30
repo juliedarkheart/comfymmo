@@ -77,15 +77,21 @@ func _build_visuals() -> void:
 	if _built:
 		return
 	_built = true
-	# Untilled garden bed cue (empty): a light cleared-dirt square, clearly NOT soil.
+	# Untilled garden bed cue (empty): a soft cleared-earth square that reads as a prepared
+	# bed (not a bright debug slab) — a darker frame ring under a warmer cleared-dirt top.
 	_bed = Polygon2D.new()
 	_bed.name = "LiveBedCue"
 	_bed.polygon = _square(14.0)
-	_bed.color = Color("#b89a6e")
+	_bed.color = Color("#8f7245")
 	_bed.z_index = -2
 	_bed.visible = false
 	add_child(_bed)
-	# Tilled soil (LiveLimeZuSoil): base + lighter top + furrow lines, top-down.
+	var bed_top := Polygon2D.new()
+	bed_top.polygon = _square(12.0)
+	bed_top.color = Color("#a98c61")
+	_bed.add_child(bed_top)
+	# Tilled soil (LiveLimeZuSoil): a darker base rim grounds a warmer tilled top, with soft
+	# furrow lines for a hand-worked, cozy look (top-down).
 	_soil = Node2D.new()
 	_soil.name = "LiveLimeZuSoil"
 	_soil.z_index = -2
@@ -93,22 +99,23 @@ func _build_visuals() -> void:
 	add_child(_soil)
 	var soil_base := Polygon2D.new()
 	soil_base.polygon = _square(15.0)
-	soil_base.color = Color("#6f4a29")
+	soil_base.color = Color("#5b3d23")
 	_soil.add_child(soil_base)
 	var soil_top := Polygon2D.new()
 	soil_top.polygon = _square(13.0)
-	soil_top.color = Color("#8a5e36")
+	soil_top.color = Color("#946a40")
 	_soil.add_child(soil_top)
 	for fy in [-7.0, 0.0, 7.0]:
 		var furrow := Polygon2D.new()
-		furrow.polygon = PackedVector2Array([Vector2(-12, fy - 1.0), Vector2(12, fy - 1.0), Vector2(12, fy + 1.0), Vector2(-12, fy + 1.0)])
-		furrow.color = Color("#5d3f24")
+		furrow.polygon = PackedVector2Array([Vector2(-11, fy - 1.0), Vector2(11, fy - 1.0), Vector2(11, fy + 1.0), Vector2(-11, fy + 1.0)])
+		furrow.color = Color("#6b4a2a")
 		_soil.add_child(furrow)
-	# Watered tint.
+	# Watered tint: damp soil reads as DARKER and richer, not radioactive blue. A low-alpha
+	# warm-brown darkening over the tilled top is the classic "wet earth" cue.
 	_moist = Polygon2D.new()
 	_moist.name = "LiveSoilMoisture"
 	_moist.polygon = _square(13.0)
-	_moist.color = Color(0.30, 0.46, 0.62, 0.50)
+	_moist.color = Color(0.22, 0.15, 0.10, 0.46)
 	_moist.z_index = -1
 	_moist.visible = false
 	add_child(_moist)
@@ -117,9 +124,18 @@ func _build_visuals() -> void:
 	_crop.name = "LiveLimeZuCrop"
 	_crop.visible = false
 	add_child(_crop)
+	# Soft grounding shadow under the crop (added first → drawn behind the leaves), so sprouts
+	# and the mature carrot sit IN the soil instead of floating. Follows _crop visibility.
+	var crop_shadow := Polygon2D.new()
+	crop_shadow.name = "LiveCropShadow"
+	crop_shadow.position = Vector2(0, 8)
+	crop_shadow.polygon = PackedVector2Array([Vector2(-9, 0), Vector2(-5, -3), Vector2(5, -3), Vector2(9, 0), Vector2(5, 3), Vector2(-5, 3)])
+	crop_shadow.color = Color(0.16, 0.11, 0.07, 0.26)
+	_crop.add_child(crop_shadow)
 	_crop_small = Polygon2D.new()
 	_crop_small.position = Vector2(0, -6)
-	_crop_small.polygon = PackedVector2Array([Vector2(0, -10), Vector2(4, -3), Vector2(0, 6), Vector2(-4, -3)])
+	# Two small leaf lobes rising from a stem — reads as a fresh seedling sprout.
+	_crop_small.polygon = PackedVector2Array([Vector2(0, 6), Vector2(-1, -2), Vector2(-5, -7), Vector2(-2, -4), Vector2(0, -10), Vector2(2, -4), Vector2(5, -7), Vector2(1, -2)])
 	_crop_small.visible = false
 	_crop.add_child(_crop_small)
 	_crop_large = Polygon2D.new()
@@ -142,7 +158,7 @@ func _build_visuals() -> void:
 	_ready_ring.name = "LiveReadyRing"
 	_ready_ring.closed = true
 	_ready_ring.width = 2.5
-	_ready_ring.default_color = Color(1.0, 0.86, 0.36, 0.95)
+	_ready_ring.default_color = Color(1.0, 0.82, 0.40, 0.9)
 	_ready_ring.points = _square(15.0)
 	_ready_ring.z_index = 2
 	_ready_ring.visible = false
@@ -164,7 +180,8 @@ func _apply_crop_palette(crop_id: String) -> void:
 			_crop_mature.color = Color("#4f9158")
 			_crop_accent.color = Color("#d85f8d")
 		_:
-			_crop_small.color = Color("#73b156")
-			_crop_large.color = Color("#8ac964")
-			_crop_mature.color = Color("#57b144")
-			_crop_accent.color = Color("#e09b47")
+			# Carrot: cozy sprout green deepening as it grows, with a warm carrot-orange root.
+			_crop_small.color = Color("#7cbf60")
+			_crop_large.color = Color("#8fce6a")
+			_crop_mature.color = Color("#5cae50")
+			_crop_accent.color = Color("#e8943a")

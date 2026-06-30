@@ -2131,6 +2131,20 @@ func _initialize() -> void:
 			farm_plot_probe.queue_free()
 			quit(1)
 			return
+		# Watered soil reads as a warm "damp earth" darkening, NOT the old radioactive-blue overlay
+		# (cozy art-direction contract, not a pixel test): the moisture tint shows and is not blue-dominant.
+		farm_plot_probe.call("set_plot_state", {"stage": "crop_stage_1", "is_nearby": false, "crop_id": "carrot", "watered": true})
+		var live_moist: Polygon2D = farm_plot_probe.get_node_or_null("LiveSoilMoisture") as Polygon2D
+		if live_moist == null or not live_moist.visible:
+			push_error("Farm plot watered state did not show the soil-moisture tint")
+			farm_plot_probe.queue_free()
+			quit(1)
+			return
+		if live_moist.color.b > live_moist.color.r:
+			push_error("Farm plot watered tint is blue-dominant (radioactive blue); it should read as damp warm earth: %s" % str(live_moist.color))
+			farm_plot_probe.queue_free()
+			quit(1)
+			return
 		farm_plot_probe.queue_free()
 		await process_frame
 		var homestead_live_source: String = FileAccess.get_file_as_string("res://world/homestead_controller.gd")
