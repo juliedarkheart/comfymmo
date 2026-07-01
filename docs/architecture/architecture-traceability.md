@@ -37,7 +37,7 @@ This matrix links Technical Requirements (TR-IDs) from the TR registry to their 
 | TR-ARCH-011 | ObjectRegistry for placeable definitions | ADR-0005 | building-placement | ObjectRegistry, BuildingPlacementSystem | All placeables registered; load from registry |
 | TR-ARCH-012 | Narrow system APIs, no cross-domain refs | ADR-0005 | — | All systems | Code review: no reaching across folders |
 | TR-GDD-001 | Proximity-based interactions (F) | — | interactions | InteractableSystem | Prompt shows near interactables; F triggers action |
-| TR-GDD-002 | Farming stage model | — | farming | FarmingSystem, farm_plot.gd | empty→planted_dry→planted_watered→grown cycle |
+| TR-GDD-002 | Tool-gated farming stage model | — | farming | FarmingSystem, farm_plot.gd, HomesteadController, QuickToolsBar | Hoe→tilled_soil; Seed Packet→planted_seed; Watering Can→watered; rest→growth; harvest→tilled_soil |
 | TR-GDD-003 | Gathering nodes regenerate on cooldown | — | resources-gathering | ResourceSpawnRegistry, resource nodes | Cooldown after gather; node reactivates |
 | TR-GDD-004 | Build costs enforced at placement | — | survival-building, building-placement | BuildingPlacementSystem, build_costs.gd, InventorySystem | Ghost shows cost; insufficient materials blocked |
 | TR-GDD-005 | Recipe gates (level + skill) | — | crafting, progression | CraftingRegistry, PlayerProgression | Level/skill requirements checked before craft |

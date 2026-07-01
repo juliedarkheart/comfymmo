@@ -45,10 +45,11 @@ There is **no combat pressure, no hunger damage, no depletion, no griefing**. Co
 
 ### Farming
 - Three fixed farm plots in the homestead with assigned crop types (carrot, turnip, berry)
-- Stage model: empty → planted_dry → planted_watered → grown
-- `F` plants/waters/tends/harvests based on current stage
+- Current loop is tool-gated: Hoe tills, Seed Packet plants, Watering Can waters
+- Watered crops grow when the player rests at the cottage door
+- Current internal stage model: `empty → tilled_soil → planted_seed/crop_stage_* → crop_stage_3 → tilled_soil`
 - Each harvest grants +1 of the plot's crop to inventory
-- Crops feed crafting recipes (seed packets, cloth rolls, flower bundles)
+- Crops can feed crafting recipes later; carrot consumption is not a First Plot requirement
 
 ### Building / Placement
 - `B` toggles placement mode; `Tab` cycles active placeable
@@ -129,7 +130,7 @@ Levels derived from XP — never stored directly.
 ### Survival / Comfort
 - Comfort ranges 0–100, restored to 100 on rest
 - Hunger/energy exist as stored values but have no drain mechanics yet
-- Eating a carrot grants +5 comfort
+- Carrot consumption for comfort is deferred and not part of First Plot acceptance
 
 ## 5. Edge Cases
 

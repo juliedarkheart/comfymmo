@@ -70,7 +70,7 @@ Examples: `tile_grass_a.png`, `prop_mailbox.png`, `crop_carrot_grown.png`,
 `creature_moss_rabbit_idle.png`, `villager_maribel_front.png`, `ui_icon_comfort_64.png`.
 
 - lower_snake_case, no spaces, ASCII only.
-- `state` matches the system enum where relevant (crops: `empty|planted_dry|planted_watered|grown`).
+- `state` matches the current system enum where relevant (crops: `empty|tilled_soil|planted_seed|crop_stage_1|crop_stage_2|crop_stage_3`; legacy save aliases such as `planted_dry|planted_watered|grown` are migration-only).
 - `@2x` suffix optional if multiple scales are shipped.
 
 ## Folder convention
