@@ -751,6 +751,17 @@ func _talk_rowan() -> void:
 			+ "Start with the mailbox, then gather branches, pebbles, fiber, or clay when a prompt appears. "
 			+ "Take this Land Token; it lets you claim one small plot. Read a plot sign east or north, claim it, then build inside the marked space.")
 		return
+	# Stale-save recovery: the token flag can be set while the token itself is gone
+	# (older builds, admin unclaims, incomplete saves). Without this, Rowan says
+	# "claim a plot sign" while every sign says "talk to Rowan" — a dead loop. Only
+	# re-offer when the player holds no token AND owns no plot, so it can't be farmed.
+	if not _player_owns_any_plot() and inventory_system.get_quantity(ItemIds.QUEST_LAND_TOKEN) < 1:
+		inventory_system.add_item(ItemIds.QUEST_LAND_TOKEN, 1)
+		_chat_toast("+1 Land Token. Use it at a plot sign, then build inside your claimed plot.")
+		_open_observe_panel("Farmer Rowan",
+			"Lost your Land Token? No trouble — take another. It only works while you have no plot of your own, "
+			+ "so keep just the one. Read a plot sign east or north, claim it, then build inside the marked space.")
+		return
 	if inventory_system.get_quantity(ItemIds.TOOL_WORN_AXE) < 1:
 		_open_observe_panel("Farmer Rowan",
 			"Lost your axe? No matter — gather a couple of branches and pebbles, press K, and craft a worn axe by hand. "

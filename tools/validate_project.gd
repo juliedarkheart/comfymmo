@@ -3145,6 +3145,13 @@ func _initialize() -> void:
 		push_error("HUD handoff must nudge Land Token holders to claim a plot sign")
 		quit(1)
 		return
+	# Stale-save First Plot recovery: a save can carry the token-given flag with no
+	# token and no owned plot (older builds / admin unclaims). Rowan must re-offer
+	# the token or the plot signs and Rowan point at each other forever.
+	if not overworld_source.contains("Lost your Land Token?"):
+		push_error("Rowan must re-offer a lost Land Token to token-flagged saves that own no plot (stale-save dead loop)")
+		quit(1)
+		return
 	if not overworld_source.contains("Press B and place something cozy inside your plot"):
 		push_error("Claim success copy must mention placing inside the claimed plot")
 		quit(1)

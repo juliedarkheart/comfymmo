@@ -1,5 +1,13 @@
 # Playtest Readiness
 
+## First Plot manual acceptance — how to retest and record (2026-07-01)
+
+- Retest against the current pushed branch (`experiment/worldbuilding-tools-identity-v1`), not an older local build.
+- Existing/stale saves are repaired at boot by the starter-kit bootstrap (tools, seeds, watering can, first-build materials — see 2026-06-30 entry below). Additionally, if a save has the Rowan token flag but no Land Token **and** no owned plot, talking to Rowan re-offers one token (idempotent; blocked once a token is held or a plot is owned), so stale saves can't dead-loop between Rowan and the plot signs.
+- Record each manual pass in `production/playtests/` using
+  `production/playtests/first-plot-manual-acceptance-template.md` (copy to `report-YYYY-MM-DD-first-plot.md`). Distinguish fresh-start from stale-save results.
+- First Plot is **not accepted** until Julie completes the manual checklist herself; automated smoke/validate coverage (farming chain, rest-growth, token claim/build handoff, starter-kit minimums) is evidence, not acceptance.
+
 ## First Plot starter supplies / manual testability (2026-06-30)
 
 - Fresh-start supplies now support manual testing of the First Plot slice without grinding: starter seed packets increased from 6 → 9, and the starter kit includes a tiny first-build material bundle (`2 Wood`, `2 Fiber`).

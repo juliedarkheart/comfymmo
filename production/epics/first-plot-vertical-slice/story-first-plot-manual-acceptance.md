@@ -36,3 +36,8 @@ A real local play session can complete the First Plot path without hidden setup,
 - Unit tests: FarmingSystem state transitions and prompts.
 - Integration tests: Homestead smoke path, inventory grant/spend, save/load roundtrip, build placement handoff.
 - Manual tests: Julie launches current local session and confirms the path works without admin intervention.
+
+## Verification Notes (2026-07-01)
+
+- AUTO criterion covered: `tools/smoke_homestead_loop.gd` now asserts the full slice chain — tool-gated farming to harvest, the rest-growth rule (dry crops don't grow; watered crops grow and need re-watering), Land Token claim consuming exactly one token, owner build permission inside the claimed plot, and starter materials affording one cozy object. `tools/validate_project.gd` guards prompts, handoff copy, and bootstrap minimums.
+- Status: **ready for Julie's manual test.** MANUAL criteria remain open until she completes the checklist; record the result via `production/playtests/first-plot-manual-acceptance-template.md`.

@@ -1,8 +1,10 @@
 extends SceneTree
 
-## Headless smoke test for the playable homestead loop: till -> plant -> grow ->
-## harvest -> inventory -> placed object -> save/load roundtrip. It exercises the
-## underlying systems directly (no input simulation, no licensed assets needed).
+## Headless smoke test for the playable homestead loop and the First Plot
+## vertical slice: till -> plant -> water -> rest-growth -> harvest -> inventory
+## -> Land Token claim/build handoff -> placed object -> save/load roundtrip.
+## It exercises the underlying systems directly (no input simulation, no
+## licensed assets needed).
 ##
 ## SAVE SAFETY: it uses a dedicated temporary test save path, then deletes that
 ## file. It does not read, write, move, or restore the real player save. Run:
@@ -69,6 +71,21 @@ func _initialize() -> void:
 
 	prompt_plot.queue_free()
 
+	# --- Rest-growth rule (the actual First Plot behavior, not force-grown) ----
+	# A planted crop must refuse to grow dry and grow exactly when watered — this is
+	# what "rest at the cottage door" advances (_advance_watered_crops_for_day uses
+	# advance_all_plots(false)).
+	var rest_fs := FarmingSystem.new()
+	get_root().add_child(rest_fs)
+	rest_fs.ensure_plot_with_crop("rest_plot", "carrot")
+	rest_fs.till_plot("rest_plot")
+	rest_fs.plant_seed("rest_plot", "carrot")
+	ok = _expect(not rest_fs.grow_plot("rest_plot", false), "rest does NOT grow a dry planted crop") and ok
+	ok = _expect(rest_fs.water_plot("rest_plot"), "watering can waters immediately (no fill step)") and ok
+	ok = _expect(rest_fs.grow_plot("rest_plot", false), "rest grows the watered crop") and ok
+	ok = _expect(not bool(rest_fs.get_plot_state("rest_plot").get("watered", false)), "growth consumes the watering (needs re-watering)") and ok
+	rest_fs.queue_free()
+
 	# Capture the mature state so save/load proves crop-stage persistence; harvest after.
 	var farm_state: Dictionary = fs.export_state()
 	var harvested: Dictionary = fs.harvest_plot("smoke_plot")
@@ -92,6 +109,42 @@ func _initialize() -> void:
 	ok = _expect(inv.get_quantity("carrot") == 2, "inventory carrot count = 2") and ok
 	ok = _expect(inv.remove_item("carrot", 1) and inv.get_quantity("carrot") == 1, "seed/crop decrement works") and ok
 	var inv_state: Dictionary = inv.export_state()
+
+	# --- First Plot handoff: Land Token -> claim -> build permission -----------
+	# Mirrors the offline _do_claim_plot wiring: has_token/spend_token close over
+	# the same inventory, so this proves the claim consumes exactly one token and
+	# the fresh owner may build inside the claimed plot.
+	var claimable_ids: Array = LandRegistry.claimable_plot_ids()
+	ok = _expect(not claimable_ids.is_empty(), "First Plot: at least one claimable plot exists") and ok
+	if not claimable_ids.is_empty():
+		var claim_plot_id: String = String(claimable_ids[0])
+		inv.add_item(ItemIds.QUEST_LAND_TOKEN, 1)
+		var claim_plots: Dictionary = {}
+		var claim_result: Dictionary = LandClaimSystem.attempt_claim(
+			claim_plot_id, "smoke_profile", "smoke_julie", claim_plots,
+			func(item_id: String, amount: int) -> bool: return inv.get_quantity(item_id) >= amount,
+			func(item_id: String, amount: int) -> void: inv.remove_item(item_id, amount)
+		)
+		ok = _expect(bool(claim_result.get("ok", false)), "First Plot: Land Token claims a plot") and ok
+		ok = _expect(inv.get_quantity(ItemIds.QUEST_LAND_TOKEN) == 0, "First Plot: claim consumes exactly one Land Token") and ok
+		if bool(claim_result.get("ok", false)):
+			claim_plots[claim_plot_id] = claim_result["state"]
+		var claim_rect: Rect2i = LandRegistry.get_plot(claim_plot_id).get("rect", Rect2i()) as Rect2i
+		var claim_tile: Vector2i = claim_rect.position + claim_rect.size / 2
+		ok = _expect(bool(LandClaimSystem.can_build_at(claim_tile, "smoke_profile", claim_plots)["allowed"]), "First Plot: owner may build inside the claimed plot") and ok
+		var reclaim_result: Dictionary = LandClaimSystem.attempt_claim(
+			claim_plot_id, "smoke_profile", "smoke_julie", claim_plots,
+			func(_item_id: String, _amount: int) -> bool: return true,
+			func(_item_id: String, _amount: int) -> void: pass
+		)
+		ok = _expect(not bool(reclaim_result.get("ok", false)) and String(reclaim_result.get("reason", "")).contains("already own"), "First Plot: re-claiming your own plot says you already own it (stale landowner clarity)") and ok
+	# The starter material bundle must afford one cozy starter object.
+	var stool_cost: Dictionary = BuildCosts.cost_of(ContentIds.PLACEABLE_STOOL)
+	var stool_affordable := true
+	for cost_material_id in stool_cost.keys():
+		if int(HomesteadController.FIRST_PLOT_BOOTSTRAP_MINIMUMS.get(String(cost_material_id), 0)) < int(stool_cost[cost_material_id]):
+			stool_affordable = false
+	ok = _expect(stool_affordable, "First Plot: starter kit affords one cozy starter object (stool)") and ok
 
 	# --- Placed object record (the format BuildingPlacementSystem persists) ---
 	var placed: Array[Dictionary] = [{"record_id": "crate_0001", "object_id": "crate", "tile_x": 8, "tile_y": 13}]

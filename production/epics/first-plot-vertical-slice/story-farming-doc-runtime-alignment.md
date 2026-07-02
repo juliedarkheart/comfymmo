@@ -34,3 +34,8 @@ Farming docs and GDDs describe the live tool-gated First Plot farming model inst
 - Unit tests: not applicable for docs-only changes.
 - Integration tests: not applicable unless implementation changes.
 - Manual tests: read docs against `systems/farming_system.gd` and verify claims match current code.
+
+## Verification Notes (2026-07-01)
+
+- Docs were synced to the live tool-gated flow in the prior pass (`docs: sync farming flow and track first plot slice`); `FarmingSystem._normalize_plot_state` migrates the legacy `planted_dry` / `planted_watered` / `grown` names on load and the current model is `empty → tilled_soil → planted_seed → crop_stage_1..3`.
+- `docs/playtest_readiness.md` now also documents the manual retest/recording procedure (2026-07-01 entry). Remaining MANUAL criterion is a read-through against Julie's actual play session.

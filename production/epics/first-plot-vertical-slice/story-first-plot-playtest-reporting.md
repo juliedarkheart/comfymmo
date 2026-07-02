@@ -34,3 +34,8 @@ Each Julie manual First Plot test pass is captured as a lightweight playtest rep
 - Unit tests: not applicable.
 - Integration tests: not applicable.
 - Manual tests: confirm the report contains enough detail for another agent to reproduce the issue or acceptance result.
+
+## Verification Notes (2026-07-01)
+
+- `production/playtests/first-plot-manual-acceptance-template.md` added: build/branch, date, tester, save condition (fresh / existing / stale-repaired), the First Plot checklist, supplies/land state observed, blockers, confusing moments, cozy notes, PASS/PARTIAL/FAIL verdict, and follow-ups.
+- Convention: copy the template to `report-YYYY-MM-DD-first-plot.md` per pass; `production/playtests/report-2026-07-01-first-plot.md` remains the seed report (status: pending retest). Only observed results go in reports — no assumed outcomes.

@@ -36,3 +36,9 @@ Julie’s existing local prototype save can recover from incomplete old First Pl
 - Unit tests: inventory minimum repair, quickbar minimum repair, landowner hint selection.
 - Integration tests: smoke/validate checks for bootstrap constants and no duplicate starter spam.
 - Manual tests: use Julie’s existing save and confirm missing First Plot supplies appear without resetting land state.
+
+## Verification Notes (2026-07-01)
+
+- AUTO criteria covered: `HomesteadController.FIRST_PLOT_BOOTSTRAP_MINIMUMS` includes Hoe, Seed Packet, Watering Can, Build Tool, Wood, and Fiber; `_repair_first_plot_starter_kit_if_needed()` raises to minimums only and stops once any object is placed. Guarded by `tools/validate_project.gd` and exercised by `tools/smoke_homestead_loop.gd`.
+- New this pass: fixed a stale-save dead loop — a save with `rowan_land_token_given` set but no Land Token and no owned plot had Rowan and the plot signs pointing at each other forever. Rowan now re-offers one token in exactly that state (`world/overworld_controller.gd::_talk_rowan`); holding a token or owning a plot blocks the re-grant, so it cannot be farmed. Guarded by `tools/validate_project.gd`.
+- Status: **ready for Julie's manual test** on her real stale save. No save is deleted, moved, or reset by any of this.
